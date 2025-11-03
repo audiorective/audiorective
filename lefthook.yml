@@ -17,9 +17,14 @@
 #         - security
 #       run: bundle audit
 #
- pre-commit:
-   parallel: false
-   jobs:
-     - run: pnpm run lint-fix
-     - run: pnpm run format-fix
-
+pre-commit:
+  piped: true
+  jobs:
+    - name: lint
+      glob:
+        - "*.ts"
+      run: pnpm run lint-fix
+      stage_fixed: true
+    - name: format
+      run: pnpm run format-fix
+      stage_fixed: true
