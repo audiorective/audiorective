@@ -1,0 +1,23 @@
+{
+  "name": "resonant",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "oxlint --type-aware",
+    "lint-fix": "oxlint --type-aware -fix",
+    "format": "prettier . --check",
+    "format-fix": "prettier . --write"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "lefthook": "^2.0.2",
+    "oxlint": "^1.25.0",
+    "oxlint-tsgolint": "^0.4.0",
+    "prettier": "3.6.2"
+  }
+}
