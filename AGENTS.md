@@ -45,36 +45,30 @@ Always use `param()` to create parameters. It returns:
 
 ```typescript
 bpm = this.param({ default: 120 }); // JS scheduling (~16ms)
-volume = this.param({ default: 0.5, bind: (self) => self.gain.gain }); // native scheduling (sample-accurate)
+volume = this.param({ default: 0.5, bind: this.gain.gain }); // native scheduling (sample-accurate)
 waveform = this.param<OscType>({ default: "sine", bind: { get, set } }); // reactive sync to property
 ```
 
 ## `bind` Rules
 
-| Shape                  | When to use                        | Scheduling               |
-| ---------------------- | ---------------------------------- | ------------------------ |
-| No `bind`              | Pure JS state (BPM, step position) | JS (~16ms via rAF)       |
-| `(self) => AudioParam` | Controls a Web Audio node param    | Native (sample-accurate) |
-| `{ get, set }`         | Sync to non-AudioParam property    | Reactive effect          |
+| Shape          | When to use                     | Result                                       |
+| -------------- | ------------------------------- | -------------------------------------------- |
+| No `bind`      | Pure JS state (flags, arrays)   | `Param<T>`                                   |
+| `AudioParam`   | Controls a Web Audio node param | `SchedulableParam` (native, sample-accurate) |
+| `{ get, set }` | Sync to non-AudioParam property | `Param<T>` with reactive effect              |
 
-All numeric params share the same `SchedulableParam` type and API regardless of bind. Implementation is hidden.
+`schedulable: true` (without bind) creates a `SchedulableParam` backed by a phantom ConstantSourceNode — useful when you want scheduling without a real AudioParam (e.g., BPM).
 
 ## Scheduling Model
 
-JS-scheduled and native-scheduled params have identical API surfaces:
+|           | `bind: AudioParam`      | `schedulable: true`                               | No bind, no schedulable |
+| --------- | ----------------------- | ------------------------------------------------- | ----------------------- |
+| Type      | `SchedulableParam`      | `SchedulableParam`                                | `Param<T>`              |
+| Thread    | Audio                   | Audio (ConstantSourceNode)                        | Main                    |
+| Precision | Sample-accurate         | Sample-accurate                                   | Immediate               |
+| Use for   | Gain, frequency, filter | BPM, intensity — anything needing scheduled ramps | Flags, arrays, strings  |
 
-```typescript
-synth.bpm.linearRampToValueAtTime(180, now + 4); // JS-scheduled
-synth.volume.linearRampToValueAtTime(1, now + 4); // native-scheduled
-```
-
-|           | JS Scheduling | Native Scheduling       |
-| --------- | ------------- | ----------------------- |
-| Thread    | Main (rAF)    | Audio                   |
-| Precision | ~16ms         | Sample-accurate         |
-| Use for   | BPM, UI state | Gain, frequency, filter |
-
-**AudioParam sync strategy:** For native-backed params, scheduling methods delegate to the real AudioParam. A `setInterval` poll at ~60fps reads `AudioParam.value` back into the signal so UI stays reactive during automations. Polling stops after estimated automation duration.
+**AudioParam sync strategy:** For native-backed params, scheduling methods delegate to the real AudioParam. A rAF poll reads `AudioParam.value` back into the signal so UI stays reactive during automations.
 
 ## Design Rules
 

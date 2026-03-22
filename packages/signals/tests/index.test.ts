@@ -69,6 +69,47 @@ describe("Param", () => {
     p.value = [4, 5];
     expect(p.value).toEqual([4, 5]);
   });
+
+  test("bind.set is called on value change", () => {
+    let external = "initial";
+    const p = new Param({
+      default: "hello",
+      bind: {
+        set: (v) => {
+          external = v;
+        },
+      },
+    });
+    expect(external).toBe("hello");
+    p.value = "world";
+    expect(external).toBe("world");
+    p.destroy();
+  });
+
+  test("bind.set effect stops on destroy", () => {
+    let callCount = 0;
+    const p = new Param({
+      default: 0,
+      bind: {
+        set: () => {
+          callCount++;
+        },
+      },
+    });
+    expect(callCount).toBe(1);
+    p.value = 1;
+    expect(callCount).toBe(2);
+    p.destroy();
+    p.value = 2;
+    expect(callCount).toBe(2);
+  });
+
+  test("destroy is safe no-op without bind", () => {
+    const p = new Param({ default: 42 });
+    p.destroy();
+    p.value = 100;
+    expect(p.value).toBe(100);
+  });
 });
 
 describe("SchedulableParam", () => {
@@ -346,12 +387,12 @@ describe("AudioProcessor", () => {
     expect(runCount).toBe(2);
   });
 
-  test("bind with AudioParam resolves to SchedulableParam", () => {
+  test("bind function resolves to SchedulableParam", () => {
     class BindProcessor extends AudioProcessor {
-      readonly gain = gain;
+      readonly _gain = gain;
       readonly vol = this.param({
         default: 0.5,
-        audioParam: gain.gain,
+        bind: gain.gain,
       });
 
       constructor() {
@@ -359,7 +400,7 @@ describe("AudioProcessor", () => {
       }
 
       get output(): AudioNode {
-        return this.gain;
+        return this._gain;
       }
     }
 
@@ -370,11 +411,11 @@ describe("AudioProcessor", () => {
     p.destroy();
   });
 
-  test("param({ audioParam }) creates SchedulableParam without explicit schedulable flag", async () => {
+  test("bind function supports scheduling", async () => {
     class AudioParamProcessor extends AudioProcessor {
       readonly vol = this.param({
         default: 0.5,
-        audioParam: gain.gain,
+        bind: gain.gain,
       });
 
       constructor() {
@@ -393,6 +434,38 @@ describe("AudioProcessor", () => {
     await waitUntil(startTime + 0.02);
     expect(p.vol.read()).toBeCloseTo(0.3, 5);
     p.destroy();
+  });
+
+  test("bind object creates Param with reactive sync", () => {
+    let external = "";
+    class BindObjProcessor extends AudioProcessor {
+      readonly waveform = this.param<string>({
+        default: "sine",
+        bind: {
+          set: (v) => {
+            external = v;
+          },
+        },
+      });
+
+      constructor() {
+        super(ctx);
+      }
+
+      get output(): AudioNode | undefined {
+        return undefined;
+      }
+    }
+
+    const p = new BindObjProcessor();
+    expect(p.waveform).toBeInstanceOf(Param);
+    expect(p.waveform).not.toBeInstanceOf(SchedulableParam);
+    expect(external).toBe("sine");
+    p.waveform.value = "sawtooth";
+    expect(external).toBe("sawtooth");
+    p.destroy();
+    p.waveform.value = "square";
+    expect(external).toBe("sawtooth");
   });
 
   test("param({ schedulable: true }) creates SchedulableParam via ConstantSourceNode", () => {
@@ -492,6 +565,36 @@ describe("AudioProcessor", () => {
     expect(sync.size).toBe(sizeBefore);
     p.vol.value = 999;
     expect(effectRuns).toBe(1);
+  });
+
+  test("destroy() cleans up bind effects on all params", () => {
+    let external = "";
+    class BindCleanupProcessor extends AudioProcessor {
+      readonly waveform = this.param<string>({
+        default: "sine",
+        bind: {
+          set: (v) => {
+            external = v;
+          },
+        },
+      });
+
+      constructor() {
+        super(ctx);
+      }
+
+      get output(): AudioNode | undefined {
+        return undefined;
+      }
+    }
+
+    const p = new BindCleanupProcessor();
+    expect(external).toBe("sine");
+    p.waveform.value = "sawtooth";
+    expect(external).toBe("sawtooth");
+    p.destroy();
+    p.waveform.value = "triangle";
+    expect(external).toBe("sawtooth");
   });
 
   test("setState ignores unknown keys gracefully", () => {

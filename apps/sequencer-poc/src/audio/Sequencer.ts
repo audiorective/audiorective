@@ -32,10 +32,10 @@ const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_S = 0.1;
 
 export class Sequencer extends AudioProcessor {
-  readonly bpm: SchedulableParam = this.param({ default: 120, min: 40, max: 300, label: "BPM" });
-  readonly steps: Param<Step[]> = this.param<Step[]>(Array.from({ length: STEP_COUNT }, () => ({ active: false, frequency: 440 })));
-  readonly currentStep: Param<number> = this.param(-1, { schedulable: false });
-  readonly playing: Param<boolean> = this.param(false);
+  readonly bpm: SchedulableParam = this.param({ default: 120, schedulable: true as const });
+  readonly steps: Param<Step[]> = this.param<Step[]>({ default: Array.from({ length: STEP_COUNT }, () => ({ active: false, frequency: 440 })) });
+  readonly currentStep: Param<number> = this.param({ default: -1 });
+  readonly playing: Param<boolean> = this.param({ default: false });
 
   private readonly synth: StepSynth;
   private _timerId: ReturnType<typeof setInterval> | null = null;
@@ -45,6 +45,10 @@ export class Sequencer extends AudioProcessor {
   constructor(synth: StepSynth, audioCtx: AudioContext) {
     super(audioCtx);
     this.synth = synth;
+  }
+
+  get output(): AudioNode | undefined {
+    return undefined;
   }
 
   toggleStep(index: number): void {

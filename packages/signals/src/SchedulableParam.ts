@@ -80,7 +80,8 @@ export class SchedulableParam extends Param<number> {
     return this;
   }
 
-  destroy(): void {
+  override destroy(): void {
+    super.destroy();
     ParamSync.for(this._audioContext).unregister(this);
   }
 }

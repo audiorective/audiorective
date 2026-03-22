@@ -1,19 +1,12 @@
 import { computed as alienComputed, effect as alienEffect, type Effect } from "alien-signals";
-import type { ParamOptions, ProcessorState } from "./types";
+import type { ParamBind, ParamOptions, ProcessorState } from "./types";
 import { Param } from "./Param";
 import { SchedulableParam } from "./SchedulableParam";
-
-/**
- * Base class for audio processing units.
- * Provides param(), computed(), and effect() helpers that wire reactive
- * signals to Web Audio nodes. Subclasses declare parameters and audio
- * routing; the base class handles lifecycle, state serialization, and cleanup.
- */
 
 type ParamFactoryOptions<T> = ParamOptions<T> & {
   schedulable?: boolean;
   syncInterval?: number;
-  audioParam?: AudioParam;
+  bind?: ParamBind<T> | AudioParam;
 };
 
 export abstract class AudioProcessor {
@@ -25,8 +18,6 @@ export abstract class AudioProcessor {
   protected constructor(context: AudioContext) {
     this.context = context;
 
-    // constant source won't change offset if it's not in an active graph
-    // so we connect all constant sources to a silent node
     this._silencer = new GainNode(context);
     this._silencer.gain.value = 0;
     this._silencer.connect(context.destination);
@@ -34,28 +25,35 @@ export abstract class AudioProcessor {
 
   abstract get output(): AudioNode | undefined;
 
-  protected param<T extends number>(options: ParamOptions<T> & { schedulable: true }): SchedulableParam;
-  protected param<T extends number>(options: ParamOptions<T> & { audioParam: AudioParam }): SchedulableParam;
+  protected param<T extends number>(options: { default: T; bind: AudioParam }): SchedulableParam;
+  protected param<T extends number>(options: { default: T; schedulable: true }): SchedulableParam;
+  protected param<T>(options: { default: T; bind: ParamBind<T> }): Param<T>;
   protected param<T>(options: ParamOptions<T>): Param<T>;
   protected param<T>(options: ParamFactoryOptions<T>): Param<T> | SchedulableParam {
-    if (typeof options.default !== "number" || (!options.schedulable && !options.audioParam)) {
-      return new Param({ default: options.default });
+    const { bind } = options;
+
+    if (bind instanceof AudioParam) {
+      return new SchedulableParam({
+        default: options.default as number,
+        audioContext: this.context,
+        audioParam: bind,
+      });
     }
 
-    let audioParam = options.audioParam;
-    if (!audioParam) {
+    if (options.schedulable) {
       const constantSource = this.context.createConstantSource();
       constantSource.connect(this._silencer);
       constantSource.start();
       this._constantSources.add(constantSource);
-      audioParam = constantSource.offset;
+
+      return new SchedulableParam({
+        default: options.default as number,
+        audioContext: this.context,
+        audioParam: constantSource.offset,
+      });
     }
 
-    return new SchedulableParam({
-      default: options.default,
-      audioContext: this.context,
-      audioParam,
-    });
+    return new Param(options);
   }
 
   protected computed<T>(fn: () => T) {
@@ -108,9 +106,7 @@ export abstract class AudioProcessor {
     this._effects = [];
 
     for (const [, param] of this._discoverParams()) {
-      if (param instanceof SchedulableParam) {
-        param.destroy();
-      }
+      param.destroy();
     }
 
     for (const source of this._constantSources) {

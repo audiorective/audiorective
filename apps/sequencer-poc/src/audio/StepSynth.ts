@@ -31,42 +31,19 @@ export class StepSynth extends AudioProcessor {
 
     this.waveform = this.param<Waveform>({
       default: "sawtooth",
-      label: "Waveform",
       bind: {
-        get: (self) => self.osc.type as Waveform,
-        set: (self, val) => {
-          self.osc.type = val;
+        get: () => this.osc.type as Waveform,
+        set: (v) => {
+          this.osc.type = v;
         },
       },
     });
 
-    this.volume = this.param({
-      default: 0.5,
-      min: 0,
-      max: 1,
-      label: "Volume",
-      bind: (self) => self.gain.gain,
-    });
-
-    this.cutoff = this.param({
-      default: 2000,
-      min: 20,
-      max: 20000,
-      label: "Cutoff",
-      unit: "Hz",
-      bind: (self) => self.filter.frequency,
-    });
-
-    this.resonance = this.param({
-      default: 1,
-      min: 0.1,
-      max: 30,
-      label: "Resonance",
-      bind: (self) => self.filter.Q,
-    });
-
-    this.attack = this.param({ default: 0.01, min: 0.001, max: 1, label: "Attack", unit: "s" });
-    this.decay = this.param({ default: 0.2, min: 0.01, max: 2, label: "Decay", unit: "s" });
+    this.volume = this.param({ default: 0.5, bind: this.gain.gain });
+    this.cutoff = this.param({ default: 2000, bind: this.filter.frequency });
+    this.resonance = this.param({ default: 1, bind: this.filter.Q });
+    this.attack = this.param({ default: 0.01 });
+    this.decay = this.param({ default: 0.2 });
   }
 
   get output(): AudioNode {
@@ -83,6 +60,5 @@ export class StepSynth extends AudioProcessor {
     this.gain.gain.setValueAtTime(0, time);
     this.gain.gain.linearRampToValueAtTime(vol, time + atk);
     this.gain.gain.linearRampToValueAtTime(0, time + atk + dec);
-    console.log("play note", frequency, time, dec, vol);
   }
 }

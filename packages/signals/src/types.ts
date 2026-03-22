@@ -1,5 +1,11 @@
+export interface ParamBind<T> {
+  get?: () => T;
+  set?: (value: T) => void;
+}
+
 export interface ParamOptions<T> {
   default: T;
+  bind?: ParamBind<T>;
 }
 
 export type { Computed } from "alien-signals";

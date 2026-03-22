@@ -1,15 +1,18 @@
-import { signal, type Signal } from "alien-signals";
+import { signal, type Signal, effect as alienEffect, type Effect } from "alien-signals";
 import type { ParamOptions } from "./types";
 
-/**
- * Reactive parameter backed by an alien-signals signal.
- * The basic building block for all reactive state in audiorective.
- */
 export class Param<T> {
   readonly $: Signal<T>;
+  private _effect?: Effect<void>;
 
   constructor(options: ParamOptions<T>) {
     this.$ = signal(options.default);
+    if (options.bind?.set) {
+      const setter = options.bind.set;
+      this._effect = alienEffect(() => {
+        setter(this.value);
+      });
+    }
   }
 
   get value(): T {
@@ -18,5 +21,10 @@ export class Param<T> {
 
   set value(newValue: T) {
     this.$.set(newValue);
+  }
+
+  destroy(): void {
+    this._effect?.stop();
+    this._effect = undefined;
   }
 }
