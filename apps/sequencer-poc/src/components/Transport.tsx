@@ -1,0 +1,128 @@
+import { useValue } from "@audiorective/react";
+import { useState, useCallback } from "react";
+import type { Sequencer } from "../audio/Sequencer";
+
+export function Transport({ sequencer }: { sequencer: Sequencer }) {
+  const bpm = useValue(sequencer.bpm);
+  const playing = useValue(sequencer.playing);
+
+  const [rampTarget, setRampTarget] = useState(180);
+  const [rampDuration, setRampDuration] = useState(4);
+
+  const togglePlay = useCallback(() => {
+    if (sequencer.playing.value) {
+      sequencer.stop();
+    } else {
+      sequencer.start();
+    }
+  }, [sequencer]);
+
+  const handleBpmRamp = useCallback(() => {
+    const now = performance.now() / 1000;
+    sequencer.bpm.linearRampToValueAtTime(rampTarget, now + rampDuration);
+  }, [sequencer, rampTarget, rampDuration]);
+
+  return (
+    <div style={styles.transport}>
+      <button onClick={togglePlay} style={styles.playButton}>
+        {playing ? "⏹ Stop" : "▶ Play"}
+      </button>
+
+      <div style={styles.bpmSection}>
+        <label style={styles.label}>BPM: {Math.round(bpm)}</label>
+        <input type="range" min={40} max={300} value={bpm} onChange={(e) => (sequencer.bpm.value = Number(e.target.value))} style={styles.slider} />
+      </div>
+
+      <div style={styles.rampSection}>
+        <input
+          type="number"
+          value={rampTarget}
+          onChange={(e) => setRampTarget(Number(e.target.value))}
+          style={styles.numberInput}
+          min={40}
+          max={300}
+        />
+        <span style={styles.rampLabel}>in</span>
+        <input
+          type="number"
+          value={rampDuration}
+          onChange={(e) => setRampDuration(Number(e.target.value))}
+          style={styles.numberInput}
+          min={0.5}
+          max={30}
+          step={0.5}
+        />
+        <span style={styles.rampLabel}>s</span>
+        <button onClick={handleBpmRamp} style={styles.rampButton}>
+          Ramp BPM
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  transport: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    padding: "16px",
+    background: "#151515",
+    borderRadius: "8px",
+    marginBottom: "16px",
+    flexWrap: "wrap" as const,
+  },
+  playButton: {
+    padding: "8px 20px",
+    fontSize: "1rem",
+    background: "#2563eb",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    minWidth: "100px",
+  },
+  bpmSection: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    flex: 1,
+    minWidth: "200px",
+  },
+  label: {
+    fontSize: "0.875rem",
+    color: "#aaa",
+    minWidth: "80px",
+  },
+  slider: {
+    flex: 1,
+    accentColor: "#2563eb",
+  },
+  rampSection: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+  rampLabel: {
+    fontSize: "0.8rem",
+    color: "#888",
+  },
+  numberInput: {
+    width: "60px",
+    padding: "4px 8px",
+    background: "#222",
+    color: "#e0e0e0",
+    border: "1px solid #333",
+    borderRadius: "4px",
+    fontSize: "0.875rem",
+  },
+  rampButton: {
+    padding: "6px 12px",
+    background: "#7c3aed",
+    color: "white",
+    border: "none",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "0.8rem",
+  },
+};
