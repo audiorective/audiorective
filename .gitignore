@@ -1,2 +1,29 @@
-.idea/
+# Dependencies
 node_modules/
+
+# Build outputs
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+
+# Turbo / cache
+.turbo/

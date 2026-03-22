@@ -1,5 +1,5 @@
 {
-  "name": "@resonant/core",
+  "name": "@audiorective/signals",
   "version": "0.1.0",
   "description": "Core stuff",
   "type": "module",
@@ -29,11 +29,17 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "alien-signals": "^0.2.0"
+  },
   "devDependencies": {
     "@types/node": "^24.9.1",
+    "@vitest/browser": "^4.0.18",
+    "@vitest/browser-playwright": "^4.0.18",
     "bumpp": "^10.3.1",
+    "playwright": "^1.58.2",
     "tsdown": "^0.15.9",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.1"
+    "vitest": "^4.0.18"
   }
 }
