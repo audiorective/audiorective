@@ -1,53 +1,41 @@
-import { useState, useRef, useCallback } from "react";
-import { StepSynth } from "./audio/StepSynth";
-import { Sequencer } from "./audio/Sequencer";
+import { Suspense, use } from "react";
+import { engine } from "./audio/engine";
 import { Transport } from "./components/Transport";
 import { StepGrid } from "./components/StepGrid";
 import { SynthPanel } from "./components/SynthPanel";
 import { Automation } from "./components/Automation";
 
-export function App() {
-  const [engine, setEngine] = useState<{
-    synth: StepSynth;
-    sequencer: Sequencer;
-    audioCtx: AudioContext;
-  } | null>(null);
+function StartScreen() {
+  return (
+    <div style={styles.landing}>
+      <h1 style={styles.title}>Audiorective Sequencer POC</h1>
+      <p style={styles.subtitle}>Reactive audio signals with Web Audio API</p>
+      <button onClick={() => engine.init()} style={styles.startButton}>
+        Start Audio Engine
+      </button>
+    </div>
+  );
+}
 
-  const initRef = useRef(false);
-
-  const init = useCallback(() => {
-    if (initRef.current) return;
-    initRef.current = true;
-
-    const audioCtx = new AudioContext();
-    const synth = new StepSynth(audioCtx);
-    synth.output.connect(audioCtx.destination);
-    const sequencer = new Sequencer(synth, audioCtx);
-    setEngine({ synth, sequencer, audioCtx });
-  }, []);
-
-  if (!engine) {
-    return (
-      <div style={styles.landing}>
-        <h1 style={styles.title}>Audiorective Sequencer POC</h1>
-        <p style={styles.subtitle}>Reactive audio signals with Web Audio API</p>
-        <button onClick={init} style={styles.startButton}>
-          Start Audio Engine
-        </button>
-      </div>
-    );
-  }
-
-  const { synth, sequencer } = engine;
+function SequencerUI() {
+  use(engine.untilReady());
 
   return (
     <div style={styles.container}>
       <h1 style={styles.header}>Audiorective Sequencer</h1>
-      <Transport sequencer={sequencer} />
-      <StepGrid sequencer={sequencer} />
-      <SynthPanel synth={synth} />
-      <Automation synth={synth} sequencer={sequencer} />
+      <Transport sequencer={engine.sequencer} />
+      <StepGrid sequencer={engine.sequencer} />
+      <SynthPanel synth={engine.synth} />
+      <Automation synth={engine.synth} sequencer={engine.sequencer} />
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <Suspense fallback={<StartScreen />}>
+      <SequencerUI />
+    </Suspense>
   );
 }
 
