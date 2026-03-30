@@ -18,8 +18,7 @@ export function Transport({ sequencer }: { sequencer: Sequencer }) {
   }, [sequencer]);
 
   const handleBpmRamp = useCallback(() => {
-    const now = performance.now() / 1000;
-    sequencer.bpm.linearRampToValueAtTime(rampTarget, now + rampDuration);
+    sequencer.rampBpm(rampTarget, rampDuration);
   }, [sequencer, rampTarget, rampDuration]);
 
   return (

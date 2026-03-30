@@ -4,13 +4,7 @@ import type { Sequencer } from "../audio/Sequencer";
 
 export function Automation({ synth, sequencer: _sequencer }: { synth: StepSynth; sequencer: Sequencer }) {
   const handleFilterSweep = useCallback(() => {
-    const ctx = synth.context;
-    const now = ctx.currentTime;
-    const currentCutoff = synth.cutoff.value;
-
-    synth.cutoff.setValueAtTime(currentCutoff, now);
-    synth.cutoff.linearRampToValueAtTime(18000, now + 1);
-    synth.cutoff.linearRampToValueAtTime(currentCutoff, now + 2);
+    synth.filterSweep();
   }, [synth]);
 
   return (

@@ -39,7 +39,7 @@ export class StepSynth extends AudioProcessor {
       },
     });
 
-    this.volume = this.param({ default: 0.5, bind: this.gain.gain });
+    this.volume = this.param({ default: 0.5 });
     this.cutoff = this.param({ default: 2000, bind: this.filter.frequency });
     this.resonance = this.param({ default: 1, bind: this.filter.Q });
     this.attack = this.param({ default: 0.01 });
@@ -48,6 +48,20 @@ export class StepSynth extends AudioProcessor {
 
   get output(): AudioNode {
     return this.gain;
+  }
+
+  silence(): void {
+    const now = this.context.currentTime;
+    this.gain.gain.cancelScheduledValues(now);
+    this.gain.gain.setValueAtTime(0, now);
+  }
+
+  filterSweep(peakFreq = 18000, duration = 2): void {
+    const now = this.context.currentTime;
+    const currentCutoff = this.cutoff.value;
+    this.cutoff.setValueAtTime(currentCutoff, now);
+    this.cutoff.linearRampToValueAtTime(peakFreq, now + duration / 2);
+    this.cutoff.linearRampToValueAtTime(currentCutoff, now + duration);
   }
 
   playNote(frequency: number, time: number): void {

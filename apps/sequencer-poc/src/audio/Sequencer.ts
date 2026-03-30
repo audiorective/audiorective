@@ -80,7 +80,14 @@ export class Sequencer extends AudioProcessor {
       clearInterval(this._timerId);
       this._timerId = null;
     }
+    this.synth.silence();
     this.currentStep.value = -1;
+  }
+
+  rampBpm(target: number, duration: number): void {
+    const now = this.context.currentTime;
+    this.bpm.setValueAtTime(this.bpm.value, now);
+    this.bpm.linearRampToValueAtTime(target, now + duration);
   }
 
   private _schedule(): void {
