@@ -1,9 +1,10 @@
-import { useValue } from "@audiorective/react";
+import { useValue, useParam } from "@audiorective/react";
 import { useState, useCallback } from "react";
-import type { Sequencer } from "../audio/Sequencer";
+import { useEngine } from "../audio/engine";
 
-export function Transport({ sequencer }: { sequencer: Sequencer }) {
-  const bpm = useValue(sequencer.bpm);
+export function Transport() {
+  const { sequencer } = useEngine();
+  const [bpm, setBpm] = useParam(sequencer.bpm);
   const playing = useValue(sequencer.playing);
 
   const [rampTarget, setRampTarget] = useState(180);
@@ -29,7 +30,7 @@ export function Transport({ sequencer }: { sequencer: Sequencer }) {
 
       <div style={styles.bpmSection}>
         <label style={styles.label}>BPM: {Math.round(bpm)}</label>
-        <input type="range" min={40} max={300} value={bpm} onChange={(e) => (sequencer.bpm.value = Number(e.target.value))} style={styles.slider} />
+        <input type="range" min={40} max={300} value={bpm} onChange={(e) => setBpm(Number(e.target.value))} style={styles.slider} />
       </div>
 
       <div style={styles.rampSection}>

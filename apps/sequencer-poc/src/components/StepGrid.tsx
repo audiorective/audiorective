@@ -1,8 +1,9 @@
 import { useValue } from "@audiorective/react";
 import { NOTES, noteToFreq } from "../audio/Sequencer";
-import type { Sequencer } from "../audio/Sequencer";
+import { useEngine } from "../audio/engine";
 
-export function StepGrid({ sequencer }: { sequencer: Sequencer }) {
+export function StepGrid() {
+  const { sequencer } = useEngine();
   const steps = useValue(sequencer.steps);
   const currentStep = useValue(sequencer.currentStep);
 

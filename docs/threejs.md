@@ -7,7 +7,7 @@ Three.js integration via wrapping, not a parallel audio system.
 ```json
 {
   "dependencies": {
-    "@audiorective/signals": "workspace:*"
+    "@audiorective/core": "workspace:*"
   },
   "peerDependencies": {
     "three": ">=0.150.0"

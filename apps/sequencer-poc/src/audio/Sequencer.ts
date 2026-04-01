@@ -1,4 +1,4 @@
-import { AudioProcessor, type Param, type SchedulableParam } from "@audiorective/signals";
+import { AudioProcessor, type Param, type SchedulableParam } from "@audiorective/core";
 import type { StepSynth } from "./StepSynth";
 
 export interface Step {

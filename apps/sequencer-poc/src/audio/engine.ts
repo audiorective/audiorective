@@ -1,16 +1,13 @@
-import { AudioEngine } from "@audiorective/signals";
+import { createEngine } from "@audiorective/core";
+import { createEngineContext } from "@audiorective/react";
 import { StepSynth } from "./StepSynth";
 import { Sequencer } from "./Sequencer";
 
-class SequencerEngine extends AudioEngine {
-  synth!: StepSynth;
-  sequencer!: Sequencer;
+export const engine = createEngine((ctx) => {
+  const synth = new StepSynth(ctx);
+  synth.output.connect(ctx.destination);
+  const sequencer = new Sequencer(synth, ctx);
+  return { synth, sequencer };
+});
 
-  protected setup(context: AudioContext): void {
-    this.synth = this.register(new StepSynth(context));
-    this.synth.output.connect(context.destination);
-    this.sequencer = this.register(new Sequencer(this.synth, context));
-  }
-}
-
-export const engine = new SequencerEngine();
+export const { EngineProvider, useEngine } = createEngineContext(engine);

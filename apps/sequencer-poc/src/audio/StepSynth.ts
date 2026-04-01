@@ -1,4 +1,4 @@
-import { AudioProcessor } from "@audiorective/signals";
+import { AudioProcessor } from "@audiorective/core";
 
 type Waveform = "sine" | "square" | "sawtooth" | "triangle";
 

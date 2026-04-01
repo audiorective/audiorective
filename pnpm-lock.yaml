@@ -23,12 +23,12 @@ importers:
 
   apps/sequencer-poc:
     dependencies:
+      '@audiorective/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@audiorective/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@audiorective/signals':
-        specifier: workspace:*
-        version: link:../../packages/signals
       alien-signals:
         specifier: ^0.2.0
         version: 0.2.2
@@ -55,11 +55,42 @@ importers:
         specifier: ^6.3.5
         version: 6.4.1(@types/node@24.10.0)(jiti@2.6.1)(yaml@2.8.1)
 
+  packages/core:
+    dependencies:
+      alien-signals:
+        specifier: ^0.2.0
+        version: 0.2.2
+    devDependencies:
+      '@types/node':
+        specifier: ^24.9.1
+        version: 24.10.0
+      '@vitest/browser':
+        specifier: ^4.0.18
+        version: 4.0.18(vite@6.4.1(@types/node@24.10.0)(jiti@2.6.1)(yaml@2.8.1))(vitest@4.0.18)
+      '@vitest/browser-playwright':
+        specifier: ^4.0.18
+        version: 4.0.18(playwright@1.58.2)(vite@6.4.1(@types/node@24.10.0)(jiti@2.6.1)(yaml@2.8.1))(vitest@4.0.18)
+      bumpp:
+        specifier: ^10.3.1
+        version: 10.3.1
+      playwright:
+        specifier: ^1.58.2
+        version: 1.58.2
+      tsdown:
+        specifier: ^0.15.9
+        version: 0.15.12(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.18
+        version: 4.0.18(@types/node@24.10.0)(@vitest/browser-playwright@4.0.18)(jiti@2.6.1)(jsdom@28.1.0)(yaml@2.8.1)
+
   packages/react:
     dependencies:
-      '@audiorective/signals':
+      '@audiorective/core':
         specifier: workspace:*
-        version: link:../signals
+        version: link:../core
       alien-signals:
         specifier: ^0.2.0
         version: 0.2.2
@@ -91,37 +122,6 @@ importers:
       vitest:
         specifier: ^4.0.1
         version: 4.0.6(@types/node@24.10.0)(jiti@2.6.1)(jsdom@28.1.0)(yaml@2.8.1)
-
-  packages/signals:
-    dependencies:
-      alien-signals:
-        specifier: ^0.2.0
-        version: 0.2.2
-    devDependencies:
-      '@types/node':
-        specifier: ^24.9.1
-        version: 24.10.0
-      '@vitest/browser':
-        specifier: ^4.0.18
-        version: 4.0.18(vite@6.4.1(@types/node@24.10.0)(jiti@2.6.1)(yaml@2.8.1))(vitest@4.0.18)
-      '@vitest/browser-playwright':
-        specifier: ^4.0.18
-        version: 4.0.18(playwright@1.58.2)(vite@6.4.1(@types/node@24.10.0)(jiti@2.6.1)(yaml@2.8.1))(vitest@4.0.18)
-      bumpp:
-        specifier: ^10.3.1
-        version: 10.3.1
-      playwright:
-        specifier: ^1.58.2
-        version: 1.58.2
-      tsdown:
-        specifier: ^0.15.9
-        version: 0.15.12(typescript@5.9.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.0.18(@types/node@24.10.0)(@vitest/browser-playwright@4.0.18)(jiti@2.6.1)(jsdom@28.1.0)(yaml@2.8.1)
 
 packages:
 
@@ -947,10 +947,6 @@ packages:
 
   caniuse-lite@1.0.30001774:
     resolution: {integrity: sha512-DDdwPGz99nmIEv216hKSgLD+D4ikHQHjBC/seF98N9CPqRX4M5mSxT9eTV6oyisnJcuzxtZy4n17yKKQYmYQOA==}
-
-  chai@6.2.0:
-    resolution: {integrity: sha512-aUTnJc/JipRzJrNADXVvpVqi6CO0dn3nx4EVPxijri+fj3LUUDyZQOgVeW54Ob3Y1Xh9Iz8f+CgaCl8v0mn9bA==}
-    engines: {node: '>=18'}
 
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
@@ -2252,7 +2248,7 @@ snapshots:
       '@types/chai': 5.2.3
       '@vitest/spy': 4.0.6
       '@vitest/utils': 4.0.6
-      chai: 6.2.0
+      chai: 6.2.2
       tinyrainbow: 3.0.3
 
   '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@24.10.0)(jiti@2.6.1)(yaml@2.8.1))':
@@ -2364,7 +2360,7 @@ snapshots:
       jsonc-parser: 3.3.1
       package-manager-detector: 1.5.0
       semver: 7.7.3
-      tinyexec: 1.0.1
+      tinyexec: 1.0.2
       tinyglobby: 0.2.15
       yaml: 2.8.1
     transitivePeerDependencies:
@@ -2388,8 +2384,6 @@ snapshots:
   cac@6.7.14: {}
 
   caniuse-lite@1.0.30001774: {}
-
-  chai@6.2.0: {}
 
   chai@6.2.2: {}
 
@@ -2654,7 +2648,7 @@ snapshots:
       consola: 3.4.2
       pathe: 2.0.3
       pkg-types: 2.3.0
-      tinyexec: 1.0.1
+      tinyexec: 1.0.2
 
   obug@2.1.1: {}
 

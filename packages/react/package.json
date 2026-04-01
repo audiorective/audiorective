@@ -1,7 +1,7 @@
 {
   "name": "@audiorective/react",
   "version": "0.1.0",
-  "description": "React bindings for @audiorective/signals",
+  "description": "React bindings for @audiorective/core",
   "type": "module",
   "license": "MIT",
   "files": [
@@ -21,7 +21,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@audiorective/signals": "workspace:*",
+    "@audiorective/core": "workspace:*",
     "alien-signals": "^0.2.0"
   },
   "peerDependencies": {

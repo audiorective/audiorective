@@ -1,8 +1,8 @@
 import { useCallback } from "react";
-import type { StepSynth } from "../audio/StepSynth";
-import type { Sequencer } from "../audio/Sequencer";
+import { useEngine } from "../audio/engine";
 
-export function Automation({ synth, sequencer: _sequencer }: { synth: StepSynth; sequencer: Sequencer }) {
+export function Automation() {
+  const { synth } = useEngine();
   const handleFilterSweep = useCallback(() => {
     synth.filterSweep();
   }, [synth]);

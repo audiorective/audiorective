@@ -9,7 +9,7 @@ See `docs/` for full API references per package.
 
 ```
 @audiorective/
-├── signals      # Reactive state for audio parameters (alien-signals)
+├── core         # Reactive state for audio parameters (alien-signals)
 ├── clock        # Timing, scheduling, transport
 ├── react        # React bindings
 └── threejs      # Three.js spatial audio integration
@@ -92,7 +92,7 @@ All processors extend `AudioProcessor`:
 
 ## Package Dependencies
 
-- `signals`: depends on `alien-signals`
-- `clock`: peer-depends on `signals`
-- `react`: depends on `signals`, peer-depends on `react`
-- `threejs`: depends on `signals`, peer-depends on `three`
+- `core`: depends on `alien-signals`
+- `clock`: peer-depends on `core`
+- `react`: depends on `core`, peer-depends on `react`
+- `threejs`: depends on `core`, peer-depends on `three`

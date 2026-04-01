@@ -1,5 +1,5 @@
 {
-  "name": "@audiorective/signals",
+  "name": "@audiorective/core",
   "version": "0.1.0",
   "description": "Core stuff",
   "type": "module",

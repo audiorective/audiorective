@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@audiorective/signals": "workspace:*",
+    "@audiorective/core": "workspace:*",
     "@audiorective/react": "workspace:*",
     "alien-signals": "^0.2.0",
     "react": "^19.0.0",

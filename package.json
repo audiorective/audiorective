@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "pnpm -r run test -- --run",
     "lint": "oxlint --type-aware",
     "lint-fix": "oxlint --type-aware --fix",
     "format": "prettier . --check",

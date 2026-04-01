@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { effect as alienEffect } from "alien-signals";
-import { type Param, type AudioProcessor, type Computed } from "@audiorective/signals";
+import { type Param, type AudioProcessor, type Computed } from "@audiorective/core";
 
 export function useValue<T>(param: Param<T>): T {
   const [value, setValue] = useState(() => param.value);
@@ -52,4 +52,15 @@ export function useProcessor<T extends AudioProcessor>(factory: () => T, deps: u
   }, []);
 
   return processor;
+}
+
+export function useParam<T>(param: Param<T>): [value: T, setValue: (v: T) => void] {
+  const value = useValue(param);
+  const setValue = useCallback(
+    (v: T) => {
+      param.value = v;
+    },
+    [param],
+  );
+  return [value, setValue];
 }

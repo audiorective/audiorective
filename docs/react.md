@@ -1,16 +1,16 @@
 # @audiorective/react
 
-React bindings for audiorective signals.
+React bindings for audiorective signals. Direct mutation model — no dispatch, no actions. The processor is the source of truth.
 
 ## Dependencies
 
 ```json
 {
   "dependencies": {
-    "@audiorective/signals": "workspace:*"
+    "@audiorective/core": "workspace:*"
   },
   "peerDependencies": {
-    "react": "^18.0.0"
+    "react": "^18.0.0 || ^19.0.0"
   }
 }
 ```
@@ -20,8 +20,7 @@ React bindings for audiorective signals.
 ```
 react/src/
 ├── hooks.ts
-├── context.ts
-├── types.ts
+├── context.tsx
 └── index.ts
 ```
 
@@ -34,18 +33,7 @@ react/src/
 Subscribe to a parameter's value. Re-renders when the value changes.
 
 ```typescript
-function useValue<T>(param: Param<T> | SchedulableParam): T {
-  const [value, setValue] = useState<T>(() => param.value);
-
-  useEffect(() => {
-    const dispose = effect(() => {
-      setValue(param.value as T);
-    });
-    return dispose;
-  }, [param]);
-
-  return value;
-}
+const volume = useValue(synth.volume); // number
 ```
 
 ### `useComputed(computed)`
@@ -53,18 +41,18 @@ function useValue<T>(param: Param<T> | SchedulableParam): T {
 Subscribe to a computed value.
 
 ```typescript
-function useComputed<T>(computed: Computed<T>): T {
-  const [value, setValue] = useState<T>(() => computed());
+const label = useComputed(synth.displayLabel); // re-renders on change
+```
 
-  useEffect(() => {
-    const dispose = effect(() => {
-      setValue(computed());
-    });
-    return dispose;
-  }, [computed]);
+### `useParam(param)`
 
-  return value;
-}
+Returns a `[value, setValue]` tuple. Combines `useValue` with a stable setter callback, so the setter can be passed directly as an `onChange` handler without inline arrows.
+
+```typescript
+const [volume, setVolume] = useParam(synth.volume);
+
+<input value={volume} onChange={e => setVolume(+e.target.value)} />
+<ParamSlider value={volume} onChange={setVolume} />
 ```
 
 ### `useProcessor(factory, deps)`
@@ -72,20 +60,14 @@ function useComputed<T>(computed: Computed<T>): T {
 Create and manage processor lifecycle. Calls `destroy()` on unmount.
 
 ```typescript
-function useProcessor<T extends AudioProcessor>(factory: () => T, deps: any[] = []): T {
-  const processor = useMemo(factory, deps);
-
-  useEffect(() => {
-    return () => processor.destroy();
-  }, [processor]);
-
-  return processor;
-}
+const synth = useProcessor(() => new Synthesizer(ctx), [ctx]);
 ```
 
 ---
 
-## `createProcessorContext<T>()`
+## Context
+
+### `createProcessorContext<T>()`
 
 Create a typed Provider and hook for passing processors through the component tree.
 
@@ -97,46 +79,58 @@ const {
 
 function VolumeControl() {
   const synth = useSynth();
-  const volume = useValue(synth.volume);
-
-  return (
-    <input
-      value={volume}
-      onChange={e => synth.volume.value = +e.target.value}
-    />
-  );
-}
-
-function App() {
-  const synth = useProcessor(() => new Synthesizer(new AudioContext()));
-
-  return (
-    <SynthProvider processor={synth}>
-      <VolumeControl />
-    </SynthProvider>
-  );
+  const [volume, setVolume] = useParam(synth.volume);
+  return <input value={volume} onChange={e => setVolume(+e.target.value)} />;
 }
 ```
 
----
+### `createEngineContext(engine)`
 
-## Usage Example
+Creates a typed `EngineProvider` and `useEngine` hook for an `AudioEngine` singleton. Works with React 18 and 19.
+
+`EngineProvider` supports two rendering modes:
+
+- **Suspense mode** (`fallback` provided) — blocks children until `engine.start()` is called, shows fallback while waiting
+- **Overlay mode** (no `fallback`) — always renders children. Components check `engine.state` to show/hide UI. Safe because `createEngine` wires up all processors eagerly at construction time.
+
+The `autoStart` prop registers a one-time gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.start()` automatically on the first user interaction. Defaults to `true` in overlay mode (no `fallback`), `false` in Suspense mode.
 
 ```typescript
-function VolumeSlider({ synth }: { synth: MySynth }) {
-  const volume = useValue(synth.volume);
+// audio/engine.ts
+import { createEngine } from "@audiorective/core";
+import { createEngineContext } from "@audiorective/react";
 
+export const engine = createEngine((ctx) => {
+  const synth = new Synthesizer(ctx);
+  synth.output.connect(ctx.destination);
+  return { synth };
+});
+
+export const { EngineProvider, useEngine } = createEngineContext(engine);
+
+// Suspense mode — explicit start button
+function App() {
   return (
-    <input
-      type="range"
-      min={synth.volume.min}
-      max={synth.volume.max}
-      step={synth.volume.precision}
-      value={volume}
-      onChange={e => synth.volume.value = +e.target.value}
-    />
+    <EngineProvider fallback={<button onClick={() => engine.start()}>Start</button>}>
+      <SynthUI />
+    </EngineProvider>
   );
 }
-```
 
-Direct mutation. No dispatch, no actions. The processor is the source of truth.
+// Overlay mode with autoStart — first click/key anywhere starts audio
+function App() {
+  return (
+    <EngineProvider autoStart>
+      <SynthUI />
+      <AudioOverlay />
+    </EngineProvider>
+  );
+}
+
+// Components access the typed engine via context — no prop drilling.
+function SynthUI() {
+  const { synth } = useEngine();
+  const [volume, setVolume] = useParam(synth.volume);
+  return <input value={volume} onChange={e => setVolume(+e.target.value)} />;
+}
+```

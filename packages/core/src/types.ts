@@ -10,6 +10,8 @@ export interface ParamOptions<T> {
 
 export type { Computed } from "alien-signals";
 
+export type EngineState = "idle" | "running" | "suspended" | "destroyed";
+
 export interface ProcessorState {
   version: number;
   parameters: Record<string, unknown>;

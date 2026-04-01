@@ -1,4 +1,4 @@
-# @audiorective/signals
+# @audiorective/core
 
 Reactive primitives for Web Audio. Bridges audio parameter automation and UI frameworks.
 
@@ -9,7 +9,7 @@ Audio state is the single source of truth. UI frameworks observe and mutate dire
 ## Quick Start
 
 ```typescript
-import { AudioProcessor, SchedulableParam } from "@audiorective/signals";
+import { AudioProcessor, SchedulableParam } from "@audiorective/core";
 
 class Synth extends AudioProcessor {
   private _gain = new GainNode(this.context);
@@ -324,7 +324,7 @@ synth.waveform.value = "square"; // effect pushes to osc.type
 ### Standalone Params (Outside AudioProcessor)
 
 ```typescript
-import { Param, SchedulableParam } from "@audiorective/signals";
+import { Param, SchedulableParam } from "@audiorective/core";
 
 // simple reactive value
 const isPlaying = new Param({ default: false });
@@ -356,15 +356,83 @@ vol.destroy(); // cleanup when done
 
 ---
 
+## AudioEngine
+
+### Lifecycle
+
+`AudioEngine` manages the top-level audio system lifecycle. The `AudioContext` is created eagerly at construction time (browser suspends it automatically via autoplay policy). The `setup()` method runs immediately, so all processors are wired and accessible from the start.
+
+```
+createEngine() / new Engine()  →  context created (suspended), setup() runs  →  'idle'
+start()                        →  context.resume() (needs user gesture)      →  'running'
+suspend()                      →  context.suspend()                          →  'suspended'
+resume()                       →  context.resume()                           →  'running'
+destroy()                      →  processors destroyed, context closed       →  'destroyed' (terminal)
+```
+
+Calling `start()` on a destroyed engine throws. Calling `suspend()`/`resume()` on a destroyed engine warns and no-ops.
+
+### EngineState
+
+```typescript
+type EngineState = "idle" | "running" | "suspended" | "destroyed";
+```
+
+### AudioEngine (abstract)
+
+```typescript
+abstract class AudioEngine {
+  constructor(existingContext?: AudioContext);
+
+  get context(): AudioContext;
+  get state(): Signal<EngineState>;
+  untilReady(): Promise<void>; // resolves when state becomes 'running'
+
+  start(): Promise<void>; // context.resume(), requires user gesture
+  suspend(): Promise<void>;
+  resume(): Promise<void>;
+  destroy(): void; // terminal — cannot restart
+
+  protected abstract setup(context: AudioContext): void;
+  protected register<T extends AudioProcessor>(processor: T): T;
+}
+```
+
+### `createEngine(setup, options?)`
+
+Vue setup-style factory that replaces subclassing for the common case. Returns an `AudioEngine` with user-defined properties merged on, fully typed.
+
+```typescript
+function createEngine<T extends Record<string, unknown>>(setup: (context: AudioContext) => T, options?: { context?: AudioContext }): AudioEngine & T;
+```
+
+Auto-registers all `AudioProcessor` instances from the returned object. Returning a key that collides with `AudioEngine` methods (`start`, `destroy`, `suspend`, `resume`, `state`, `context`, `untilReady`) is a compile-time type error and a runtime throw.
+
+```typescript
+const engine = createEngine((ctx) => {
+  const synth = new Synth(ctx);
+  synth.output.connect(ctx.destination);
+  const sequencer = new Sequencer(synth, ctx);
+  return { synth, sequencer };
+});
+
+engine.synth; // Synth — fully typed, no ! assertion
+engine.sequencer; // Sequencer
+engine.start(); // resume AudioContext
+```
+
+---
+
 ## Package Structure
 
 ```
 signals/src/
+├── AudioEngine.ts       # engine lifecycle + createEngine factory
 ├── AudioProcessor.ts    # base class with param/computed/effect factories
 ├── Param.ts             # reactive parameter wrapper
 ├── SchedulableParam.ts  # numeric param with Web Audio scheduling
 ├── ParamSync.ts         # per-context RAF sync loop
-├── types.ts             # ParamBind, ParamOptions, ProcessorState
+├── types.ts             # ParamBind, ParamOptions, ProcessorState, EngineState
 └── index.ts             # public exports
 ```
 
@@ -372,11 +440,14 @@ signals/src/
 
 ```typescript
 // Classes
-export { Param, SchedulableParam, ParamSync, AudioProcessor };
+export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine };
+
+// Factory
+export { createEngine };
 
 // Constants
 export { DEFAULT_SYNC_INTERVAL_MS };
 
 // Types
-export type { ParamBind, ParamOptions, ProcessorState, Computed };
+export type { ParamBind, ParamOptions, ProcessorState, Computed, EngineState };
 ```

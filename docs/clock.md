@@ -7,7 +7,7 @@ Timing and scheduling engine. Replaces Tone.js Transport with a cleaner, single-
 ```json
 {
   "peerDependencies": {
-    "@audiorective/signals": "workspace:*"
+    "@audiorective/core": "workspace:*"
   }
 }
 ```

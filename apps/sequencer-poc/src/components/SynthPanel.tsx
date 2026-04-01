@@ -1,5 +1,5 @@
-import { useValue } from "@audiorective/react";
-import type { StepSynth } from "../audio/StepSynth";
+import { useValue, useParam } from "@audiorective/react";
+import { useEngine } from "../audio/engine";
 
 type Waveform = "sine" | "square" | "sawtooth" | "triangle";
 const WAVEFORMS: Waveform[] = ["sine", "square", "sawtooth", "triangle"];
@@ -38,13 +38,14 @@ function ParamSlider({
   );
 }
 
-export function SynthPanel({ synth }: { synth: StepSynth }) {
+export function SynthPanel() {
+  const { synth } = useEngine();
   const waveform = useValue(synth.waveform);
-  const volume = useValue(synth.volume);
-  const cutoff = useValue(synth.cutoff);
-  const resonance = useValue(synth.resonance);
-  const attack = useValue(synth.attack);
-  const decay = useValue(synth.decay);
+  const [volume, setVolume] = useParam(synth.volume);
+  const [cutoff, setCutoff] = useParam(synth.cutoff);
+  const [resonance, setResonance] = useParam(synth.resonance);
+  const [attack, setAttack] = useParam(synth.attack);
+  const [decay, setDecay] = useParam(synth.decay);
 
   return (
     <div style={styles.panel}>
@@ -65,35 +66,19 @@ export function SynthPanel({ synth }: { synth: StepSynth }) {
         ))}
       </div>
 
-      <ParamSlider label="Volume" value={volume} min={0} max={1} onChange={(v) => (synth.volume.value = v)} />
-      <ParamSlider
-        label="Cutoff"
-        value={cutoff}
-        min={20}
-        max={20000}
-        step={1}
-        onChange={(v) => (synth.cutoff.value = v)}
-        displayValue={`${Math.round(cutoff)} Hz`}
-      />
-      <ParamSlider label="Resonance" value={resonance} min={0.1} max={30} step={0.1} onChange={(v) => (synth.resonance.value = v)} />
+      <ParamSlider label="Volume" value={volume} min={0} max={1} onChange={setVolume} />
+      <ParamSlider label="Cutoff" value={cutoff} min={20} max={20000} step={1} onChange={setCutoff} displayValue={`${Math.round(cutoff)} Hz`} />
+      <ParamSlider label="Resonance" value={resonance} min={0.1} max={30} step={0.1} onChange={setResonance} />
       <ParamSlider
         label="Attack"
         value={attack}
         min={0.001}
         max={1}
         step={0.001}
-        onChange={(v) => (synth.attack.value = v)}
+        onChange={setAttack}
         displayValue={`${(attack * 1000).toFixed(0)} ms`}
       />
-      <ParamSlider
-        label="Decay"
-        value={decay}
-        min={0.01}
-        max={2}
-        step={0.01}
-        onChange={(v) => (synth.decay.value = v)}
-        displayValue={`${(decay * 1000).toFixed(0)} ms`}
-      />
+      <ParamSlider label="Decay" value={decay} min={0.01} max={2} step={0.01} onChange={setDecay} displayValue={`${(decay * 1000).toFixed(0)} ms`} />
     </div>
   );
 }
