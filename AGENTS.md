@@ -2,8 +2,11 @@
 
 Modular toolkit for web audio development. Independent, composable packages that work alone or together.
 
-See `docs/overview.md` for project vision, design rationale, and roadmap.
-See `docs/` for full API references per package.
+## Documentation Tiers
+
+- `AGENTS.md` (this file) — contributor conventions for working in this repo
+- `docs/` — full API reference per package
+- `.agents/skills/` — consumer-facing skill for building apps with audiorective
 
 ## Monorepo Structure
 
