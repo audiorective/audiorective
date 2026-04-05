@@ -1,0 +1,9 @@
+{
+  "name": "audiorective",
+  "description": "Reactive toolkit for Web Audio apps — provides skills for building synthesizers, sequencers, DAWs, and audio visualizers with correct audio/UI separation patterns.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Chriest Yu"
+  },
+  "repository": "https://github.com/audiorective/audiorective"
+}

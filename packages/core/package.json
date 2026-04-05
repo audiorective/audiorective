@@ -1,16 +1,17 @@
 {
   "name": "@audiorective/core",
   "version": "0.1.0",
-  "description": "Core stuff",
+  "description": "Reactive primitives for Web Audio — Param, AudioProcessor, AudioEngine",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/author/library#readme",
+  "homepage": "https://github.com/audiorective/audiorective/tree/main/packages/core#readme",
   "bugs": {
-    "url": "https://github.com/author/library/issues"
+    "url": "https://github.com/audiorective/audiorective/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/author/library.git"
+    "url": "git+https://github.com/audiorective/audiorective.git",
+    "directory": "packages/core"
   },
   "author": "Chriest Yu <jcppman@gmai.com>",
   "files": [
@@ -36,7 +37,6 @@
     "@types/node": "^24.9.1",
     "@vitest/browser": "^4.0.18",
     "@vitest/browser-playwright": "^4.0.18",
-    "bumpp": "^10.3.1",
     "playwright": "^1.58.2",
     "tsdown": "^0.15.9",
     "typescript": "^5.9.3",

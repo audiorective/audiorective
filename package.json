@@ -1,8 +1,8 @@
 {
   "name": "audiorective",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "The wholestack audio primitives",
+  "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
@@ -10,12 +10,14 @@
     "lint": "oxlint --type-aware",
     "lint-fix": "oxlint --type-aware --fix",
     "format": "prettier . --check",
-    "format-fix": "prettier . --write"
+    "format-fix": "prettier . --write",
+    "release": "bumpp -r --all"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "bumpp": "^10.3.1",
     "lefthook": "^2.0.2",
     "oxlint": "^1.25.0",
     "oxlint-tsgolint": "^0.4.0",

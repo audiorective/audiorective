@@ -1,9 +1,18 @@
 {
   "name": "@audiorective/react",
   "version": "0.1.0",
-  "description": "React bindings for @audiorective/core",
+  "description": "React hooks and context factories for @audiorective/core",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/audiorective/audiorective/tree/main/packages/react#readme",
+  "bugs": {
+    "url": "https://github.com/audiorective/audiorective/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/audiorective/audiorective.git",
+    "directory": "packages/react"
+  },
   "files": [
     "dist"
   ],
