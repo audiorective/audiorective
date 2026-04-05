@@ -3,24 +3,24 @@ import { useState, useCallback } from "react";
 import { useEngine } from "../audio/engine";
 
 export function Transport() {
-  const { sequencer } = useEngine();
-  const [bpm, setBpm] = useParam(sequencer.bpm);
-  const playing = useValue(sequencer.playing);
+  const { masterSeq } = useEngine();
+  const [bpm, setBpm] = useParam(masterSeq.bpm);
+  const playing = useValue(masterSeq.playing);
 
   const [rampTarget, setRampTarget] = useState(180);
   const [rampDuration, setRampDuration] = useState(4);
 
   const togglePlay = useCallback(() => {
-    if (sequencer.playing.value) {
-      sequencer.stop();
+    if (masterSeq.playing.value) {
+      masterSeq.stop();
     } else {
-      sequencer.start();
+      masterSeq.start();
     }
-  }, [sequencer]);
+  }, [masterSeq]);
 
   const handleBpmRamp = useCallback(() => {
-    sequencer.rampBpm(rampTarget, rampDuration);
-  }, [sequencer, rampTarget, rampDuration]);
+    masterSeq.rampBpm(rampTarget, rampDuration);
+  }, [masterSeq, rampTarget, rampDuration]);
 
   return (
     <div style={styles.transport}>
@@ -66,11 +66,12 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "16px",
-    padding: "16px",
+    padding: "12px 16px",
     background: "#151515",
     borderRadius: "8px",
-    marginBottom: "16px",
+    marginBottom: "12px",
     flexWrap: "wrap" as const,
+    border: "1px solid #1e1e1e",
   },
   playButton: {
     padding: "8px 20px",

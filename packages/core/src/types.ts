@@ -6,6 +6,11 @@ export interface ParamBind<T> {
 export interface ParamOptions<T> {
   default: T;
   bind?: ParamBind<T>;
+  label?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  display?: (value: T) => string;
 }
 
 export type { Computed } from "alien-signals";

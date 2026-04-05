@@ -25,9 +25,9 @@ export abstract class AudioProcessor {
 
   abstract get output(): AudioNode | undefined;
 
-  protected param<T extends number>(options: { default: T; bind: AudioParam }): SchedulableParam;
-  protected param<T extends number>(options: { default: T; schedulable: true }): SchedulableParam;
-  protected param<T>(options: { default: T; bind: ParamBind<T> }): Param<T>;
+  protected param<T extends number>(options: Omit<ParamOptions<T>, "bind"> & { bind: AudioParam }): SchedulableParam;
+  protected param<T extends number>(options: ParamOptions<T> & { schedulable: true }): SchedulableParam;
+  protected param<T>(options: ParamOptions<T> & { bind: ParamBind<T> }): Param<T>;
   protected param<T>(options: ParamOptions<T>): Param<T>;
   protected param<T>(options: ParamFactoryOptions<T>): Param<T> | SchedulableParam {
     const { bind } = options;
@@ -37,6 +37,11 @@ export abstract class AudioProcessor {
         default: options.default as number,
         audioContext: this.context,
         audioParam: bind,
+        label: options.label,
+        min: options.min,
+        max: options.max,
+        step: options.step,
+        display: options.display as ((value: number) => string) | undefined,
       });
     }
 
@@ -50,6 +55,11 @@ export abstract class AudioProcessor {
         default: options.default as number,
         audioContext: this.context,
         audioParam: constantSource.offset,
+        label: options.label,
+        min: options.min,
+        max: options.max,
+        step: options.step,
+        display: options.display as ((value: number) => string) | undefined,
       });
     }
 
@@ -64,6 +74,10 @@ export abstract class AudioProcessor {
     const eff = alienEffect(fn);
     this._effects.push(eff);
     return eff;
+  }
+
+  getParams(): Map<string, Param<unknown>> {
+    return this._discoverParams();
   }
 
   private _discoverParams(): Map<string, Param<unknown>> {

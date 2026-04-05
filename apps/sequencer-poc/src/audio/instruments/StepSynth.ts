@@ -31,6 +31,7 @@ export class StepSynth extends AudioProcessor {
 
     this.waveform = this.param<Waveform>({
       default: "sawtooth",
+      label: "Waveform",
       bind: {
         get: () => this.osc.type as Waveform,
         set: (v) => {
@@ -39,11 +40,19 @@ export class StepSynth extends AudioProcessor {
       },
     });
 
-    this.volume = this.param({ default: 0.5 });
-    this.cutoff = this.param({ default: 2000, bind: this.filter.frequency });
-    this.resonance = this.param({ default: 1, bind: this.filter.Q });
-    this.attack = this.param({ default: 0.01 });
-    this.decay = this.param({ default: 0.2 });
+    this.volume = this.param({ default: 0.5, label: "Volume", min: 0, max: 1 });
+    this.cutoff = this.param({
+      default: 2000,
+      label: "Cutoff",
+      min: 20,
+      max: 20000,
+      step: 1,
+      display: (v) => `${Math.round(v)} Hz`,
+      bind: this.filter.frequency,
+    });
+    this.resonance = this.param({ default: 1, label: "Resonance", min: 0.1, max: 30, step: 0.1, bind: this.filter.Q });
+    this.attack = this.param({ default: 0.01, label: "Attack", min: 0.001, max: 1, step: 0.001, display: (v) => `${(v * 1000).toFixed(0)} ms` });
+    this.decay = this.param({ default: 0.2, label: "Decay", min: 0.01, max: 2, step: 0.01, display: (v) => `${(v * 1000).toFixed(0)} ms` });
   }
 
   get output(): AudioNode {

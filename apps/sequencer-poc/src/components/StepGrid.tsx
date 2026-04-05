@@ -1,24 +1,18 @@
 import { useValue } from "@audiorective/react";
-import { NOTES, noteToFreq } from "../audio/Sequencer";
-import { useEngine } from "../audio/engine";
+import { TrackSequencer } from "../audio/TrackSequencer";
+import type { DrumSequencer } from "../audio/DrumSequencer";
+import { noteToFreq, freqToNote } from "../audio/trackConfig";
 
-export function StepGrid() {
-  const { sequencer } = useEngine();
-  const steps = useValue(sequencer.steps);
-  const currentStep = useValue(sequencer.currentStep);
+interface StepGridProps {
+  seq: TrackSequencer | DrumSequencer;
+  currentStep: number;
+  accentColor: string;
+  notes?: string[];
+}
 
-  const freqToNote = (freq: number): string => {
-    let closest = NOTES[0];
-    let minDiff = Infinity;
-    for (const note of NOTES) {
-      const diff = Math.abs(noteToFreq(note) - freq);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closest = note;
-      }
-    }
-    return closest;
-  };
+export function StepGrid({ seq, currentStep, accentColor, notes }: StepGridProps) {
+  const steps = useValue(seq.steps);
+  const isMelodic = notes !== undefined;
 
   return (
     <div style={styles.grid}>
@@ -26,26 +20,37 @@ export function StepGrid() {
         <div
           key={i}
           style={{
-            ...styles.step,
-            ...(currentStep === i ? styles.active : {}),
+            ...styles.cell,
+            boxShadow: currentStep === i ? `0 0 0 2px ${accentColor}, 0 0 10px ${accentColor}55` : "none",
           }}
         >
           <button
-            onClick={() => sequencer.toggleStep(i)}
+            onClick={() => seq.toggleStep(i)}
             style={{
               ...styles.toggle,
-              background: step.active ? "#2563eb" : "#222",
+              background: step.active ? accentColor : "#1e1e1e",
             }}
           >
             {i + 1}
           </button>
-          <select value={freqToNote(step.frequency)} onChange={(e) => sequencer.setStepNote(i, noteToFreq(e.target.value))} style={styles.select}>
-            {NOTES.map((note) => (
-              <option key={note} value={note}>
-                {note}
-              </option>
-            ))}
-          </select>
+
+          {isMelodic && (
+            <select
+              value={step.frequency !== undefined ? freqToNote(step.frequency, notes) : notes[0]}
+              onChange={(e) => {
+                if (seq instanceof TrackSequencer) {
+                  seq.setStepNote(i, noteToFreq(e.target.value));
+                }
+              }}
+              style={styles.select}
+            >
+              {notes.map((note) => (
+                <option key={note} value={note}>
+                  {note}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       ))}
     </div>
@@ -56,39 +61,36 @@ const styles = {
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(8, 1fr)",
-    gap: "8px",
-    marginBottom: "16px",
+    gap: "4px",
+    flex: 1,
   },
-  step: {
+  cell: {
     display: "flex",
     flexDirection: "column" as const,
     alignItems: "center",
-    gap: "6px",
-    padding: "8px 4px",
-    borderRadius: "6px",
-    background: "#151515",
+    gap: "4px",
+    padding: "4px 2px",
+    borderRadius: "4px",
+    background: "#0d0d0d",
     transition: "box-shadow 0.1s",
   },
-  active: {
-    boxShadow: "0 0 0 2px #2563eb, 0 0 12px rgba(37, 99, 235, 0.4)",
-  },
   toggle: {
-    width: "40px",
-    height: "40px",
-    borderRadius: "6px",
-    border: "1px solid #333",
+    width: "100%",
+    height: "36px",
+    borderRadius: "4px",
+    border: "1px solid #2a2a2a",
     color: "white",
     cursor: "pointer",
-    fontSize: "0.875rem",
+    fontSize: "0.75rem",
     fontWeight: "bold" as const,
   },
   select: {
     width: "100%",
-    padding: "4px",
-    background: "#222",
-    color: "#e0e0e0",
-    border: "1px solid #333",
-    borderRadius: "4px",
-    fontSize: "0.75rem",
+    padding: "2px",
+    background: "#1a1a1a",
+    color: "#aaa",
+    border: "1px solid #2a2a2a",
+    borderRadius: "3px",
+    fontSize: "0.7rem",
   },
 };
