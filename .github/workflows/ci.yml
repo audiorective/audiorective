@@ -1,16 +1,14 @@
-name: Publish
+name: CI
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  publish:
+  lint-and-format:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -28,6 +25,20 @@ jobs:
 
       - run: pnpm run format
 
+  build-typecheck-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - run: pnpm --filter @audiorective/core exec playwright install --with-deps chromium
 
       - run: pnpm -r run build
@@ -35,9 +46,3 @@ jobs:
       - run: pnpm -r run typecheck
 
       - run: pnpm -r run test -- --run
-
-      - run: npm publish --access public
-        working-directory: packages/core
-
-      - run: npm publish --access public
-        working-directory: packages/react
