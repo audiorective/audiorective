@@ -1,14 +1,14 @@
-import { signal, type Signal, effect as alienEffect, type Effect } from "alien-signals";
-import type { ParamOptions } from "./types";
+import { signal, effect as alienEffect } from "alien-signals";
+import type { ParamOptions, SignalAccessor } from "./types";
 
 export class Param<T> {
-  readonly $: Signal<T>;
+  readonly $: SignalAccessor<T>;
   readonly label?: string;
   readonly min?: number;
   readonly max?: number;
   readonly step?: number;
   readonly display?: (value: T) => string;
-  private _effect?: Effect<void>;
+  private _stopEffect?: () => void;
 
   constructor(options: ParamOptions<T>) {
     this.$ = signal(options.default);
@@ -19,22 +19,22 @@ export class Param<T> {
     this.display = options.display;
     if (options.bind?.set) {
       const setter = options.bind.set;
-      this._effect = alienEffect(() => {
+      this._stopEffect = alienEffect(() => {
         setter(this.value);
       });
     }
   }
 
   get value(): T {
-    return this.$.get();
+    return this.$();
   }
 
   set value(newValue: T) {
-    this.$.set(newValue);
+    this.$(newValue);
   }
 
   destroy(): void {
-    this._effect?.stop();
-    this._effect = undefined;
+    this._stopEffect?.();
+    this._stopEffect = undefined;
   }
 }

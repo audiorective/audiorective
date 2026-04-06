@@ -25,10 +25,11 @@ Web Audio's imperative API with UI frameworks.
 
 Reactive audio primitives. The foundation.
 
-**Exports:** `Param`, `SchedulableParam`, `ParamSync`, `AudioProcessor`, `AudioEngine`, `createEngine`
+**Exports:** `Param`, `SchedulableParam`, `ParamSync`, `AudioProcessor`, `AudioEngine`, `createEngine`, `Cell`, `cell`
 
 - `Param` — reactive parameter, set `.value` to update
 - `SchedulableParam` — numeric param with Web Audio scheduling methods (ramps, setTargetAtTime, etc.)
+- `Cell` — standalone reactive container for structured/complex data (step patterns, presets, config). Uses Immer `produce` for ergonomic `.update(draft => ...)` mutations. Not tied to AudioProcessor.
 - `AudioProcessor` — base class for audio components, owns graph + params + lifecycle
 - `AudioEngine` / `createEngine()` — singleton audio context + processor graph
 
@@ -38,7 +39,7 @@ Reactive audio primitives. The foundation.
 
 React bindings. Thin observation layer — no state duplication.
 
-- `useValue(param)` — subscribe to param value, re-renders on change
+- `useValue(source: Readable<T>)` — subscribe to any readable (Param or Cell), re-renders on change
 - `useParam(param)` — `[value, setValue]` tuple
 - `useComputed(computed)` — subscribe to computed value
 - `useProcessor(factory, deps)` — create processor, auto-destroy on unmount
@@ -118,14 +119,15 @@ import { createEngineContext } from "@audiorective/react";
 
 export const engine = createEngine((ctx) => {
   const synth = new MySynth(ctx);
+  const sequencer = new MySequencer(synth);
   synth.output.connect(ctx.destination);
-  return { synth };
+  return { synth, sequencer };
 });
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
 
 // Suspense mode
-<EngineProvider fallback={<button onClick={() => engine.start()}>Start</button>}>
+<EngineProvider fallback={<button onClick={() => engine.core.start()}>Start</button>}>
   <SynthUI />
 </EngineProvider>
 
@@ -135,11 +137,25 @@ export const { EngineProvider, useEngine } = createEngineContext(engine);
 </EngineProvider>
 ```
 
+### Cell vs Param
+
+| Use case                                         | Primitive                    | Why                                                     |
+| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------- |
+| Numeric audio value, needs ramps/scheduling      | `Param` (via `this.param()`) | Backs an `AudioParam`, auto-discovered by `getParams()` |
+| Simple reactive value (BPM, boolean, enum)       | `Param` (via `this.param()`) | Lightweight, auto-discovered                            |
+| Structured data (step patterns, presets, config) | `Cell`                       | Immer-based `.update()`, not tied to AudioProcessor     |
+| State that doesn't belong to an AudioProcessor   | `Cell`                       | Standalone, usable anywhere                             |
+
+`Param` is for values that AudioProcessor manages and that `getParams()` discovers. `Cell` is for everything else — structured data, standalone state, data owned by plain classes.
+
 ## Key Design Decisions
 
+- alien-signals 3.x callable API — signals are callable functions (`signal()` to read, `signal(value)` to write), not objects with `.get()`/`.set()`. `SignalAccessor<T>` and `ComputedAccessor<T>` are defined in types.ts.
 - `.value` over function-call syntax — matches Web Audio conventions
 - `param()` not decorators — method-based, type-safe, discoverable
 - `$` prefix for raw signal access — escape hatch for framework adapters
+- `Cell` for structured state — Immer `produce` for ergonomic immutable updates, separate from param system
+- Classes that only hold structured state (no audio nodes, no scheduling) should be plain classes with `Cell`, not AudioProcessor subclasses
 - Clock doesn't own state — signals own state, clock provides timing windows
 - rAF polling for AudioParam→signal sync at ~60fps — pragmatic tradeoff
 - `bind` option unifies AudioParam backing and custom sync into one field

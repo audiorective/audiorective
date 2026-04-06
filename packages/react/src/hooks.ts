@@ -1,29 +1,29 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { effect as alienEffect } from "alien-signals";
-import { type Param, type AudioProcessor, type Computed } from "@audiorective/core";
+import { type Param, type AudioProcessor, type Readable, type ComputedAccessor } from "@audiorective/core";
 
-export function useValue<T>(param: Param<T>): T {
-  const [value, setValue] = useState(() => param.value);
+export function useValue<T>(source: Readable<T>): T {
+  const [value, setValue] = useState(() => source.value);
 
   useEffect(() => {
-    const eff = alienEffect(() => {
-      param.$.get();
-      setValue(param.value);
+    const stop = alienEffect(() => {
+      source.$();
+      setValue(source.value);
     });
-    return () => eff.stop();
-  }, [param]);
+    return () => stop();
+  }, [source]);
 
   return value;
 }
 
-export function useComputed<T>(computed: Computed<T>): T {
-  const [value, setValue] = useState(() => computed.get());
+export function useComputed<T>(computed: ComputedAccessor<T>): T {
+  const [value, setValue] = useState(() => computed());
 
   useEffect(() => {
-    const eff = alienEffect(() => {
-      setValue(computed.get());
+    const stop = alienEffect(() => {
+      setValue(computed());
     });
-    return () => eff.stop();
+    return () => stop();
   }, [computed]);
 
   return value;

@@ -41,7 +41,7 @@ describe("Param", () => {
     const p = new Param({ default: "hello" });
     const values: string[] = [];
     effect(() => {
-      values.push(p.$.get());
+      values.push(p.$());
     });
     expect(values).toEqual(["hello"]);
     p.value = "world";
@@ -53,7 +53,7 @@ describe("Param", () => {
     expect(p.value).toEqual({ x: 1, y: 2 });
     const values: Array<{ x: number; y: number }> = [];
     effect(() => {
-      values.push(p.$.get());
+      values.push(p.$());
     });
     p.value = { x: 10, y: 20 };
     expect(p.value).toEqual({ x: 10, y: 20 });
@@ -376,7 +376,7 @@ describe("AudioProcessor", () => {
     const p = new TestProcessor();
     let runCount = 0;
     p["effect"](() => {
-      p.vol.$.get();
+      p.vol.$();
       runCount++;
     });
     expect(runCount).toBe(1);
@@ -527,9 +527,9 @@ describe("AudioProcessor", () => {
     }
 
     const p = new ComputedProcessor();
-    expect(p.beatDuration.get()).toBe(500);
+    expect(p.beatDuration()).toBe(500);
     p.bpm.value = 240;
-    expect(p.beatDuration.get()).toBe(250);
+    expect(p.beatDuration()).toBe(250);
     p.destroy();
   });
 
@@ -555,7 +555,7 @@ describe("AudioProcessor", () => {
 
     let effectRuns = 0;
     p["effect"](() => {
-      p.vol.$.get();
+      p.vol.$();
       effectRuns++;
     });
     expect(effectRuns).toBe(1);

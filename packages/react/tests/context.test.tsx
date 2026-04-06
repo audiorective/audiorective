@@ -82,8 +82,8 @@ describe("createEngineContext", () => {
       );
 
       expect(screen.getByTestId("child")).toBeTruthy();
-      expect(engine.state.get()).toBe("idle");
-      engine.destroy();
+      expect(engine.core.state()).toBe("idle");
+      engine.core.destroy();
     });
 
     test("useEngine() works in overlay mode", () => {
@@ -102,7 +102,7 @@ describe("createEngineContext", () => {
       );
 
       expect(screen.getByTestId("processor").textContent).toBe("0.5");
-      engine.destroy();
+      engine.core.destroy();
     });
   });
 
@@ -119,14 +119,14 @@ describe("createEngineContext", () => {
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       expect(() => render(<Bad />)).toThrow("useEngine must be used within an EngineProvider");
       consoleSpy.mockRestore();
-      engine.destroy();
+      engine.core.destroy();
     });
   });
 
   describe("autoStart", () => {
     test("calls engine.start() on click in overlay mode", async () => {
       const engine = makeEngine();
-      const startSpy = vi.spyOn(engine, "start");
+      const startSpy = vi.spyOn(engine.core, "start");
       const { EngineProvider } = createEngineContext(engine);
 
       render(
@@ -140,12 +140,12 @@ describe("createEngineContext", () => {
       });
 
       expect(startSpy).toHaveBeenCalled();
-      engine.destroy();
+      engine.core.destroy();
     });
 
     test("removes listeners after first gesture", async () => {
       const engine = makeEngine();
-      const startSpy = vi.spyOn(engine, "start");
+      const startSpy = vi.spyOn(engine.core, "start");
       const { EngineProvider } = createEngineContext(engine);
 
       render(
@@ -164,12 +164,12 @@ describe("createEngineContext", () => {
       });
 
       expect(startSpy).not.toHaveBeenCalled();
-      engine.destroy();
+      engine.core.destroy();
     });
 
     test("explicit autoStart={false} disables in overlay mode", async () => {
       const engine = makeEngine();
-      const startSpy = vi.spyOn(engine, "start");
+      const startSpy = vi.spyOn(engine.core, "start");
       const { EngineProvider } = createEngineContext(engine);
 
       render(
@@ -183,7 +183,7 @@ describe("createEngineContext", () => {
       });
 
       expect(startSpy).not.toHaveBeenCalled();
-      engine.destroy();
+      engine.core.destroy();
     });
 
     test("re-arms listeners when engine state drops from running", async () => {
@@ -200,21 +200,21 @@ describe("createEngineContext", () => {
       await act(async () => {
         fireEvent.click(document);
       });
-      expect(engine.state.get()).toBe("running");
+      expect(engine.core.state()).toBe("running");
 
       // Simulate mobile background suspend
       await act(async () => {
-        await engine.suspend();
+        await engine.core.suspend();
       });
-      expect(engine.state.get()).toBe("suspended");
+      expect(engine.core.state()).toBe("suspended");
 
       // Next gesture should re-start
       await act(async () => {
         fireEvent.click(document);
       });
-      expect(engine.state.get()).toBe("running");
+      expect(engine.core.state()).toBe("running");
 
-      engine.destroy();
+      engine.core.destroy();
     });
   });
 });

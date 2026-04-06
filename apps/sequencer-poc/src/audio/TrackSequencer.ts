@@ -1,4 +1,4 @@
-import { AudioProcessor, type Param } from "@audiorective/core";
+import { cell, type Cell } from "@audiorective/core";
 import type { StepSynth } from "./instruments/StepSynth";
 
 export interface Step {
@@ -6,20 +6,13 @@ export interface Step {
   frequency?: number;
 }
 
-export class TrackSequencer extends AudioProcessor {
-  readonly steps: Param<Step[]>;
+export class TrackSequencer {
+  readonly steps: Cell<Step[]>;
   private readonly synth: StepSynth;
 
-  constructor(synth: StepSynth, audioCtx: AudioContext, defaultFreq = 440) {
-    super(audioCtx);
+  constructor(synth: StepSynth, defaultFreq = 440) {
     this.synth = synth;
-    this.steps = this.param<Step[]>({
-      default: Array.from({ length: 8 }, () => ({ active: false, frequency: defaultFreq })),
-    });
-  }
-
-  get output(): AudioNode | undefined {
-    return undefined;
+    this.steps = cell<Step[]>(Array.from({ length: 8 }, () => ({ active: false, frequency: defaultFreq })));
   }
 
   tick(stepIndex: number, time: number): void {
@@ -34,14 +27,14 @@ export class TrackSequencer extends AudioProcessor {
   }
 
   toggleStep(index: number): void {
-    const s = [...this.steps.value];
-    s[index] = { ...s[index], active: !s[index].active };
-    this.steps.value = s;
+    this.steps.update((draft) => {
+      draft[index].active = !draft[index].active;
+    });
   }
 
   setStepNote(index: number, frequency: number): void {
-    const s = [...this.steps.value];
-    s[index] = { ...s[index], frequency };
-    this.steps.value = s;
+    this.steps.update((draft) => {
+      draft[index].frequency = frequency;
+    });
   }
 }

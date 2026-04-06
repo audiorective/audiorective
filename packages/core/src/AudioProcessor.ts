@@ -1,5 +1,5 @@
-import { computed as alienComputed, effect as alienEffect, type Effect } from "alien-signals";
-import type { ParamBind, ParamOptions, ProcessorState } from "./types";
+import { computed as alienComputed, effect as alienEffect } from "alien-signals";
+import type { ParamBind, ParamOptions, ProcessorState, ComputedAccessor } from "./types";
 import { Param } from "./Param";
 import { SchedulableParam } from "./SchedulableParam";
 
@@ -11,7 +11,7 @@ type ParamFactoryOptions<T> = ParamOptions<T> & {
 
 export abstract class AudioProcessor {
   readonly context: AudioContext;
-  private _effects: Effect<void>[] = [];
+  private _effects: (() => void)[] = [];
   private readonly _silencer: GainNode;
   private _constantSources = new Set<ConstantSourceNode>();
 
@@ -66,14 +66,14 @@ export abstract class AudioProcessor {
     return new Param(options);
   }
 
-  protected computed<T>(fn: () => T) {
+  protected computed<T>(fn: () => T): ComputedAccessor<T> {
     return alienComputed(fn);
   }
 
-  protected effect(fn: () => void): Effect<void> {
-    const eff = alienEffect(fn);
-    this._effects.push(eff);
-    return eff;
+  protected effect(fn: () => void): () => void {
+    const stop = alienEffect(fn);
+    this._effects.push(stop);
+    return stop;
   }
 
   getParams(): Map<string, Param<unknown>> {
@@ -114,8 +114,8 @@ export abstract class AudioProcessor {
   }
 
   destroy(): void {
-    for (const eff of this._effects) {
-      eff.stop();
+    for (const stop of this._effects) {
+      stop();
     }
     this._effects = [];
 

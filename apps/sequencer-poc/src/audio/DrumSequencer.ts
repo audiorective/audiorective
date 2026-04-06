@@ -1,4 +1,4 @@
-import { AudioProcessor, type Param } from "@audiorective/core";
+import { cell, type Cell } from "@audiorective/core";
 import type { Step } from "./TrackSequencer";
 
 interface DrumSynthLike {
@@ -6,20 +6,13 @@ interface DrumSynthLike {
   silence(): void;
 }
 
-export class DrumSequencer extends AudioProcessor {
-  readonly steps: Param<Step[]>;
+export class DrumSequencer {
+  readonly steps: Cell<Step[]>;
   private readonly synth: DrumSynthLike;
 
-  constructor(synth: DrumSynthLike, audioCtx: AudioContext) {
-    super(audioCtx);
+  constructor(synth: DrumSynthLike) {
     this.synth = synth;
-    this.steps = this.param<Step[]>({
-      default: Array.from({ length: 8 }, () => ({ active: false })),
-    });
-  }
-
-  get output(): AudioNode | undefined {
-    return undefined;
+    this.steps = cell<Step[]>(Array.from({ length: 8 }, () => ({ active: false })));
   }
 
   tick(stepIndex: number, time: number): void {
@@ -34,8 +27,8 @@ export class DrumSequencer extends AudioProcessor {
   }
 
   toggleStep(index: number): void {
-    const s = [...this.steps.value];
-    s[index] = { ...s[index], active: !s[index].active };
-    this.steps.value = s;
+    this.steps.update((draft) => {
+      draft[index].active = !draft[index].active;
+    });
   }
 }

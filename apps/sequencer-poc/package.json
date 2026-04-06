@@ -12,7 +12,7 @@
   "dependencies": {
     "@audiorective/core": "workspace:*",
     "@audiorective/react": "workspace:*",
-    "alien-signals": "^0.2.0",
+    "alien-signals": "^3.1.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

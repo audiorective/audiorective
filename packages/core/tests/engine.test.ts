@@ -14,17 +14,18 @@ class TestProcessor extends AudioProcessor {
 }
 
 class TestEngine extends AudioEngine {
-  getProcessor(): TestProcessor {
-    return (this as any)._processors[0] as TestProcessor;
+  constructor(ctx?: AudioContext) {
+    super(ctx);
+    this.register(new TestProcessor(this.context));
   }
 
-  protected setup(context: AudioContext): void {
-    this.register(new TestProcessor(context));
+  getProcessor(): TestProcessor {
+    return (this as any)._processors[0] as TestProcessor;
   }
 }
 
 describe("AudioEngine", () => {
-  test("constructor creates AudioContext and calls setup()", () => {
+  test("constructor creates AudioContext and registers processors", () => {
     const engine = new TestEngine();
     expect(engine.context).toBeInstanceOf(AudioContext);
     expect(engine.getProcessor()).toBeInstanceOf(TestProcessor);
@@ -33,7 +34,7 @@ describe("AudioEngine", () => {
 
   test("initial state is 'idle'", () => {
     const engine = new TestEngine();
-    expect(engine.state.get()).toBe("idle");
+    expect(engine.state()).toBe("idle");
     engine.destroy();
   });
 
@@ -47,7 +48,7 @@ describe("AudioEngine", () => {
   test("start() resumes context, state becomes 'running'", async () => {
     const engine = new TestEngine();
     await engine.start();
-    expect(engine.state.get()).toBe("running");
+    expect(engine.state()).toBe("running");
     expect(engine.context.state).toBe("running");
     engine.destroy();
   });
@@ -56,7 +57,7 @@ describe("AudioEngine", () => {
     const engine = new TestEngine();
     await engine.start();
     await engine.start();
-    expect(engine.state.get()).toBe("running");
+    expect(engine.state()).toBe("running");
     engine.destroy();
   });
 
@@ -70,7 +71,7 @@ describe("AudioEngine", () => {
     const engine = new TestEngine();
     await engine.start();
     await engine.suspend();
-    expect(engine.state.get()).toBe("suspended");
+    expect(engine.state()).toBe("suspended");
     expect(engine.context.state).toBe("suspended");
     engine.destroy();
   });
@@ -78,7 +79,7 @@ describe("AudioEngine", () => {
   test("suspend() on non-running engine is a no-op", async () => {
     const engine = new TestEngine();
     await engine.suspend();
-    expect(engine.state.get()).toBe("idle");
+    expect(engine.state()).toBe("idle");
     engine.destroy();
   });
 
@@ -96,7 +97,7 @@ describe("AudioEngine", () => {
     await engine.start();
     await engine.suspend();
     await engine.resume();
-    expect(engine.state.get()).toBe("running");
+    expect(engine.state()).toBe("running");
     engine.destroy();
   });
 
@@ -104,7 +105,7 @@ describe("AudioEngine", () => {
     const engine = new TestEngine();
     await engine.start();
     await engine.resume();
-    expect(engine.state.get()).toBe("running");
+    expect(engine.state()).toBe("running");
     engine.destroy();
   });
 
@@ -121,7 +122,7 @@ describe("AudioEngine", () => {
     const engine = new TestEngine();
     await engine.start();
     engine.destroy();
-    expect(engine.state.get()).toBe("destroyed");
+    expect(engine.state()).toBe("destroyed");
   });
 
   test("destroy() cleans up registered processors", () => {
@@ -129,7 +130,7 @@ describe("AudioEngine", () => {
       processor: new TestProcessor(ctx),
     }));
     const destroySpy = vi.spyOn(engine.processor, "destroy");
-    engine.destroy();
+    engine.core.destroy();
     expect(destroySpy).toHaveBeenCalled();
   });
 
@@ -166,26 +167,27 @@ describe("AudioEngine", () => {
   test("onstatechange syncs external suspension to state signal", async () => {
     const engine = new TestEngine();
     await engine.start();
-    expect(engine.state.get()).toBe("running");
+    expect(engine.state()).toBe("running");
 
     // Simulate browser externally suspending the context by calling onstatechange directly
     // In production, the browser fires this when tab goes to background on mobile
     Object.defineProperty(engine.context, "state", { value: "suspended", writable: true });
     engine.context.onstatechange?.call(engine.context, new Event("statechange"));
-    expect(engine.state.get()).toBe("suspended");
+    expect(engine.state()).toBe("suspended");
     engine.destroy();
   });
 });
 
 describe("createEngine", () => {
-  test("returns engine with user-defined properties", () => {
+  test("returns engine with user-defined properties and .core", () => {
     const engine = createEngine((ctx) => {
       const processor = new TestProcessor(ctx);
       return { processor, label: "test" };
     });
     expect(engine.processor).toBeInstanceOf(TestProcessor);
     expect(engine.label).toBe("test");
-    engine.destroy();
+    expect(engine.core).toBeInstanceOf(AudioEngine);
+    engine.core.destroy();
   });
 
   test("auto-registers AudioProcessor instances", () => {
@@ -193,7 +195,7 @@ describe("createEngine", () => {
       processor: new TestProcessor(ctx),
     }));
     const destroySpy = vi.spyOn(engine.processor, "destroy");
-    engine.destroy();
+    engine.core.destroy();
     expect(destroySpy).toHaveBeenCalled();
   });
 
@@ -202,16 +204,12 @@ describe("createEngine", () => {
       processor: new TestProcessor(ctx),
     }));
     expect(engine.processor).toBeInstanceOf(TestProcessor);
-    expect(engine.state.get()).toBe("idle");
-    engine.destroy();
+    expect(engine.core.state()).toBe("idle");
+    engine.core.destroy();
   });
 
-  test("throws on reserved key collision", () => {
-    expect(() => createEngine(() => ({ start: "oops" }) as any)).toThrow('createEngine: setup returned reserved key "start"');
-  });
-
-  test("throws on 'destroy' key collision", () => {
-    expect(() => createEngine(() => ({ destroy: "oops" }) as any)).toThrow('createEngine: setup returned reserved key "destroy"');
+  test("throws on reserved key 'core'", () => {
+    expect(() => createEngine(() => ({ core: "oops" }) as any)).toThrow('createEngine: setup returned reserved key "core"');
   });
 
   test("non-processor values are preserved", () => {
@@ -224,7 +222,7 @@ describe("createEngine", () => {
     expect(engine.count).toBe(10);
     expect(engine.callback).toBe(fn);
     expect(engine.items).toEqual([1, 2, 3]);
-    engine.destroy();
+    engine.core.destroy();
   });
 
   test("accepts options.context", () => {
@@ -236,8 +234,8 @@ describe("createEngine", () => {
       },
       { context: ctx },
     );
-    expect(engine.context).toBe(ctx);
-    engine.destroy();
+    expect(engine.core.context).toBe(ctx);
+    engine.core.destroy();
   });
 
   test("full lifecycle: start → suspend → resume → destroy", async () => {
@@ -245,14 +243,14 @@ describe("createEngine", () => {
       processor: new TestProcessor(ctx),
     }));
 
-    expect(engine.state.get()).toBe("idle");
-    await engine.start();
-    expect(engine.state.get()).toBe("running");
-    await engine.suspend();
-    expect(engine.state.get()).toBe("suspended");
-    await engine.resume();
-    expect(engine.state.get()).toBe("running");
-    engine.destroy();
-    expect(engine.state.get()).toBe("destroyed");
+    expect(engine.core.state()).toBe("idle");
+    await engine.core.start();
+    expect(engine.core.state()).toBe("running");
+    await engine.core.suspend();
+    expect(engine.core.state()).toBe("suspended");
+    await engine.core.resume();
+    expect(engine.core.state()).toBe("running");
+    engine.core.destroy();
+    expect(engine.core.state()).toBe("destroyed");
   });
 });

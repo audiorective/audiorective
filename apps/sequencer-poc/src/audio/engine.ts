@@ -15,7 +15,7 @@ export const engine = createEngine((ctx) => {
   // Pad synth track (C3–C5 range)
   const padSynth = new StepSynth(ctx);
   padSynth.output.connect(ctx.destination);
-  const padSeq = new TrackSequencer(padSynth, ctx, noteToFreq("C4"));
+  const padSeq = new TrackSequencer(padSynth, noteToFreq("C4"));
   masterSeq.register(
     (step, time) => padSeq.tick(step, time),
     () => padSeq.silence(),
@@ -24,7 +24,7 @@ export const engine = createEngine((ctx) => {
   // Bass synth track (C1–C3 range)
   const bassSynth = new StepSynth(ctx);
   bassSynth.output.connect(ctx.destination);
-  const bassSeq = new TrackSequencer(bassSynth, ctx, noteToFreq("C2"));
+  const bassSeq = new TrackSequencer(bassSynth, noteToFreq("C2"));
   masterSeq.register(
     (step, time) => bassSeq.tick(step, time),
     () => bassSeq.silence(),
@@ -33,7 +33,7 @@ export const engine = createEngine((ctx) => {
   // Kick drum
   const kickSynth = new KickSynth(ctx);
   kickSynth.output.connect(ctx.destination);
-  const kickSeq = new DrumSequencer(kickSynth, ctx);
+  const kickSeq = new DrumSequencer(kickSynth);
   masterSeq.register(
     (step, time) => kickSeq.tick(step, time),
     () => kickSeq.silence(),
@@ -42,7 +42,7 @@ export const engine = createEngine((ctx) => {
   // Snare drum
   const snareSynth = new SnareSynth(ctx);
   snareSynth.output.connect(ctx.destination);
-  const snareSeq = new DrumSequencer(snareSynth, ctx);
+  const snareSeq = new DrumSequencer(snareSynth);
   masterSeq.register(
     (step, time) => snareSeq.tick(step, time),
     () => snareSeq.silence(),
@@ -51,7 +51,7 @@ export const engine = createEngine((ctx) => {
   // Hihat
   const hihatSynth = new HihatSynth(ctx);
   hihatSynth.output.connect(ctx.destination);
-  const hihatSeq = new DrumSequencer(hihatSynth, ctx);
+  const hihatSeq = new DrumSequencer(hihatSynth);
   masterSeq.register(
     (step, time) => hihatSeq.tick(step, time),
     () => hihatSeq.silence(),

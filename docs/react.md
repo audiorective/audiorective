@@ -28,17 +28,18 @@ react/src/
 
 ## Hooks
 
-### `useValue(param)`
+### `useValue(source: Readable<T>)`
 
-Subscribe to a parameter's value. Re-renders when the value changes.
+Subscribe to any `Readable<T>` (both `Param` and `Cell`). Re-renders when the value changes.
 
 ```typescript
-const volume = useValue(synth.volume); // number
+const volume = useValue(synth.volume); // Param — number
+const pattern = useValue(sequencer.pattern); // Cell — StepPattern
 ```
 
-### `useComputed(computed)`
+### `useComputed(computed: ComputedAccessor<T>)`
 
-Subscribe to a computed value.
+Subscribe to a computed value. The computed is a callable (`() => T`).
 
 ```typescript
 const label = useComputed(synth.displayLabel); // re-renders on change
@@ -53,6 +54,23 @@ const [volume, setVolume] = useParam(synth.volume);
 
 <input value={volume} onChange={e => setVolume(+e.target.value)} />
 <ParamSlider value={volume} onChange={setVolume} />
+```
+
+### `useValue` with Cell (step sequencer example)
+
+```typescript
+function StepGrid() {
+  const { sequencer } = useEngine();
+  const pattern = useValue(sequencer.pattern); // Cell<boolean[]>
+
+  return (
+    <div>
+      {pattern.map((active, i) => (
+        <button key={i} data-active={active} onClick={() => sequencer.toggleStep(i)} />
+      ))}
+    </div>
+  );
+}
 ```
 
 ### `useProcessor(factory, deps)`
@@ -86,14 +104,14 @@ function VolumeControl() {
 
 ### `createEngineContext(engine)`
 
-Creates a typed `EngineProvider` and `useEngine` hook for an `AudioEngine` singleton. Works with React 18 and 19.
+Creates a typed `EngineProvider` and `useEngine` hook for an engine created by `createEngine`. Accepts `T extends { core: AudioEngine }`. Works with React 18 and 19.
 
 `EngineProvider` supports two rendering modes:
 
-- **Suspense mode** (`fallback` provided) — blocks children until `engine.start()` is called, shows fallback while waiting
-- **Overlay mode** (no `fallback`) — always renders children. Components check `engine.state` to show/hide UI. Safe because `createEngine` wires up all processors eagerly at construction time.
+- **Suspense mode** (`fallback` provided) — blocks children until `engine.core.start()` is called, shows fallback while waiting
+- **Overlay mode** (no `fallback`) — always renders children. Components check `engine.core.state` to show/hide UI. Safe because `createEngine` wires up all processors eagerly at construction time.
 
-The `autoStart` prop registers a one-time gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.start()` automatically on the first user interaction. Defaults to `true` in overlay mode (no `fallback`), `false` in Suspense mode.
+The `autoStart` prop registers a one-time gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.core.start()` automatically on the first user interaction. Defaults to `true` in overlay mode (no `fallback`), `false` in Suspense mode.
 
 ```typescript
 // audio/engine.ts
@@ -111,7 +129,7 @@ export const { EngineProvider, useEngine } = createEngineContext(engine);
 // Suspense mode — explicit start button
 function App() {
   return (
-    <EngineProvider fallback={<button onClick={() => engine.start()}>Start</button>}>
+    <EngineProvider fallback={<button onClick={() => engine.core.start()}>Start</button>}>
       <SynthUI />
     </EngineProvider>
   );

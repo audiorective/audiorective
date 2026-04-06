@@ -19,12 +19,12 @@ export function createProcessorContext<T extends AudioProcessor>() {
   };
 }
 
-export function createEngineContext<T extends AudioEngine>(engine: T) {
+export function createEngineContext<T extends { core: AudioEngine }>(engine: T) {
   const Context = createContext<T | null>(null);
 
   function EngineGate({ children }: { children: ReactNode }) {
-    if (engine.state.get() !== "running") {
-      throw engine.untilReady();
+    if (engine.core.state() !== "running") {
+      throw engine.core.untilReady();
     }
     return <Context.Provider value={engine}>{children}</Context.Provider>;
   }
@@ -35,7 +35,7 @@ export function createEngineContext<T extends AudioEngine>(engine: T) {
 
       function armListeners() {
         const handler = () => {
-          engine.start();
+          engine.core.start();
           disarmListeners();
         };
 
@@ -55,8 +55,8 @@ export function createEngineContext<T extends AudioEngine>(engine: T) {
         gestureCleanup?.();
       }
 
-      const eff = alienEffect(() => {
-        const s = engine.state.get();
+      const stop = alienEffect(() => {
+        const s = engine.core.state();
         if (s !== "running") {
           if (!gestureCleanup) armListeners();
         } else {
@@ -65,7 +65,7 @@ export function createEngineContext<T extends AudioEngine>(engine: T) {
       });
 
       return () => {
-        eff.stop();
+        stop();
         disarmListeners();
       };
     }, []);

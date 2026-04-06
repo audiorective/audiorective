@@ -2,7 +2,7 @@
 
 Reactive primitives for Web Audio. Bridges audio parameter automation and UI frameworks.
 
-**Powered by alien-signals** — lightweight, zero-dependency, automatic dependency tracking.
+**Powered by alien-signals 3.x** — lightweight, zero-dependency, automatic dependency tracking. Signals use a callable API: `signal()` to read, `signal(value)` to write. Custom types `SignalAccessor<T>` and `ComputedAccessor<T>` are defined in types.ts (alien-signals no longer exports `Signal<T>`, `Effect<T>`, or `Computed<T>`).
 
 Audio state is the single source of truth. UI frameworks observe and mutate directly. No state duplication.
 
@@ -38,7 +38,7 @@ synth.volume.linearRampToValueAtTime(0, ctx.currentTime + 2);
 
 ### The `.value` Pattern
 
-Wraps alien-signals with a `.value` property matching Web Audio API conventions — `gainNode.gain.value = 0.5` and `synth.volume.value = 0.5` are identical patterns. The `$` property exposes the raw signal for framework adapters.
+Wraps alien-signals with a `.value` property matching Web Audio API conventions — `gainNode.gain.value = 0.5` and `synth.volume.value = 0.5` are identical patterns. The `$` property exposes the raw `SignalAccessor<T>` (callable: `$()` to read, `$(value)` to write) for framework adapters.
 
 ### Parameter Types
 
@@ -102,8 +102,8 @@ interface ParamOptions<T> {
 Basic reactive parameter for any type. Supports optional `bind` for syncing to external state.
 
 ```typescript
-class Param<T> {
-  readonly $: Signal<T>; // raw alien-signals signal
+class Param<T> implements Readable<T> {
+  readonly $: SignalAccessor<T>;
   get value(): T;
   set value(v: T);
   destroy(): void; // stops bind effect (no-op if no bind)
@@ -160,6 +160,65 @@ class ParamSync {
 
 `SchedulableParam` auto-registers/unregisters on construction/destroy — you rarely need to use `ParamSync` directly.
 
+### Readable\<T\>
+
+Shared interface satisfied by both `Param<T>` and `Cell<T>`. Used by React hooks (`useValue`) to accept either.
+
+```typescript
+interface Readable<T> {
+  readonly $: SignalAccessor<T>;
+  readonly value: T;
+}
+```
+
+### Cell\<T\>
+
+Standalone reactive container for structured/complex data. Uses Immer `produce` for ergonomic immutable updates via `.update()`. Not tied to AudioProcessor — usable anywhere. Not auto-discovered by `getParams()`.
+
+```typescript
+class Cell<T> implements Readable<T> {
+  readonly $: SignalAccessor<T>;
+  get value(): T;
+  set value(v: T);
+  update(recipe: (draft: Draft<T>) => void): void;
+}
+
+function cell<T>(initial: T): Cell<T>;
+```
+
+**Example:**
+
+```typescript
+import { cell } from "@audiorective/core";
+
+interface StepPattern {
+  steps: boolean[];
+  velocity: number[];
+}
+
+const pattern = cell<StepPattern>({
+  steps: Array(16).fill(false),
+  velocity: Array(16).fill(0.8),
+});
+
+pattern.update((draft) => {
+  draft.steps[0] = true;
+  draft.steps[4] = true;
+  draft.velocity[4] = 1.0;
+});
+
+pattern.value; // { steps: [true, false, false, false, true, ...], velocity: [...] }
+```
+
+### Cell vs Param
+
+| Use case                                         | Primitive                    | Why                                                     |
+| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------- |
+| Numeric audio value, needs ramps/scheduling      | `Param` (via `this.param()`) | Backs an `AudioParam`, auto-discovered by `getParams()` |
+| Simple reactive value (BPM, boolean, enum)       | `Param` (via `this.param()`) | Lightweight, auto-discovered                            |
+| Structured data (step patterns, presets, config) | `Cell`                       | Immer-based `.update()`, not tied to AudioProcessor     |
+| State that doesn't belong to an AudioProcessor   | `Cell`                       | Standalone, usable anywhere                             |
+
 ### AudioProcessor (abstract)
 
 Base class for audio processing units. Provides param, computed, and effect factories with lifecycle management.
@@ -176,8 +235,8 @@ abstract class AudioProcessor {
   protected param<T>(options: { default: T; bind: ParamBind<T> }): Param<T>;
   protected param<T>(options: { default: T }): Param<T>;
 
-  protected computed<T>(fn: () => T): Computed<T>;
-  protected effect(fn: () => void): Effect<void>;
+  protected computed<T>(fn: () => T): ComputedAccessor<T>;
+  protected effect(fn: () => void): () => void;
 
   getParameter(name: string): Param<unknown> | undefined;
   getState(): ProcessorState;
@@ -270,13 +329,13 @@ proc.setState(JSON.parse(localStorage.getItem("preset")!));
 ```typescript
 class Metronome extends AudioProcessor {
   readonly bpm = this.param({ default: 120 });
-  readonly beatDuration = this["computed"](() => 60000 / this.bpm.value);
+  readonly beatDuration = this.computed(() => 60000 / this.bpm.value);
 
   constructor(ctx: AudioContext) {
     super(ctx);
 
     this.effect(() => {
-      console.log("Beat duration:", this.beatDuration.get(), "ms");
+      console.log("Beat duration:", this.beatDuration(), "ms");
     });
   }
 
@@ -360,17 +419,17 @@ vol.destroy(); // cleanup when done
 
 ### Lifecycle
 
-`AudioEngine` manages the top-level audio system lifecycle. The `AudioContext` is created eagerly at construction time (browser suspends it automatically via autoplay policy). The `setup()` method runs immediately, so all processors are wired and accessible from the start.
+`AudioEngine` manages the top-level audio system lifecycle. The `AudioContext` is created eagerly at construction time (browser suspends it automatically via autoplay policy). Processors are registered via `register()` and wired up in the `createEngine` setup callback.
 
 ```
-createEngine() / new Engine()  →  context created (suspended), setup() runs  →  'idle'
-start()                        →  context.resume() (needs user gesture)      →  'running'
-suspend()                      →  context.suspend()                          →  'suspended'
-resume()                       →  context.resume()                           →  'running'
-destroy()                      →  processors destroyed, context closed       →  'destroyed' (terminal)
+createEngine() / new Engine()  →  context created (suspended)               →  'idle'
+.core.start()                  →  context.resume() (needs user gesture)      →  'running'
+.core.suspend()                →  context.suspend()                          →  'suspended'
+.core.resume()                 →  context.resume()                           →  'running'
+.core.destroy()                →  processors destroyed, context closed       →  'destroyed' (terminal)
 ```
 
-Calling `start()` on a destroyed engine throws. Calling `suspend()`/`resume()` on a destroyed engine warns and no-ops.
+Calling `.core.start()` on a destroyed engine throws. Calling `.core.suspend()`/`.core.resume()` on a destroyed engine warns and no-ops.
 
 ### EngineState
 
@@ -378,14 +437,14 @@ Calling `start()` on a destroyed engine throws. Calling `suspend()`/`resume()` o
 type EngineState = "idle" | "running" | "suspended" | "destroyed";
 ```
 
-### AudioEngine (abstract)
+### AudioEngine
 
 ```typescript
-abstract class AudioEngine {
+class AudioEngine {
   constructor(existingContext?: AudioContext);
 
   get context(): AudioContext;
-  get state(): Signal<EngineState>;
+  get state(): SignalAccessor<EngineState>;
   untilReady(): Promise<void>; // resolves when state becomes 'running'
 
   start(): Promise<void>; // context.resume(), requires user gesture
@@ -393,20 +452,22 @@ abstract class AudioEngine {
   resume(): Promise<void>;
   destroy(): void; // terminal — cannot restart
 
-  protected abstract setup(context: AudioContext): void;
-  protected register<T extends AudioProcessor>(processor: T): T;
+  register<T extends AudioProcessor>(processor: T): T;
 }
 ```
 
 ### `createEngine(setup, options?)`
 
-Vue setup-style factory that replaces subclassing for the common case. Returns an `AudioEngine` with user-defined properties merged on, fully typed.
+Vue setup-style factory that replaces subclassing for the common case. User-defined properties are top-level; engine lifecycle is accessed via `.core`.
 
 ```typescript
-function createEngine<T extends Record<string, unknown>>(setup: (context: AudioContext) => T, options?: { context?: AudioContext }): AudioEngine & T;
+function createEngine<T extends Record<string, unknown>>(
+  setup: (context: AudioContext) => T,
+  options?: { context?: AudioContext },
+): T & { core: AudioEngine };
 ```
 
-Auto-registers all `AudioProcessor` instances from the returned object. Returning a key that collides with `AudioEngine` methods (`start`, `destroy`, `suspend`, `resume`, `state`, `context`, `untilReady`) is a compile-time type error and a runtime throw.
+Auto-registers all `AudioProcessor` instances from the returned object. Only one reserved key: `"core"` — using it in the returned object is a compile-time type error and a runtime throw.
 
 ```typescript
 const engine = createEngine((ctx) => {
@@ -418,7 +479,10 @@ const engine = createEngine((ctx) => {
 
 engine.synth; // Synth — fully typed, no ! assertion
 engine.sequencer; // Sequencer
-engine.start(); // resume AudioContext
+engine.core.start(); // resume AudioContext
+engine.core.state(); // EngineState
+engine.core.destroy(); // cleanup
+engine.core.context; // AudioContext
 ```
 
 ---
@@ -429,10 +493,11 @@ engine.start(); // resume AudioContext
 signals/src/
 ├── AudioEngine.ts       # engine lifecycle + createEngine factory
 ├── AudioProcessor.ts    # base class with param/computed/effect factories
+├── Cell.ts              # reactive container for structured data (Immer-based)
 ├── Param.ts             # reactive parameter wrapper
 ├── SchedulableParam.ts  # numeric param with Web Audio scheduling
 ├── ParamSync.ts         # per-context RAF sync loop
-├── types.ts             # ParamBind, ParamOptions, ProcessorState, EngineState
+├── types.ts             # SignalAccessor, ComputedAccessor, Readable, ParamBind, etc.
 └── index.ts             # public exports
 ```
 
@@ -440,14 +505,14 @@ signals/src/
 
 ```typescript
 // Classes
-export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine };
+export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell };
 
-// Factory
-export { createEngine };
+// Factories
+export { createEngine, cell };
 
 // Constants
 export { DEFAULT_SYNC_INTERVAL_MS };
 
 // Types
-export type { ParamBind, ParamOptions, ProcessorState, Computed, EngineState };
+export type { ParamBind, ParamOptions, ProcessorState, EngineState, Readable, SignalAccessor, ComputedAccessor };
 ```

@@ -16,9 +16,18 @@ The audio layer must be fully operable without any UI framework. React (or any f
 - Transport logic (start, stop, scheduling loops)
 - Any operation that touches `AudioContext.currentTime` or schedules values on `AudioParam`
 
+### Structured state (plain classes with `Cell`)
+
+- Step patterns, drum grids, sequence data
+- Presets, configuration objects
+- Any complex/nested state that doesn't own AudioNodes or do scheduling
+
+Classes that only hold structured state should **not** extend `AudioProcessor`. Use `Cell` instead.
+
 ### UI layer (React components, etc.)
 
 - Reading param values for display (`useValue(synth.volume)`)
+- Reading cell values for display (`useValue(sequencer.pattern)`)
 - Setting param values from user input (`synth.volume.value = 0.8`)
 - Calling audio-layer methods (`synth.filterSweep()`, `sequencer.rampBpm(180, 4)`)
 - Layout, styling, conditional rendering
@@ -66,6 +75,34 @@ const handleFilterSweep = useCallback(() => {
 ```
 
 Setting `.value` is a direct property assignment on the Param abstraction. It's the intended interface between UI and audio. No need to wrap these in setter methods.
+
+### Wrong — sequencer as AudioProcessor when it has no audio nodes
+
+```typescript
+class DrumSequencer extends AudioProcessor {
+  readonly pattern = this.param({ default: Array(16).fill(false) });
+
+  get output() {
+    return undefined; // no audio output — red flag
+  }
+}
+```
+
+### Right — plain class with Cell for structured state
+
+```typescript
+class DrumSequencer {
+  readonly pattern = cell<boolean[]>(Array(16).fill(false));
+
+  toggleStep(index: number) {
+    this.pattern.update((draft) => {
+      draft[index] = !draft[index];
+    });
+  }
+}
+```
+
+`AudioProcessor` is for things that actually process audio (own AudioNodes, use scheduling). If a class just holds data, it's a plain class with `Cell`.
 
 ## Why this matters
 

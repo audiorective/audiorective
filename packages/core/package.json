@@ -31,7 +31,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "alien-signals": "^0.2.0"
+    "alien-signals": "^3.1.2",
+    "immer": "^11.1.4"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",

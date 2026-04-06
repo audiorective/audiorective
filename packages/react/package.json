@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@audiorective/core": "workspace:*",
-    "alien-signals": "^0.2.0"
+    "alien-signals": "^3.1.2"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

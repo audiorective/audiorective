@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      bumpp:
+        specifier: ^10.3.1
+        version: 10.3.1
       lefthook:
         specifier: ^2.0.2
         version: 2.0.2
@@ -30,8 +33,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/react
       alien-signals:
-        specifier: ^0.2.0
-        version: 0.2.2
+        specifier: ^3.1.2
+        version: 3.1.2
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -58,8 +61,11 @@ importers:
   packages/core:
     dependencies:
       alien-signals:
-        specifier: ^0.2.0
-        version: 0.2.2
+        specifier: ^3.1.2
+        version: 3.1.2
+      immer:
+        specifier: ^11.1.4
+        version: 11.1.4
     devDependencies:
       '@types/node':
         specifier: ^24.9.1
@@ -70,9 +76,6 @@ importers:
       '@vitest/browser-playwright':
         specifier: ^4.0.18
         version: 4.0.18(playwright@1.58.2)(vite@6.4.1(@types/node@24.10.0)(jiti@2.6.1)(yaml@2.8.1))(vitest@4.0.18)
-      bumpp:
-        specifier: ^10.3.1
-        version: 10.3.1
       playwright:
         specifier: ^1.58.2
         version: 1.58.2
@@ -92,8 +95,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       alien-signals:
-        specifier: ^0.2.0
-        version: 0.2.2
+        specifier: ^3.1.2
+        version: 3.1.2
     devDependencies:
       '@testing-library/react':
         specifier: ^16.3.2
@@ -220,6 +223,10 @@ packages:
 
   '@babel/runtime@7.28.6':
     resolution: {integrity: sha512-05WQkdpL9COIMz4LjTxGpPNCdlpyimKppYNoJ5Di5EUObifl8t4tuLuUBBZEpoLYOmfvIWrsp9fCl0HoPRVTdA==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.29.2':
+    resolution: {integrity: sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.28.6':
@@ -883,8 +890,8 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
-  alien-signals@0.2.2:
-    resolution: {integrity: sha512-cZIRkbERILsBOXTQmMrxc9hgpxglstn69zm+F1ARf4aPAzdAFYd6sBq87ErO0Fj3DV94tglcyHG5kQz9nDC/8A==}
+  alien-signals@3.1.2:
+    resolution: {integrity: sha512-d9dYqZTS90WLiU0I5c6DHj/HcKkF8ZyGN3G5x8wSbslulz70KOxaqCT0hQCo9KOyhVqzqGojvNdJXoTumZOtcw==}
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -1103,6 +1110,9 @@ packages:
   https-proxy-agent@7.0.6:
     resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
     engines: {node: '>= 14'}
+
+  immer@11.1.4:
+    resolution: {integrity: sha512-XREFCPo6ksxVzP4E0ekD5aMdf8WMwmdNaz6vuvxgI40UaEiu6q3p8X52aU6GdyvLY3XXX/8R7JOTXStz/nBbRw==}
 
   is-potential-custom-element-name@1.0.1:
     resolution: {integrity: sha512-bCYeRA2rVibKZd+s2625gGnGF/t7DSqDs4dP7CrLA1m7jKWz6pps0LpYLJN8Q64HtmPKJ1hrN3nzPNKFEKOUiQ==}
@@ -1779,6 +1789,8 @@ snapshots:
 
   '@babel/runtime@7.28.6': {}
 
+  '@babel/runtime@7.29.2': {}
+
   '@babel/template@7.28.6':
     dependencies:
       '@babel/code-frame': 7.29.0
@@ -2124,7 +2136,7 @@ snapshots:
   '@testing-library/dom@10.4.1':
     dependencies:
       '@babel/code-frame': 7.29.0
-      '@babel/runtime': 7.28.6
+      '@babel/runtime': 7.29.2
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
       dom-accessibility-api: 0.5.16
@@ -2313,7 +2325,7 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  alien-signals@0.2.2: {}
+  alien-signals@3.1.2: {}
 
   ansi-regex@5.0.1: {}
 
@@ -2535,6 +2547,8 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  immer@11.1.4: {}
 
   is-potential-custom-element-name@1.0.1: {}
 
