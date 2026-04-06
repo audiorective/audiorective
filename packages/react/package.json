@@ -1,6 +1,6 @@
 {
   "name": "@audiorective/react",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "React hooks and context factories for @audiorective/core",
   "type": "module",
   "license": "MIT",
