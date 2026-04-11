@@ -36,9 +36,3 @@ export interface Readable<T> {
 }
 
 export type EngineState = "idle" | "running" | "suspended" | "destroyed";
-
-export interface ProcessorState {
-  version: number;
-  parameters: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}

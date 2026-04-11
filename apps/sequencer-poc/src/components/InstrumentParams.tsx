@@ -10,9 +10,9 @@ interface InstrumentParamsProps {
 }
 
 export function InstrumentParams({ synth, accentColor }: InstrumentParamsProps) {
-  const params = synth.getParams();
-  const waveformParam = params.get("waveform") as Param<Waveform> | undefined;
-  const sliders = [...params.entries()].filter(([key, p]) => key !== "waveform" && p.min !== undefined) as [string, Param<number>][];
+  const entries = Object.entries(synth.params) as [string, Param<unknown>][];
+  const waveformParam = (synth.params as Record<string, Param<unknown> | undefined>).waveform as Param<Waveform> | undefined;
+  const sliders = entries.filter(([key, p]) => key !== "waveform" && p.min !== undefined) as [string, Param<number>][];
 
   return (
     <>

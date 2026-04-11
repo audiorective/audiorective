@@ -79,8 +79,12 @@ Setting `.value` is a direct property assignment on the Param abstraction. It's 
 ### Wrong — sequencer as AudioProcessor when it has no audio nodes
 
 ```typescript
-class DrumSequencer extends AudioProcessor {
-  readonly pattern = this.param({ default: Array(16).fill(false) });
+class DrumSequencer extends AudioProcessor<{ pattern: Param<boolean[]> }> {
+  constructor(ctx: AudioContext) {
+    super(ctx, ({ param }) => ({
+      params: { pattern: param({ default: Array(16).fill(false) }) },
+    }));
+  }
 
   get output() {
     return undefined; // no audio output — red flag

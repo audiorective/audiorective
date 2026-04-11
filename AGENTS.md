@@ -25,8 +25,8 @@ Modular toolkit for web audio development. Independent, composable packages that
 Matches native Web Audio API. Wraps alien-signals internally:
 
 ```typescript
-synth.volume.value = 0.5; // set (calls signal internally)
-synth.volume.linearRampToValueAtTime(1, time); // schedule — same as native AudioParam
+synth.params.volume.value = 0.5; // set (calls signal internally)
+synth.params.volume.linearRampToValueAtTime(1, time); // schedule — same as native AudioParam
 ```
 
 ### Signal Exposure via `$`
@@ -34,23 +34,41 @@ synth.volume.linearRampToValueAtTime(1, time); // schedule — same as native Au
 Raw alien-signals function exposed for advanced/framework use:
 
 ```typescript
-synth.volume.value; // .value getter/setter (tracked by effects)
-synth.volume.$(); // raw signal read (also tracked)
-synth.volume.$(0.8); // raw signal write
+synth.params.volume.value; // .value getter/setter (tracked by effects)
+synth.params.volume.$(); // raw signal read (also tracked)
+synth.params.volume.$(0.8); // raw signal write
 ```
 
-### `param()` — Single Entry Point
+### Build helpers — `param`, `schedulableParam`, `cell`
 
-Always use `param()` to create parameters. It returns:
-
-- `Param<T>` for non-numeric types
-- `SchedulableParam` for numeric types (adds Web Audio scheduling methods)
+Subclasses pass a build callback to `super()` that returns the typed `params` (and optional `cells`) registry. The callback receives helpers that already know about the AudioContext and the processor's internal silencer:
 
 ```typescript
-bpm = this.param({ default: 120 }); // JS scheduling (~16ms)
-volume = this.param({ default: 0.5, bind: this.gain.gain }); // native scheduling (sample-accurate)
-waveform = this.param<OscType>({ default: "sine", bind: { get, set } }); // reactive sync to property
+class Synth extends AudioProcessor<{
+  bpm: Param<number>;
+  volume: SchedulableParam;
+  waveform: Param<OscType>;
+}> {
+  constructor(ctx: AudioContext) {
+    const gain = new GainNode(ctx);
+    const osc = new OscillatorNode(ctx);
+    super(ctx, ({ param }) => ({
+      params: {
+        bpm: param({ default: 120 }), // JS scheduling (~16ms)
+        volume: param({ default: 0.5, bind: gain.gain }), // native scheduling (sample-accurate)
+        waveform: param<OscType>({
+          // reactive sync to property
+          default: "sine",
+          bind: { get: () => osc.type, set: (v) => (osc.type = v) },
+        }),
+      },
+    }));
+  }
+  // ...
+}
 ```
+
+Audio nodes are constructed as **locals** before `super()` so the callback can close over them. Anything you also need on `this` (e.g. `this.osc` for `playNote`) gets assigned after `super()` returns.
 
 ## `bind` Rules
 
@@ -60,16 +78,16 @@ waveform = this.param<OscType>({ default: "sine", bind: { get, set } }); // reac
 | `AudioParam`   | Controls a Web Audio node param | `SchedulableParam` (native, sample-accurate) |
 | `{ get, set }` | Sync to non-AudioParam property | `Param<T>` with reactive effect              |
 
-`schedulable: true` (without bind) creates a `SchedulableParam` backed by a phantom ConstantSourceNode — useful when you want scheduling without a real AudioParam (e.g., BPM).
+The `schedulableParam` helper (without `bind`) creates a `SchedulableParam` backed by a phantom ConstantSourceNode — useful when you want scheduling without a real AudioParam (e.g., BPM).
 
 ## Scheduling Model
 
-|           | `bind: AudioParam`      | `schedulable: true`                               | No bind, no schedulable |
-| --------- | ----------------------- | ------------------------------------------------- | ----------------------- |
-| Type      | `SchedulableParam`      | `SchedulableParam`                                | `Param<T>`              |
-| Thread    | Audio                   | Audio (ConstantSourceNode)                        | Main                    |
-| Precision | Sample-accurate         | Sample-accurate                                   | Immediate               |
-| Use for   | Gain, frequency, filter | BPM, intensity — anything needing scheduled ramps | Flags, arrays, strings  |
+|           | `param({ bind: audioParam })` | `schedulableParam({})` (no bind)                  | `param({})` (no bind)  |
+| --------- | ----------------------------- | ------------------------------------------------- | ---------------------- |
+| Type      | `SchedulableParam`            | `SchedulableParam`                                | `Param<T>`             |
+| Thread    | Audio                         | Audio (ConstantSourceNode)                        | Main                   |
+| Precision | Sample-accurate               | Sample-accurate                                   | Immediate              |
+| Use for   | Gain, frequency, filter       | BPM, intensity — anything needing scheduled ramps | Flags, arrays, strings |
 
 **AudioParam sync strategy:** For native-backed params, scheduling methods delegate to the real AudioParam. A rAF poll reads `AudioParam.value` back into the signal so UI stays reactive during automations.
 
@@ -87,11 +105,13 @@ waveform = this.param<OscType>({ default: "sine", bind: { get, set } }); // reac
 
 ## AudioProcessor Base Class
 
-All processors extend `AudioProcessor`:
+All processors extend `AudioProcessor<P, C>` with explicit registry generics:
 
-- Must implement `get output(): AudioNode`
-- Optional `get input(): AudioNode` for effects
-- Has `param()`, `computed()`, `effect()`, `getState()`, `setState()`, `destroy()`
+- Must implement `get output(): AudioNode | undefined`
+- Constructor passes a build callback to `super()` that returns `{ params, cells? }`
+- Exposes typed `processor.params` (frozen) and `processor.cells` (frozen) registries
+- Instance methods `computed()` and `effect()` for derived values declared after `super()`
+- `destroy()` cleans up effects, params, and ConstantSources
 
 ## Package Dependencies
 

@@ -1,9 +1,10 @@
 import { describe, test, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { Param } from "@audiorective/core";
-import { useValue, useParam } from "../src/hooks";
+import { computed as alienComputed } from "alien-signals";
+import { Param, Cell } from "@audiorective/core";
+import { useValue } from "../src/hooks";
 
-describe("useValue", () => {
+describe("useValue with Readable (Param)", () => {
   test("returns initial param value", () => {
     const p = new Param({ default: 42 });
     const { result } = renderHook(() => useValue(p));
@@ -38,51 +39,54 @@ describe("useValue", () => {
 
     expect(result.current).toBe(3);
   });
-});
 
-describe("useParam", () => {
-  test("returns [value, setter] tuple", () => {
-    const p = new Param({ default: 42 });
-    const { result } = renderHook(() => useParam(p));
-    const [value, setValue] = result.current;
-    expect(value).toBe(42);
-    expect(typeof setValue).toBe("function");
-  });
-
-  test("setter updates the param value", () => {
+  test("direct mutation via param.value is the canonical write path", () => {
     const p = new Param({ default: 0 });
-    const { result } = renderHook(() => useParam(p));
+    const { result } = renderHook(() => useValue(p));
 
     act(() => {
-      result.current[1](99);
+      p.value = 99;
     });
 
-    expect(result.current[0]).toBe(99);
+    expect(result.current).toBe(99);
     expect(p.value).toBe(99);
   });
+});
 
-  test("re-renders when param changes externally", () => {
-    const p = new Param({ default: "hello" });
-    const { result } = renderHook(() => useParam(p));
+describe("useValue with Readable (Cell)", () => {
+  test("tracks Cell value changes", () => {
+    const c = new Cell({ count: 0 });
+    const { result } = renderHook(() => useValue(c));
+    expect(result.current).toEqual({ count: 0 });
 
     act(() => {
-      p.value = "world";
+      c.update((draft) => {
+        draft.count = 5;
+      });
     });
 
-    expect(result.current[0]).toBe("world");
+    expect(result.current).toEqual({ count: 5 });
+  });
+});
+
+describe("useValue with ComputedAccessor", () => {
+  test("returns initial computed value", () => {
+    const p = new Param({ default: 10 });
+    const doubled = alienComputed(() => p.value * 2);
+    const { result } = renderHook(() => useValue(doubled));
+    expect(result.current).toBe(20);
   });
 
-  test("setter reference is stable across renders", () => {
-    const p = new Param({ default: 0 });
-    const { result, rerender } = renderHook(() => useParam(p));
-    const setter1 = result.current[1];
+  test("re-renders when underlying signal changes", () => {
+    const p = new Param({ default: 10 });
+    const doubled = alienComputed(() => p.value * 2);
+    const { result } = renderHook(() => useValue(doubled));
+    expect(result.current).toBe(20);
 
     act(() => {
-      result.current[1](1);
+      p.value = 25;
     });
 
-    rerender();
-    const setter2 = result.current[1];
-    expect(setter1).toBe(setter2);
+    expect(result.current).toBe(50);
   });
 });

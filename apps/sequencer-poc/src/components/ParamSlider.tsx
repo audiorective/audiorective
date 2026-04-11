@@ -1,4 +1,4 @@
-import { useParam } from "@audiorective/react";
+import { useValue } from "@audiorective/react";
 import type { Param } from "@audiorective/core";
 
 interface ParamSliderProps {
@@ -7,7 +7,7 @@ interface ParamSliderProps {
 }
 
 export function ParamSlider({ param, accentColor = "#2563eb" }: ParamSliderProps) {
-  const [value, setValue] = useParam(param);
+  const value = useValue(param);
   const displayValue = param.display ? param.display(value) : value.toFixed(2);
 
   return (
@@ -19,7 +19,9 @@ export function ParamSlider({ param, accentColor = "#2563eb" }: ParamSliderProps
         max={param.max}
         step={param.step ?? 0.01}
         value={value}
-        onChange={(e) => setValue(Number(e.target.value))}
+        onChange={(e) => {
+          param.value = Number(e.target.value);
+        }}
         style={{ ...styles.slider, accentColor }}
       />
       <span style={styles.value}>{displayValue}</span>

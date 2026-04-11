@@ -1,23 +1,27 @@
-import { AudioProcessor } from "@audiorective/core";
+import { AudioProcessor, Param } from "@audiorective/core";
 import { createNoiseBuffer } from "./noiseBuffer";
 
-export class HihatSynth extends AudioProcessor {
+export class HihatSynth extends AudioProcessor<{
+  volume: Param<number>;
+  decay: Param<number>;
+  tone: Param<number>;
+}> {
   private readonly noiseBuffer: AudioBuffer;
   private readonly masterGain: GainNode;
 
-  readonly volume;
-  readonly decay;
-  readonly tone;
-
   constructor(context: AudioContext) {
-    super(context);
+    const masterGain = context.createGain();
 
-    this.masterGain = context.createGain();
+    super(context, (helpers) => ({
+      params: {
+        volume: helpers.param({ default: 0.6, label: "Volume", min: 0, max: 1 }),
+        decay: helpers.param({ default: 0.05, label: "Decay", min: 0.02, max: 0.6, step: 0.005, display: (v) => `${(v * 1000).toFixed(0)} ms` }),
+        tone: helpers.param({ default: 0.5, label: "Tone", min: 0, max: 1 }), // HPF cutoff 4k–18k Hz
+      },
+    }));
+
+    this.masterGain = masterGain;
     this.noiseBuffer = createNoiseBuffer(context, 0.6);
-
-    this.volume = this.param({ default: 0.6, label: "Volume", min: 0, max: 1 });
-    this.decay = this.param({ default: 0.05, label: "Decay", min: 0.02, max: 0.6, step: 0.005, display: (v) => `${(v * 1000).toFixed(0)} ms` });
-    this.tone = this.param({ default: 0.5, label: "Tone", min: 0, max: 1 }); // HPF cutoff 4k–18k Hz
   }
 
   get output(): AudioNode {
@@ -25,9 +29,9 @@ export class HihatSynth extends AudioProcessor {
   }
 
   play(time: number): void {
-    const vol = this.volume.value;
-    const decay = this.decay.value;
-    const toneVal = this.tone.value;
+    const vol = this.params.volume.value;
+    const decay = this.params.decay.value;
+    const toneVal = this.params.tone.value;
 
     // HPF cutoff: 0 → 4000 Hz, 1 → 18000 Hz
     const hpfFreq = 4000 + toneVal * 14000;

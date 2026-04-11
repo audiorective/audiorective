@@ -1,39 +1,44 @@
-import { AudioProcessor } from "@audiorective/core";
+import { AudioProcessor, Param } from "@audiorective/core";
 import { createNoiseBuffer } from "./noiseBuffer";
 
-export class SnareSynth extends AudioProcessor {
+export class SnareSynth extends AudioProcessor<{
+  volume: Param<number>;
+  pitch: Param<number>;
+  decay: Param<number>;
+  snap: Param<number>;
+  noiseMix: Param<number>;
+}> {
   private readonly osc: OscillatorNode;
   private readonly oscGain: GainNode;
   private readonly masterGain: GainNode;
   private readonly noiseBuffer: AudioBuffer;
 
-  readonly volume;
-  readonly pitch;
-  readonly decay;
-  readonly snap;
-  readonly noiseMix;
-
   constructor(context: AudioContext) {
-    super(context);
+    const osc = context.createOscillator();
+    const oscGain = context.createGain();
+    const masterGain = context.createGain();
 
-    this.osc = context.createOscillator();
-    this.oscGain = context.createGain();
-    this.masterGain = context.createGain();
+    osc.type = "triangle";
+    oscGain.gain.value = 0;
 
-    this.osc.type = "triangle";
-    this.oscGain.gain.value = 0;
+    osc.connect(oscGain);
+    oscGain.connect(masterGain);
+    osc.start();
 
-    this.osc.connect(this.oscGain);
-    this.oscGain.connect(this.masterGain);
-    this.osc.start();
+    super(context, ({ param }) => ({
+      params: {
+        volume: param({ default: 0.7, label: "Volume", min: 0, max: 1 }),
+        pitch: param({ default: 200, label: "Pitch", min: 100, max: 400, step: 1, display: (v) => `${Math.round(v)} Hz` }),
+        decay: param({ default: 0.12, label: "Decay", min: 0.05, max: 0.3, step: 0.005, display: (v) => `${(v * 1000).toFixed(0)} ms` }),
+        snap: param({ default: 0.6, label: "Snap", min: 0, max: 1 }),
+        noiseMix: param({ default: 0.7, label: "Noise Mix", min: 0, max: 1 }),
+      },
+    }));
 
+    this.osc = osc;
+    this.oscGain = oscGain;
+    this.masterGain = masterGain;
     this.noiseBuffer = createNoiseBuffer(context, 0.5);
-
-    this.volume = this.param({ default: 0.7, label: "Volume", min: 0, max: 1 });
-    this.pitch = this.param({ default: 200, label: "Pitch", min: 100, max: 400, step: 1, display: (v) => `${Math.round(v)} Hz` });
-    this.decay = this.param({ default: 0.12, label: "Decay", min: 0.05, max: 0.3, step: 0.005, display: (v) => `${(v * 1000).toFixed(0)} ms` });
-    this.snap = this.param({ default: 0.6, label: "Snap", min: 0, max: 1 });
-    this.noiseMix = this.param({ default: 0.7, label: "Noise Mix", min: 0, max: 1 });
   }
 
   get output(): AudioNode {
@@ -41,11 +46,11 @@ export class SnareSynth extends AudioProcessor {
   }
 
   play(time: number): void {
-    const vol = this.volume.value;
-    const pitch = this.pitch.value;
-    const decay = this.decay.value;
-    const snap = this.snap.value;
-    const noiseMixAmt = this.noiseMix.value;
+    const vol = this.params.volume.value;
+    const pitch = this.params.pitch.value;
+    const decay = this.params.decay.value;
+    const snap = this.params.snap.value;
+    const noiseMixAmt = this.params.noiseMix.value;
 
     // Tone oscillator envelope
     this.osc.frequency.setValueAtTime(pitch, time);

@@ -338,12 +338,17 @@ describe("ParamSync", () => {
 });
 
 describe("AudioProcessor", () => {
-  class TestProcessor extends AudioProcessor {
-    readonly vol = this.param({ default: 0.5 });
-    readonly name = this.param({ default: "test" });
-
+  class TestProcessor extends AudioProcessor<{
+    vol: Param<number>;
+    name: Param<string>;
+  }> {
     constructor() {
-      super(ctx);
+      super(ctx, ({ param }) => ({
+        params: {
+          vol: param<number>({ default: 0.5 }),
+          name: param<string>({ default: "test" }),
+        },
+      }));
     }
 
     get output(): AudioNode {
@@ -351,52 +356,43 @@ describe("AudioProcessor", () => {
     }
   }
 
-  test("auto-detects param names via getState", () => {
+  test("params registry exposes typed params", () => {
     const p = new TestProcessor();
-    const state = p.getState();
-    expect(state.version).toBe(1);
-    expect(state.parameters).toEqual({ vol: 0.5, name: "test" });
+    expect(p.params.vol.value).toBe(0.5);
+    expect(p.params.name.value).toBe("test");
   });
 
-  test("setState restores param values", () => {
+  test("params registry is frozen", () => {
     const p = new TestProcessor();
-    p.setState({ version: 1, parameters: { vol: 0.8, name: "updated" } });
-    expect(p.vol.value).toBe(0.8);
-    expect(p.name.value).toBe("updated");
-  });
-
-  test("getParameter returns param by name", () => {
-    const p = new TestProcessor();
-    const vol = p.getParameter("vol");
-    expect(vol).toBe(p.vol);
-    expect(p.getParameter("nonexistent")).toBeUndefined();
+    expect(Object.isFrozen(p.params)).toBe(true);
   });
 
   test("effect cleanup on destroy", () => {
     const p = new TestProcessor();
     let runCount = 0;
     p["effect"](() => {
-      p.vol.$();
+      p.params.vol.$();
       runCount++;
     });
     expect(runCount).toBe(1);
-    p.vol.value = 0.9;
+    p.params.vol.value = 0.9;
     expect(runCount).toBe(2);
     p.destroy();
-    p.vol.value = 0.1;
+    p.params.vol.value = 0.1;
     expect(runCount).toBe(2);
   });
 
-  test("bind function resolves to SchedulableParam", () => {
-    class BindProcessor extends AudioProcessor {
-      readonly _gain = gain;
-      readonly vol = this.param({
-        default: 0.5,
-        bind: gain.gain,
-      });
-
+  test("bind to AudioParam resolves to SchedulableParam", () => {
+    class BindProcessor extends AudioProcessor<{ vol: SchedulableParam }> {
+      private readonly _gain: GainNode;
       constructor() {
-        super(ctx);
+        const g = gain;
+        super(ctx, ({ param }) => ({
+          params: {
+            vol: param({ default: 0.5, bind: g.gain }),
+          },
+        }));
+        this._gain = g;
       }
 
       get output(): AudioNode {
@@ -405,21 +401,21 @@ describe("AudioProcessor", () => {
     }
 
     const p = new BindProcessor();
-    expect(p.vol).toBeInstanceOf(SchedulableParam);
-    p.vol.value = 0.7;
+    expect(p.params.vol).toBeInstanceOf(SchedulableParam);
+    p.params.vol.value = 0.7;
     expect(gain.gain.value).toBeCloseTo(0.7, 5);
     p.destroy();
   });
 
-  test("bind function supports scheduling", async () => {
-    class AudioParamProcessor extends AudioProcessor {
-      readonly vol = this.param({
-        default: 0.5,
-        bind: gain.gain,
-      });
-
+  test("bind to AudioParam supports scheduling", async () => {
+    class AudioParamProcessor extends AudioProcessor<{ vol: SchedulableParam }> {
       constructor() {
-        super(ctx);
+        const g = gain;
+        super(ctx, ({ param }) => ({
+          params: {
+            vol: param({ default: 0.5, bind: g.gain }),
+          },
+        }));
       }
 
       get output(): AudioNode {
@@ -428,28 +424,30 @@ describe("AudioProcessor", () => {
     }
 
     const p = new AudioParamProcessor();
-    expect(p.vol).toBeInstanceOf(SchedulableParam);
+    expect(p.params.vol).toBeInstanceOf(SchedulableParam);
     const startTime = ctx.currentTime;
-    p.vol.setValueAtTime(0.3, startTime + 0.01);
+    p.params.vol.setValueAtTime(0.3, startTime + 0.01);
     await waitUntil(startTime + 0.02);
-    expect(p.vol.read()).toBeCloseTo(0.3, 5);
+    expect(p.params.vol.read()).toBeCloseTo(0.3, 5);
     p.destroy();
   });
 
   test("bind object creates Param with reactive sync", () => {
     let external = "";
-    class BindObjProcessor extends AudioProcessor {
-      readonly waveform = this.param<string>({
-        default: "sine",
-        bind: {
-          set: (v) => {
-            external = v;
-          },
-        },
-      });
-
+    class BindObjProcessor extends AudioProcessor<{ waveform: Param<string> }> {
       constructor() {
-        super(ctx);
+        super(ctx, ({ param }) => ({
+          params: {
+            waveform: param<string>({
+              default: "sine",
+              bind: {
+                set: (v) => {
+                  external = v;
+                },
+              },
+            }),
+          },
+        }));
       }
 
       get output(): AudioNode | undefined {
@@ -458,22 +456,24 @@ describe("AudioProcessor", () => {
     }
 
     const p = new BindObjProcessor();
-    expect(p.waveform).toBeInstanceOf(Param);
-    expect(p.waveform).not.toBeInstanceOf(SchedulableParam);
+    expect(p.params.waveform).toBeInstanceOf(Param);
+    expect(p.params.waveform).not.toBeInstanceOf(SchedulableParam);
     expect(external).toBe("sine");
-    p.waveform.value = "sawtooth";
+    p.params.waveform.value = "sawtooth";
     expect(external).toBe("sawtooth");
     p.destroy();
-    p.waveform.value = "square";
+    p.params.waveform.value = "square";
     expect(external).toBe("sawtooth");
   });
 
-  test("param({ schedulable: true }) creates SchedulableParam via ConstantSourceNode", () => {
-    class CSNProcessor extends AudioProcessor {
-      readonly intensity = this.param({ default: 440, schedulable: true as const });
-
+  test("schedulableParam() without bind creates SchedulableParam via ConstantSourceNode", () => {
+    class CSNProcessor extends AudioProcessor<{ intensity: SchedulableParam }> {
       constructor() {
-        super(ctx);
+        super(ctx, ({ schedulableParam }) => ({
+          params: {
+            intensity: schedulableParam({ default: 440 }),
+          },
+        }));
       }
 
       get output(): AudioNode | undefined {
@@ -482,18 +482,20 @@ describe("AudioProcessor", () => {
     }
 
     const p = new CSNProcessor();
-    expect(p.intensity).toBeInstanceOf(SchedulableParam);
-    p.intensity.value = 880;
-    expect(p.intensity.value).toBe(880);
+    expect(p.params.intensity).toBeInstanceOf(SchedulableParam);
+    p.params.intensity.value = 880;
+    expect(p.params.intensity.value).toBe(880);
     p.destroy();
   });
 
-  test("param({ schedulable: true }) scheduling evaluates on ConstantSourceNode", async () => {
-    class CSNProcessor extends AudioProcessor {
-      readonly intensity = this.param({ default: 0, schedulable: true as const });
-
+  test("schedulableParam() scheduling evaluates on ConstantSourceNode", async () => {
+    class CSNProcessor extends AudioProcessor<{ intensity: SchedulableParam }> {
       constructor() {
-        super(ctx);
+        super(ctx, ({ schedulableParam }) => ({
+          params: {
+            intensity: schedulableParam({ default: 0 }),
+          },
+        }));
       }
 
       get output(): AudioNode | undefined {
@@ -503,22 +505,24 @@ describe("AudioProcessor", () => {
 
     const p = new CSNProcessor();
     const startTime = ctx.currentTime;
-    p.intensity.setValueAtTime(880, startTime + 0.05);
+    p.params.intensity.setValueAtTime(880, startTime + 0.05);
 
-    expect(p.intensity.read()).toBeCloseTo(0, 0);
+    expect(p.params.intensity.read()).toBeCloseTo(0, 0);
 
     await waitUntil(startTime + 0.06);
-    expect(p.intensity.read()).toBeCloseTo(880, 0);
+    expect(p.params.intensity.read()).toBeCloseTo(880, 0);
     p.destroy();
   });
 
   test("computed() derives from params reactively", () => {
-    class ComputedProcessor extends AudioProcessor {
-      readonly bpm = this.param({ default: 120 });
-      readonly beatDuration = this["computed"](() => 60000 / this.bpm.value);
+    class ComputedProcessor extends AudioProcessor<{ bpm: Param<number> }> {
+      readonly beatDuration: () => number;
 
       constructor() {
-        super(ctx);
+        super(ctx, ({ param }) => ({
+          params: { bpm: param({ default: 120 }) },
+        }));
+        this.beatDuration = this["computed"](() => 60000 / this.params.bpm.value);
       }
 
       get output(): AudioNode | undefined {
@@ -528,18 +532,23 @@ describe("AudioProcessor", () => {
 
     const p = new ComputedProcessor();
     expect(p.beatDuration()).toBe(500);
-    p.bpm.value = 240;
+    p.params.bpm.value = 240;
     expect(p.beatDuration()).toBe(250);
     p.destroy();
   });
 
   test("destroy() cleans up effects, SchedulableParams, and ConstantSources", () => {
-    class FullProcessor extends AudioProcessor {
-      readonly vol = this.param({ default: 0.5, schedulable: true as const });
-      readonly name = this.param({ default: "test" });
-
+    class FullProcessor extends AudioProcessor<{
+      vol: SchedulableParam;
+      name: Param<string>;
+    }> {
       constructor() {
-        super(ctx);
+        super(ctx, ({ param, schedulableParam }) => ({
+          params: {
+            vol: schedulableParam({ default: 0.5 }),
+            name: param<string>({ default: "test" }),
+          },
+        }));
       }
 
       get output(): AudioNode | undefined {
@@ -555,7 +564,7 @@ describe("AudioProcessor", () => {
 
     let effectRuns = 0;
     p["effect"](() => {
-      p.vol.$();
+      p.params.vol.$();
       effectRuns++;
     });
     expect(effectRuns).toBe(1);
@@ -563,24 +572,26 @@ describe("AudioProcessor", () => {
     p.destroy();
 
     expect(sync.size).toBe(sizeBefore);
-    p.vol.value = 999;
+    p.params.vol.value = 999;
     expect(effectRuns).toBe(1);
   });
 
   test("destroy() cleans up bind effects on all params", () => {
     let external = "";
-    class BindCleanupProcessor extends AudioProcessor {
-      readonly waveform = this.param<string>({
-        default: "sine",
-        bind: {
-          set: (v) => {
-            external = v;
-          },
-        },
-      });
-
+    class BindCleanupProcessor extends AudioProcessor<{ waveform: Param<string> }> {
       constructor() {
-        super(ctx);
+        super(ctx, ({ param }) => ({
+          params: {
+            waveform: param<string>({
+              default: "sine",
+              bind: {
+                set: (v) => {
+                  external = v;
+                },
+              },
+            }),
+          },
+        }));
       }
 
       get output(): AudioNode | undefined {
@@ -590,17 +601,28 @@ describe("AudioProcessor", () => {
 
     const p = new BindCleanupProcessor();
     expect(external).toBe("sine");
-    p.waveform.value = "sawtooth";
+    p.params.waveform.value = "sawtooth";
     expect(external).toBe("sawtooth");
     p.destroy();
-    p.waveform.value = "triangle";
+    p.params.waveform.value = "triangle";
     expect(external).toBe("sawtooth");
   });
 
-  test("setState ignores unknown keys gracefully", () => {
-    const p = new TestProcessor();
-    p.setState({ version: 1, parameters: { vol: 0.8, name: "updated", nonexistent: 42 } });
-    expect(p.vol.value).toBe(0.8);
-    expect(p.name.value).toBe("updated");
+  test("cells registry exposes typed cells", () => {
+    class CellProcessor extends AudioProcessor<Record<string, never>, { steps: import("../src").Cell<number[]> }> {
+      constructor() {
+        super(ctx, ({ cell }) => ({
+          cells: { steps: cell<number[]>([1, 2, 3]) },
+        }));
+      }
+      get output(): AudioNode | undefined {
+        return undefined;
+      }
+    }
+
+    const p = new CellProcessor();
+    expect(p.cells.steps.value).toEqual([1, 2, 3]);
+    expect(Object.isFrozen(p.cells)).toBe(true);
+    p.destroy();
   });
 });

@@ -1,11 +1,11 @@
 import { describe, test, expect, vi } from "vitest";
-import { AudioProcessor, AudioEngine, createEngine } from "../src";
+import { AudioProcessor, AudioEngine, createEngine, type Param } from "../src";
 
-class TestProcessor extends AudioProcessor {
-  readonly vol = this.param({ default: 0.5 });
-
+class TestProcessor extends AudioProcessor<{ vol: Param<number> }> {
   constructor(ctx: AudioContext) {
-    super(ctx);
+    super(ctx, ({ param }) => ({
+      params: { vol: param<number>({ default: 0.5 }) },
+    }));
   }
 
   get output(): AudioNode | undefined {

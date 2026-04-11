@@ -28,35 +28,44 @@ react/src/
 
 ## Hooks
 
-### `useValue(source: Readable<T>)`
+### `useValue(source)`
 
-Subscribe to any `Readable<T>` (both `Param` and `Cell`). Re-renders when the value changes.
+Subscribe to a reactive source. Accepts either:
 
-```typescript
-const volume = useValue(synth.volume); // Param — number
-const pattern = useValue(sequencer.pattern); // Cell — StepPattern
-```
+- A `Readable<T>` — `Param`, `SchedulableParam`, or `Cell`
+- A `ComputedAccessor<T>` — a callable `() => T` produced by `alien-signals` `computed` or `this.computed(...)` inside an `AudioProcessor`
 
-### `useComputed(computed: ComputedAccessor<T>)`
-
-Subscribe to a computed value. The computed is a callable (`() => T`).
+Re-renders when the value changes. Always returns a read-only snapshot — to mutate, write to the source directly (`param.value = x`, `cell.update(...)`). Computeds have no setter on the source, so they are read-only by construction.
 
 ```typescript
-const label = useComputed(synth.displayLabel); // re-renders on change
+// Param
+const volume = useValue(synth.volume);
+
+// Cell
+const pattern = useValue(sequencer.pattern); // Cell<StepPattern>
+
+// Computed
+const label = useValue(synth.displayLabel); // ComputedAccessor<string>
 ```
 
-### `useParam(param)`
-
-Returns a `[value, setValue]` tuple. Combines `useValue` with a stable setter callback, so the setter can be passed directly as an `onChange` handler without inline arrows.
+#### Writing back — direct mutation
 
 ```typescript
-const [volume, setVolume] = useParam(synth.volume);
-
-<input value={volume} onChange={e => setVolume(+e.target.value)} />
-<ParamSlider value={volume} onChange={setVolume} />
+function VolumeSlider({ synth }) {
+  const volume = useValue(synth.volume);
+  return (
+    <input
+      type="range"
+      value={volume}
+      onChange={(e) => {
+        synth.volume.value = +e.target.value;
+      }}
+    />
+  );
+}
 ```
 
-### `useValue` with Cell (step sequencer example)
+#### Cell example
 
 ```typescript
 function StepGrid() {
@@ -97,8 +106,15 @@ const {
 
 function VolumeControl() {
   const synth = useSynth();
-  const [volume, setVolume] = useParam(synth.volume);
-  return <input value={volume} onChange={e => setVolume(+e.target.value)} />;
+  const volume = useValue(synth.volume);
+  return (
+    <input
+      value={volume}
+      onChange={(e) => {
+        synth.volume.value = +e.target.value;
+      }}
+    />
+  );
 }
 ```
 
@@ -148,7 +164,14 @@ function App() {
 // Components access the typed engine via context — no prop drilling.
 function SynthUI() {
   const { synth } = useEngine();
-  const [volume, setVolume] = useParam(synth.volume);
-  return <input value={volume} onChange={e => setVolume(+e.target.value)} />;
+  const volume = useValue(synth.volume);
+  return (
+    <input
+      value={volume}
+      onChange={(e) => {
+        synth.volume.value = +e.target.value;
+      }}
+    />
+  );
 }
 ```

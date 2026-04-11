@@ -1,70 +1,95 @@
 import { computed as alienComputed, effect as alienEffect } from "alien-signals";
-import type { ParamBind, ParamOptions, ProcessorState, ComputedAccessor } from "./types";
+import type { ParamBind, ParamOptions, ComputedAccessor } from "./types";
 import { Param } from "./Param";
 import { SchedulableParam } from "./SchedulableParam";
+import { Cell } from "./Cell";
 
-type ParamFactoryOptions<T> = ParamOptions<T> & {
-  schedulable?: boolean;
-  syncInterval?: number;
-  bind?: ParamBind<T> | AudioParam;
-};
+// Registry constraints use `any` rather than `unknown` because Param<T>/Cell<T> have
+// T in both reader and writer position, making them invariant in T. Subclasses still
+// get exact per-key types; the constraint only describes "an object of params/cells".
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ParamRegistry = Record<string, Param<any>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type CellRegistry = Record<string, Cell<any>>;
 
-export abstract class AudioProcessor {
+export interface BuildHelpers {
+  param<T extends number>(options: Omit<ParamOptions<T>, "bind"> & { bind: AudioParam }): SchedulableParam;
+  param<T>(options: ParamOptions<T> & { bind: ParamBind<T> }): Param<T>;
+  param<T>(options: ParamOptions<T>): Param<T>;
+  schedulableParam(options: Omit<ParamOptions<number>, "bind"> & { bind?: AudioParam }): SchedulableParam;
+  cell<T>(initial: T): Cell<T>;
+}
+
+type Undeclared<Msg extends string> = { [K in Msg]: never };
+export type BuildResult<P extends ParamRegistry, C extends CellRegistry> = (string extends keyof P
+  ? { params?: Undeclared<"Error: params not declared — add a P type parameter to AudioProcessor"> }
+  : { params: P }) &
+  (string extends keyof C ? { cells?: Undeclared<"Error: cells not declared — add a C type parameter to AudioProcessor"> } : { cells: C });
+
+export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C extends CellRegistry = CellRegistry> {
   readonly context: AudioContext;
-  private _effects: (() => void)[] = [];
+  readonly params: Readonly<P>;
+  readonly cells: Readonly<C>;
+
   private readonly _silencer: GainNode;
   private _constantSources = new Set<ConstantSourceNode>();
+  private _effects: (() => void)[] = [];
 
-  protected constructor(context: AudioContext) {
+  protected constructor(context: AudioContext, build: (helpers: BuildHelpers) => BuildResult<P, C>) {
     this.context = context;
 
     this._silencer = new GainNode(context);
     this._silencer.gain.value = 0;
     this._silencer.connect(context.destination);
+
+    const helpers: BuildHelpers = {
+      param: (<T>(options: ParamOptions<T> & { bind?: ParamBind<T> | AudioParam }): Param<T> | SchedulableParam => {
+        const { bind } = options;
+        if (bind instanceof AudioParam) {
+          return new SchedulableParam({
+            default: options.default as number,
+            audioContext: context,
+            audioParam: bind,
+            label: options.label,
+            min: options.min,
+            max: options.max,
+            step: options.step,
+            display: options.display as ((value: number) => string) | undefined,
+          });
+        }
+        return new Param<T>(options as ParamOptions<T>);
+      }) as BuildHelpers["param"],
+
+      schedulableParam: (options) => {
+        const { bind, ...rest } = options;
+        if (bind) {
+          return new SchedulableParam({
+            ...rest,
+            audioContext: context,
+            audioParam: bind,
+          });
+        }
+        // Unbound: create our own ConstantSourceNode kept alive by piping into the silencer.
+        const cs = context.createConstantSource();
+        cs.connect(this._silencer);
+        cs.start();
+        this._constantSources.add(cs);
+        return new SchedulableParam({
+          ...rest,
+          audioContext: context,
+          audioParam: cs.offset,
+        });
+      },
+
+      cell: <T>(initial: T) => new Cell<T>(initial),
+    };
+
+    const result = build(helpers);
+    this.params = Object.freeze("params" in result ? result.params : {}) as Readonly<P>;
+    this.cells = Object.freeze("cells" in result ? result.cells : {}) as Readonly<C>;
   }
 
   abstract get output(): AudioNode | undefined;
-
-  protected param<T extends number>(options: Omit<ParamOptions<T>, "bind"> & { bind: AudioParam }): SchedulableParam;
-  protected param<T extends number>(options: ParamOptions<T> & { schedulable: true }): SchedulableParam;
-  protected param<T>(options: ParamOptions<T> & { bind: ParamBind<T> }): Param<T>;
-  protected param<T>(options: ParamOptions<T>): Param<T>;
-  protected param<T>(options: ParamFactoryOptions<T>): Param<T> | SchedulableParam {
-    const { bind } = options;
-
-    if (bind instanceof AudioParam) {
-      return new SchedulableParam({
-        default: options.default as number,
-        audioContext: this.context,
-        audioParam: bind,
-        label: options.label,
-        min: options.min,
-        max: options.max,
-        step: options.step,
-        display: options.display as ((value: number) => string) | undefined,
-      });
-    }
-
-    if (options.schedulable) {
-      const constantSource = this.context.createConstantSource();
-      constantSource.connect(this._silencer);
-      constantSource.start();
-      this._constantSources.add(constantSource);
-
-      return new SchedulableParam({
-        default: options.default as number,
-        audioContext: this.context,
-        audioParam: constantSource.offset,
-        label: options.label,
-        min: options.min,
-        max: options.max,
-        step: options.step,
-        display: options.display as ((value: number) => string) | undefined,
-      });
-    }
-
-    return new Param(options);
-  }
 
   protected computed<T>(fn: () => T): ComputedAccessor<T> {
     return alienComputed(fn);
@@ -76,50 +101,13 @@ export abstract class AudioProcessor {
     return stop;
   }
 
-  getParams(): Map<string, Param<unknown>> {
-    return this._discoverParams();
-  }
-
-  private _discoverParams(): Map<string, Param<unknown>> {
-    const params = new Map<string, Param<unknown>>();
-    for (const key of Object.keys(this)) {
-      const val = (this as Record<string, unknown>)[key];
-      if (val instanceof Param) {
-        params.set(key, val);
-      }
-    }
-    return params;
-  }
-
-  getParameter(name: string): Param<unknown> | undefined {
-    return this._discoverParams().get(name);
-  }
-
-  getState(): ProcessorState {
-    const parameters: Record<string, unknown> = {};
-    for (const [key, param] of this._discoverParams()) {
-      parameters[key] = param.value;
-    }
-    return { version: 1, parameters };
-  }
-
-  setState(state: ProcessorState): void {
-    const params = this._discoverParams();
-    for (const [key, value] of Object.entries(state.parameters)) {
-      const param = params.get(key);
-      if (param) {
-        param.value = value;
-      }
-    }
-  }
-
   destroy(): void {
     for (const stop of this._effects) {
       stop();
     }
     this._effects = [];
 
-    for (const [, param] of this._discoverParams()) {
+    for (const param of Object.values(this.params)) {
       param.destroy();
     }
 

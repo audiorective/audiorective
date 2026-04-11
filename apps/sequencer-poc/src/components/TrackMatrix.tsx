@@ -10,7 +10,7 @@ interface TrackMatrixProps {
 
 export function TrackMatrix({ selectedTrack, onSelectTrack }: TrackMatrixProps) {
   const { masterSeq, tracks } = useEngine();
-  const currentStep = useValue(masterSeq.currentStep);
+  const currentStep = useValue(masterSeq.params.currentStep);
 
   return (
     <div style={styles.matrix}>

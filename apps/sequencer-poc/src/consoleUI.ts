@@ -73,8 +73,8 @@ function buildTracks(): Record<string, SynthTrackHandle | DrumTrackHandle> {
 
 function status(): void {
   const { masterSeq, tracks } = engine;
-  const bpm = Math.round(masterSeq.bpm.value);
-  const playing = masterSeq.playing.value;
+  const bpm = Math.round(masterSeq.params.bpm.value);
+  const playing = masterSeq.params.playing.value;
 
   console.log(`%c${playing ? "▶" : "■"} BPM: ${bpm}`, "color: #aaa; font-family: monospace");
 
@@ -101,10 +101,10 @@ const seq = {
   play: () => engine.masterSeq.start(),
   stop: () => engine.masterSeq.stop(),
   get bpm() {
-    return engine.masterSeq.bpm.value;
+    return engine.masterSeq.params.bpm.value;
   },
   set bpm(v: number) {
-    engine.masterSeq.bpm.value = v;
+    engine.masterSeq.params.bpm.value = v;
   },
   rampBpm: (target: number, duration = 4) => engine.masterSeq.rampBpm(target, duration),
 
@@ -142,7 +142,7 @@ const seq = {
       console.error(`Unknown track: ${trackId}`);
       return;
     }
-    const p = track.instrument.synth.getParameter(paramName);
+    const p = (track.instrument.synth.params as Record<string, { value: unknown } | undefined>)[paramName];
     if (!p) {
       console.error(`Unknown param: ${paramName}`);
       return;

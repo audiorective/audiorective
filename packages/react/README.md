@@ -14,37 +14,40 @@ Peer dependency: React 18 or 19.
 
 ### useValue
 
-Subscribe to a parameter's value. Re-renders when it changes.
+Subscribe to a reactive source. Accepts any `Readable<T>` (`Param`, `SchedulableParam`, `Cell`) or a `ComputedAccessor<T>`. Re-renders when the value changes.
 
 ```tsx
 import { useValue } from "@audiorective/react";
 
 function Display({ synth }) {
-  const volume = useValue(synth.volume);
+  const volume = useValue(synth.volume); // Param<number>
+  const pattern = useValue(sequencer.pattern); // Cell<StepPattern>
+  const label = useValue(synth.displayLabel); // ComputedAccessor<string>
   return <span>{volume.toFixed(2)}</span>;
 }
 ```
 
-### useParam
-
-Returns a `[value, setValue]` tuple. Combines `useValue` with a stable setter.
+The hook always returns a read-only snapshot. To update state, mutate the source directly:
 
 ```tsx
-import { useParam } from "@audiorective/react";
-
 function VolumeSlider({ synth }) {
-  const [volume, setVolume] = useParam(synth.volume);
-  return <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(+e.target.value)} />;
+  const volume = useValue(synth.volume);
+  return (
+    <input
+      type="range"
+      min={0}
+      max={1}
+      step={0.01}
+      value={volume}
+      onChange={(e) => {
+        synth.volume.value = +e.target.value;
+      }}
+    />
+  );
 }
 ```
 
-### useComputed
-
-Subscribe to a computed value.
-
-```tsx
-const effectiveVolume = useComputed(mixer.effectiveVolume);
-```
+Computeds have no setter on the source, so they are read-only by construction — no special hook needed.
 
 ### useProcessor
 
@@ -55,7 +58,7 @@ import { useProcessor } from "@audiorective/react";
 
 function SynthPanel({ ctx }) {
   const synth = useProcessor(() => new Synth(ctx), [ctx]);
-  const [freq, setFreq] = useParam(synth.frequency);
+  const freq = useValue(synth.frequency);
   // ...
 }
 ```
@@ -112,15 +115,23 @@ const { Provider: SynthProvider, useProcessor: useSynth } = createProcessorConte
 
 function SynthControls() {
   const synth = useSynth();
-  const [cutoff, setCutoff] = useParam(synth.cutoff);
-  // ...
+  const cutoff = useValue(synth.cutoff);
+  return (
+    <input
+      type="range"
+      value={cutoff}
+      onChange={(e) => {
+        synth.cutoff.value = +e.target.value;
+      }}
+    />
+  );
 }
 ```
 
 ## Full Example
 
 ```tsx
-import { useParam, useValue } from "@audiorective/react";
+import { useValue } from "@audiorective/react";
 import { EngineProvider, useEngine } from "./audio/engine";
 
 function App() {
@@ -132,14 +143,22 @@ function App() {
 }
 
 function Sequencer() {
-  const { synth, masterSeq } = useEngine();
-  const [bpm, setBpm] = useParam(masterSeq.bpm);
+  const { masterSeq } = useEngine();
+  const bpm = useValue(masterSeq.bpm);
   const playing = useValue(masterSeq.playing);
 
   return (
     <div>
       <button onClick={() => (playing ? masterSeq.stop() : masterSeq.start())}>{playing ? "Stop" : "Play"}</button>
-      <input type="range" min={40} max={300} value={bpm} onChange={(e) => setBpm(+e.target.value)} />
+      <input
+        type="range"
+        min={40}
+        max={300}
+        value={bpm}
+        onChange={(e) => {
+          masterSeq.bpm.value = +e.target.value;
+        }}
+      />
     </div>
   );
 }

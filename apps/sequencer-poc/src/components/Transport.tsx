@@ -1,17 +1,17 @@
-import { useValue, useParam } from "@audiorective/react";
+import { useValue } from "@audiorective/react";
 import { useState, useCallback } from "react";
 import { useEngine } from "../audio/engine";
 
 export function Transport() {
   const { masterSeq } = useEngine();
-  const [bpm, setBpm] = useParam(masterSeq.bpm);
-  const playing = useValue(masterSeq.playing);
+  const bpm = useValue(masterSeq.params.bpm);
+  const playing = useValue(masterSeq.params.playing);
 
   const [rampTarget, setRampTarget] = useState(180);
   const [rampDuration, setRampDuration] = useState(4);
 
   const togglePlay = useCallback(() => {
-    if (masterSeq.playing.value) {
+    if (masterSeq.params.playing.value) {
       masterSeq.stop();
     } else {
       masterSeq.start();
@@ -30,7 +30,16 @@ export function Transport() {
 
       <div style={styles.bpmSection}>
         <label style={styles.label}>BPM: {Math.round(bpm)}</label>
-        <input type="range" min={40} max={300} value={bpm} onChange={(e) => setBpm(Number(e.target.value))} style={styles.slider} />
+        <input
+          type="range"
+          min={40}
+          max={300}
+          value={bpm}
+          onChange={(e) => {
+            masterSeq.params.bpm.value = Number(e.target.value);
+          }}
+          style={styles.slider}
+        />
       </div>
 
       <div style={styles.rampSection}>

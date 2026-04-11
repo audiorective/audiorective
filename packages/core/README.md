@@ -27,40 +27,53 @@ volume.$; // the underlying alien-signals Signal
 
 ## SchedulableParam
 
-Extends `Param<number>` with Web Audio scheduling methods. Created when `param()` is called with `bind: AudioParam` or `schedulable: true`.
+Extends `Param<number>` with Web Audio scheduling methods. Created when the `param` helper receives `bind: AudioParam`, or via the `schedulableParam` helper.
 
 ```typescript
-synth.volume.value = 0.5;
-synth.volume.linearRampToValueAtTime(1, ctx.currentTime + 2);
-synth.volume.setTargetAtTime(0, ctx.currentTime + 3, 0.3);
+synth.params.volume.value = 0.5;
+synth.params.volume.linearRampToValueAtTime(1, ctx.currentTime + 2);
+synth.params.volume.setTargetAtTime(0, ctx.currentTime + 3, 0.3);
 ```
 
 Values scheduled on the audio thread are polled back into the signal via `requestAnimationFrame`, keeping your UI reactive during automations.
 
 ## AudioProcessor
 
-Base class for audio DSP units. Provides `param()`, `computed()`, `effect()`, and state serialization.
+Base class for audio DSP units. Subclasses declare their reactive surface as a typed `params` (and optional `cells`) registry, built once during construction via a callback passed to `super()`.
 
 ```typescript
-import { AudioProcessor } from "@audiorective/core";
+import { AudioProcessor, Param, SchedulableParam } from "@audiorective/core";
 
-class Synth extends AudioProcessor {
-  private osc = new OscillatorNode(this.context, { type: "sawtooth" });
-  private filter = new BiquadFilterNode(this.context);
-  private gain = new GainNode(this.context);
-
-  frequency = this.param({ default: 440, bind: this.osc.frequency });
-  cutoff = this.param({ default: 2000, bind: this.filter.frequency });
-  volume = this.param({ default: 0.5, bind: this.gain.gain });
-  waveform = this.param({
-    default: "sawtooth" as OscillatorType,
-    bind: { set: (v) => (this.osc.type = v) },
-  });
+class Synth extends AudioProcessor<{
+  frequency: SchedulableParam;
+  cutoff: SchedulableParam;
+  volume: SchedulableParam;
+  waveform: Param<OscillatorType>;
+}> {
+  private readonly osc: OscillatorNode;
+  private readonly gain: GainNode;
 
   constructor(ctx: AudioContext) {
-    super(ctx);
-    this.osc.connect(this.filter).connect(this.gain);
-    this.osc.start();
+    const osc = new OscillatorNode(ctx, { type: "sawtooth" });
+    const filter = new BiquadFilterNode(ctx);
+    const gain = new GainNode(ctx);
+    osc.connect(filter).connect(gain);
+    osc.start();
+
+    super(ctx, ({ param }) => ({
+      params: {
+        frequency: param({ default: 440, bind: osc.frequency }),
+        cutoff: param({ default: 2000, bind: filter.frequency }),
+        volume: param({ default: 0.5, bind: gain.gain }),
+        waveform: param<OscillatorType>({
+          default: "sawtooth",
+          bind: { set: (v) => (osc.type = v) },
+        }),
+      },
+    }));
+
+    this.osc = osc;
+    this.gain = gain;
   }
 
   get output() {
@@ -69,47 +82,56 @@ class Synth extends AudioProcessor {
 
   filterSweep(peakFreq = 8000, duration = 2) {
     const now = this.context.currentTime;
-    const current = this.cutoff.read();
-    this.cutoff.setValueAtTime(current, now);
-    this.cutoff.linearRampToValueAtTime(peakFreq, now + duration / 2);
-    this.cutoff.linearRampToValueAtTime(current, now + duration);
+    const current = this.params.cutoff.read();
+    this.params.cutoff.setValueAtTime(current, now);
+    this.params.cutoff.linearRampToValueAtTime(peakFreq, now + duration / 2);
+    this.params.cutoff.linearRampToValueAtTime(current, now + duration);
   }
 }
 ```
 
-### `param()` overloads
+Access from outside is fully typed: `synth.params.cutoff.value` resolves to `number` and IntelliSense lists every key.
 
-| Call                                              | Returns            | Backing                                     |
-| ------------------------------------------------- | ------------------ | ------------------------------------------- |
-| `this.param({ default: 120 })`                    | `Param<number>`    | Pure signal, no audio thread                |
-| `this.param({ default: 0.5, bind: audioParam })`  | `SchedulableParam` | Native AudioParam, sample-accurate          |
-| `this.param({ default: 120, schedulable: true })` | `SchedulableParam` | Phantom ConstantSourceNode, sample-accurate |
-| `this.param({ default: "sine", bind: { set } })`  | `Param<string>`    | Reactive effect calls `set` on change       |
+### Build helpers
+
+The build callback receives helpers — they close over the AudioContext and the processor's internal silencer, so they handle node lifecycle for you.
+
+| Helper call                                 | Returns            | Backing                                     |
+| ------------------------------------------- | ------------------ | ------------------------------------------- |
+| `param({ default: 120 })`                   | `Param<number>`    | Pure signal, no audio thread                |
+| `param({ default: 0.5, bind: audioParam })` | `SchedulableParam` | Native AudioParam, sample-accurate          |
+| `schedulableParam({ default: 120 })`        | `SchedulableParam` | Phantom ConstantSourceNode, sample-accurate |
+| `param({ default: "sine", bind: { set } })` | `Param<string>`    | Reactive effect calls `set` on change       |
+| `cell({ steps: [] })`                       | `Cell<T>`          | Structured reactive state                   |
 
 ### Computed and effects
 
-```typescript
-class Mixer extends AudioProcessor {
-  volume = this.param({ default: 0.5, bind: this.gain.gain });
-  muted = this.param({ default: false });
+`computed()` and `effect()` remain instance methods on `AudioProcessor`. They run after `super()` returns, so they can read from `this.params` freely:
 
-  effectiveVolume = this.computed(() => (this.muted.value ? 0 : this.volume.value));
+```typescript
+class Mixer extends AudioProcessor<{
+  volume: SchedulableParam;
+  muted: Param<boolean>;
+}> {
+  readonly effectiveVolume: () => number;
 
   constructor(ctx: AudioContext) {
-    super(ctx);
+    const gain = new GainNode(ctx);
+    super(ctx, ({ param }) => ({
+      params: {
+        volume: param({ default: 0.5, bind: gain.gain }),
+        muted: param({ default: false }),
+      },
+    }));
+
+    this.effectiveVolume = this.computed(() => (this.params.muted.value ? 0 : this.params.volume.value));
+
     this.effect(() => {
-      this.gain.gain.value = this.effectiveVolume.value;
+      gain.gain.value = this.effectiveVolume();
     });
   }
   // ...
 }
-```
-
-### State serialization
-
-```typescript
-const state = synth.getState(); // { version: 1, parameters: { volume: 0.5, ... } }
-synth.setState(state);
 ```
 
 ## AudioEngine & createEngine

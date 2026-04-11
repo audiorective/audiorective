@@ -39,9 +39,7 @@ Reactive audio primitives. The foundation.
 
 React bindings. Thin observation layer — no state duplication.
 
-- `useValue(source: Readable<T>)` — subscribe to any readable (Param or Cell), re-renders on change
-- `useParam(param)` — `[value, setValue]` tuple
-- `useComputed(computed)` — subscribe to computed value
+- `useValue(source)` — subscribe to any `Readable<T>` (Param, Cell) or `ComputedAccessor<T>`, re-renders on change. Read-only snapshot; mutate via `param.value = x` directly on the source.
 - `useProcessor(factory, deps)` — create processor, auto-destroy on unmount
 - `createProcessorContext<T>()` — typed Provider + hook
 - `createEngineContext(engine)` — EngineProvider with Suspense or overlay mode
@@ -72,7 +70,7 @@ All audio operations live as methods on `AudioProcessor` subclasses. UI componen
 
 **Audio layer owns:** graph construction, envelope shaping, parameter automation, transport logic, anything touching `AudioContext.currentTime`
 
-**UI layer does:** read params (`useValue`), set params (`.value = x`), call audio methods (`synth.filterSweep()`)
+**UI layer does:** read params (`useValue(processor.params.foo)`), set params (`processor.params.foo.value = x`), call audio methods (`synth.filterSweep()`)
 
 **Litmus test:** Can I run this audio behavior from a unit test with no DOM? If not, it's in the wrong layer.
 
@@ -81,21 +79,23 @@ Wrong — scheduling in React:
 ```typescript
 const handleSweep = useCallback(() => {
   const now = synth.context.currentTime;
-  synth.cutoff.setValueAtTime(synth.cutoff.value, now);
-  synth.cutoff.linearRampToValueAtTime(18000, now + 1);
+  synth.params.cutoff.setValueAtTime(synth.params.cutoff.value, now);
+  synth.params.cutoff.linearRampToValueAtTime(18000, now + 1);
 }, [synth]);
 ```
 
 Right — method on processor, thin UI call:
 
 ```typescript
-class StepSynth extends AudioProcessor {
+class StepSynth extends AudioProcessor<{ cutoff: SchedulableParam /* ... */ }> {
+  // constructor sets up params via super() build callback (see references/core.md)
+
   filterSweep(peakFreq = 18000, duration = 2) {
     const now = this.context.currentTime;
-    const cur = this.cutoff.value;
-    this.cutoff.setValueAtTime(cur, now);
-    this.cutoff.linearRampToValueAtTime(peakFreq, now + duration / 2);
-    this.cutoff.linearRampToValueAtTime(cur, now + duration);
+    const cur = this.params.cutoff.value;
+    this.params.cutoff.setValueAtTime(cur, now);
+    this.params.cutoff.linearRampToValueAtTime(peakFreq, now + duration / 2);
+    this.params.cutoff.linearRampToValueAtTime(cur, now + duration);
   }
 }
 
@@ -139,14 +139,14 @@ export const { EngineProvider, useEngine } = createEngineContext(engine);
 
 ### Cell vs Param
 
-| Use case                                         | Primitive                    | Why                                                     |
-| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------- |
-| Numeric audio value, needs ramps/scheduling      | `Param` (via `this.param()`) | Backs an `AudioParam`, auto-discovered by `getParams()` |
-| Simple reactive value (BPM, boolean, enum)       | `Param` (via `this.param()`) | Lightweight, auto-discovered                            |
-| Structured data (step patterns, presets, config) | `Cell`                       | Immer-based `.update()`, not tied to AudioProcessor     |
-| State that doesn't belong to an AudioProcessor   | `Cell`                       | Standalone, usable anywhere                             |
+| Use case                                         | Primitive                            | Why                                                |
+| ------------------------------------------------ | ------------------------------------ | -------------------------------------------------- |
+| Numeric audio value, needs ramps/scheduling      | `Param` (`param`/`schedulableParam`) | Backs an `AudioParam`; lives in `processor.params` |
+| Simple reactive value (BPM, boolean, enum)       | `Param` (`param`)                    | Lightweight; lives in `processor.params`           |
+| Structured data (step patterns, presets, config) | `Cell` (`cell` helper or standalone) | Immer-based `.update()`                            |
+| State that doesn't belong to an AudioProcessor   | `Cell` (standalone)                  | Usable anywhere                                    |
 
-`Param` is for values that AudioProcessor manages and that `getParams()` discovers. `Cell` is for everything else — structured data, standalone state, data owned by plain classes.
+`Param` is for values that an `AudioProcessor` exposes as part of its parameter surface (lives under `processor.params`). `Cell` is for structured/complex reactive state — either attached to a processor via `processor.cells`, or standalone for plain classes.
 
 ## Key Design Decisions
 

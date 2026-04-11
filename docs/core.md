@@ -9,16 +9,23 @@ Audio state is the single source of truth. UI frameworks observe and mutate dire
 ## Quick Start
 
 ```typescript
-import { AudioProcessor, SchedulableParam } from "@audiorective/core";
+import { AudioProcessor, Param, SchedulableParam } from "@audiorective/core";
 
-class Synth extends AudioProcessor {
-  private _gain = new GainNode(this.context);
-
-  readonly volume = this.param({ default: 0.5, bind: this._gain.gain });
-  readonly bpm = this.param({ default: 120 });
+class Synth extends AudioProcessor<{
+  volume: SchedulableParam;
+  bpm: Param<number>;
+}> {
+  private readonly _gain: GainNode;
 
   constructor(ctx: AudioContext) {
-    super(ctx);
+    const gain = new GainNode(ctx);
+    super(ctx, ({ param }) => ({
+      params: {
+        volume: param({ default: 0.5, bind: gain.gain }),
+        bpm: param({ default: 120 }),
+      },
+    }));
+    this._gain = gain;
   }
 
   get output() {
@@ -30,9 +37,13 @@ const ctx = new AudioContext();
 const synth = new Synth(ctx);
 synth.output.connect(ctx.destination);
 
-synth.volume.value = 0.8;
-synth.volume.linearRampToValueAtTime(0, ctx.currentTime + 2);
+synth.params.volume.value = 0.8;
+synth.params.volume.linearRampToValueAtTime(0, ctx.currentTime + 2);
 ```
+
+Subclasses declare their reactive surface as a generic type parameter and build it inside a callback passed to `super()`. The `params` field is a frozen, fully-typed object — `synth.params.volume` resolves to `SchedulableParam` and `synth.params.bpm` to `Param<number>` end-to-end.
+
+**Why a build callback?** Params must be constructed _before_ `super()` returns so that `this.params` is set by the time field initializers and the subclass body run. The base constructor invokes the callback partway through its own setup, exposing helpers (`param`, `schedulableParam`, `cell`) that already have access to the AudioContext and the processor's internal silencer. The callback closes over locals declared before `super()` (audio nodes, etc.), so binding params to `node.frequency` works without `this`.
 
 ## Core Concepts
 
@@ -45,17 +56,17 @@ Wraps alien-signals with a `.value` property matching Web Audio API conventions 
 Two param types, opt-in scheduling:
 
 - **`Param<T>`** — reactive signal with `.value` getter/setter. The default for all params. Used for BPM, step position, boolean flags, string enums, or any value that's set immediately.
-- **`SchedulableParam`** — extends `Param<number>` with Web Audio scheduling methods (`linearRampToValueAtTime`, `setTargetAtTime`, etc.). Created when `bind` returns an `AudioParam` or `schedulable: true` is set.
+- **`SchedulableParam`** — extends `Param<number>` with Web Audio scheduling methods (`linearRampToValueAtTime`, `setTargetAtTime`, etc.). Created when the `param` helper receives `bind: AudioParam`, or via the `schedulableParam` helper.
 
 ### When does a param become schedulable?
 
-| Declaration                                           | Result             | Why                                                               |
-| ----------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
-| `this.param({ default: 120 })`                        | `Param<number>`    | Just a reactive number, no scheduling                             |
-| `this.param({ default: 0.5, bind: gain.gain })`       | `SchedulableParam` | Bind is an AudioParam instance                                    |
-| `this.param({ default: 440, schedulable: true })`     | `SchedulableParam` | No AudioParam bound; uses a phantom ConstantSourceNode internally |
-| `this.param({ default: "sine" })`                     | `Param<string>`    | Non-numeric, always plain Param                                   |
-| `this.param({ default: "sine", bind: { get, set } })` | `Param<string>`    | Object bind — reactive sync via effect, not scheduling            |
+| Helper call                                      | Result             | Why                                                               |
+| ------------------------------------------------ | ------------------ | ----------------------------------------------------------------- |
+| `param({ default: 120 })`                        | `Param<number>`    | Just a reactive number, no scheduling                             |
+| `param({ default: 0.5, bind: gain.gain })`       | `SchedulableParam` | Bind is an AudioParam instance                                    |
+| `schedulableParam({ default: 440 })`             | `SchedulableParam` | No AudioParam bound; uses a phantom ConstantSourceNode internally |
+| `param({ default: "sine" })`                     | `Param<string>`    | Non-numeric, always plain Param                                   |
+| `param({ default: "sine", bind: { get, set } })` | `Param<string>`    | Object bind — reactive sync via effect, not scheduling            |
 
 ### ParamSync
 
@@ -67,13 +78,13 @@ Two param types, opt-in scheduling:
 
 ### ConstantSourceNode Scheduling Engine
 
-When `schedulable: true` is set but no `bind` function is provided, `AudioProcessor` internally creates a `ConstantSourceNode` and delegates scheduling to its `offset` AudioParam. This gives sample-accurate scheduling for free, backed by the browser's native automation engine.
+When `schedulableParam` is called without `bind`, `AudioProcessor` internally creates a `ConstantSourceNode` and delegates scheduling to its `offset` AudioParam. This gives sample-accurate scheduling for free, backed by the browser's native automation engine.
 
-**How it works:** The ConstantSourceNode connects through a shared `GainNode(gain=0)` to `ctx.destination`. This keeps the node in an active audio graph (required for automations to evaluate) without producing audible output.
+**How it works:** The ConstantSourceNode connects through a per-processor `GainNode(gain=0)` (the silencer) to `ctx.destination`. This keeps the node in an active audio graph (required for automations to evaluate) without producing audible output.
 
 **Why not just disconnect?** A disconnected ConstantSourceNode gets optimized away by the browser — automations stop evaluating and the offset value freezes.
 
-Both scheduling paths (function `bind` and phantom ConstantSourceNode) use the same API and deliver sample-accurate scheduling via native `AudioParam`.
+Both scheduling paths (`bind: AudioParam` and unbound `schedulableParam`) use the same API and deliver sample-accurate scheduling via native `AudioParam`.
 
 ---
 
@@ -173,7 +184,7 @@ interface Readable<T> {
 
 ### Cell\<T\>
 
-Standalone reactive container for structured/complex data. Uses Immer `produce` for ergonomic immutable updates via `.update()`. Not tied to AudioProcessor — usable anywhere. Not auto-discovered by `getParams()`.
+Reactive container for structured/complex data. Uses Immer `produce` for ergonomic immutable updates via `.update()`. Usable standalone, or attached to an `AudioProcessor` via the `cell` build helper, in which case it appears in the processor's `cells` registry.
 
 ```typescript
 class Cell<T> implements Readable<T> {
@@ -212,51 +223,47 @@ pattern.value; // { steps: [true, false, false, false, true, ...], velocity: [..
 
 ### Cell vs Param
 
-| Use case                                         | Primitive                    | Why                                                     |
-| ------------------------------------------------ | ---------------------------- | ------------------------------------------------------- |
-| Numeric audio value, needs ramps/scheduling      | `Param` (via `this.param()`) | Backs an `AudioParam`, auto-discovered by `getParams()` |
-| Simple reactive value (BPM, boolean, enum)       | `Param` (via `this.param()`) | Lightweight, auto-discovered                            |
-| Structured data (step patterns, presets, config) | `Cell`                       | Immer-based `.update()`, not tied to AudioProcessor     |
-| State that doesn't belong to an AudioProcessor   | `Cell`                       | Standalone, usable anywhere                             |
+| Use case                                         | Primitive                                   | Why                                                |
+| ------------------------------------------------ | ------------------------------------------- | -------------------------------------------------- |
+| Numeric audio value, needs ramps/scheduling      | `Param` (`param`/`schedulableParam` helper) | Backs an `AudioParam`; lives in `processor.params` |
+| Simple reactive value (BPM, boolean, enum)       | `Param` (`param` helper)                    | Lightweight; lives in `processor.params`           |
+| Structured data (step patterns, presets, config) | `Cell` (`cell` helper or standalone)        | Immer-based `.update()`                            |
+| State that doesn't belong to an AudioProcessor   | `Cell` (standalone)                         | Usable anywhere                                    |
 
 ### AudioProcessor (abstract)
 
-Base class for audio processing units. Provides param, computed, and effect factories with lifecycle management.
+Base class for audio processing units. Generic over the param and cell registries it exposes. Subclasses pass a build callback to `super()` that returns those registries.
 
 ```typescript
-abstract class AudioProcessor {
+abstract class AudioProcessor<
+  P extends Record<string, Param<any>> = Record<string, Param<any>>,
+  C extends Record<string, Cell<any>> = Record<string, Cell<any>>,
+> {
   readonly context: AudioContext;
+  readonly params: Readonly<P>; // frozen, fully typed
+  readonly cells: Readonly<C>; // frozen, fully typed
+
+  protected constructor(context: AudioContext, build: (helpers: BuildHelpers) => { params?: P; cells?: C });
 
   abstract get output(): AudioNode | undefined;
-
-  // param() overloads — bind and schedulable are mutually exclusive:
-  protected param<T extends number>(options: { default: T; bind: AudioParam }): SchedulableParam;
-  protected param<T extends number>(options: { default: T; schedulable: true }): SchedulableParam;
-  protected param<T>(options: { default: T; bind: ParamBind<T> }): Param<T>;
-  protected param<T>(options: { default: T }): Param<T>;
 
   protected computed<T>(fn: () => T): ComputedAccessor<T>;
   protected effect(fn: () => void): () => void;
 
-  getParameter(name: string): Param<unknown> | undefined;
-  getState(): ProcessorState;
-  setState(state: ProcessorState): void;
-
   destroy(): void;
 }
-```
 
-**`destroy()`** stops all effects, calls `destroy()` on all params (cleaning up bind effects and `ParamSync` registrations), and disconnects any internally-created `ConstantSourceNode`s.
-
-### ProcessorState
-
-```typescript
-interface ProcessorState {
-  version: number;
-  parameters: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
+interface BuildHelpers {
+  // overloads — `bind: AudioParam` upgrades to SchedulableParam
+  param<T extends number>(opts: Omit<ParamOptions<T>, "bind"> & { bind: AudioParam }): SchedulableParam;
+  param<T>(opts: ParamOptions<T> & { bind: ParamBind<T> }): Param<T>;
+  param<T>(opts: ParamOptions<T>): Param<T>;
+  schedulableParam(opts: Omit<ParamOptions<number>, "bind"> & { bind?: AudioParam }): SchedulableParam;
+  cell<T>(initial: T): Cell<T>;
 }
 ```
+
+**`destroy()`** stops all effects, calls `destroy()` on every param in the registry (cleaning up bind effects and `ParamSync` registrations), and disconnects any internally-created `ConstantSourceNode`s. Cells are not destroyed automatically — they're plain reactive containers with no audio-graph resources.
 
 ---
 
@@ -265,13 +272,15 @@ interface ProcessorState {
 ### Basic Processor with AudioParam Binding
 
 ```typescript
-class GainProcessor extends AudioProcessor {
-  private _gain = new GainNode(this.context);
-
-  readonly volume = this.param({ default: 0.5, bind: this._gain.gain });
+class GainProcessor extends AudioProcessor<{ volume: SchedulableParam }> {
+  private readonly _gain: GainNode;
 
   constructor(ctx: AudioContext) {
-    super(ctx);
+    const gain = new GainNode(ctx);
+    super(ctx, ({ param }) => ({
+      params: { volume: param({ default: 0.5, bind: gain.gain }) },
+    }));
+    this._gain = gain;
   }
 
   get output() {
@@ -282,19 +291,19 @@ class GainProcessor extends AudioProcessor {
 const proc = new GainProcessor(ctx);
 proc.output.connect(ctx.destination);
 
-proc.volume.value = 0.8; // immediate
-proc.volume.linearRampToValueAtTime(0, ctx.currentTime + 2); // 2s fade out
+proc.params.volume.value = 0.8; // immediate
+proc.params.volume.linearRampToValueAtTime(0, ctx.currentTime + 2); // 2s fade out
 ```
 
 ### Virtual Schedulable Param (ConstantSourceNode)
 
 ```typescript
-class Sequencer extends AudioProcessor {
-  // no AudioParam to bind to, but we want sample-accurate scheduling
-  readonly intensity = this.param({ default: 0, schedulable: true });
-
+class Sequencer extends AudioProcessor<{ intensity: SchedulableParam }> {
   constructor(ctx: AudioContext) {
-    super(ctx);
+    super(ctx, ({ schedulableParam }) => ({
+      // no AudioParam to bind to, but we want sample-accurate scheduling
+      params: { intensity: schedulableParam({ default: 0 }) },
+    }));
   }
 
   get output() {
@@ -302,7 +311,7 @@ class Sequencer extends AudioProcessor {
   }
 
   schedulePattern(startTime: number) {
-    this.intensity
+    this.params.intensity
       .setValueAtTime(0, startTime)
       .linearRampToValueAtTime(1, startTime + 0.5)
       .linearRampToValueAtTime(0, startTime + 1);
@@ -310,29 +319,20 @@ class Sequencer extends AudioProcessor {
 }
 ```
 
-### State Serialization
-
-```typescript
-const proc = new GainProcessor(ctx);
-
-// save preset
-const preset = proc.getState();
-// { version: 1, parameters: { volume: 0.5 } }
-localStorage.setItem("preset", JSON.stringify(preset));
-
-// load preset
-proc.setState(JSON.parse(localStorage.getItem("preset")!));
-```
-
 ### Computed Values & Effects
 
+`computed()` and `effect()` remain instance methods. They run after `super()` returns, so they can read `this.params` directly:
+
 ```typescript
-class Metronome extends AudioProcessor {
-  readonly bpm = this.param({ default: 120 });
-  readonly beatDuration = this.computed(() => 60000 / this.bpm.value);
+class Metronome extends AudioProcessor<{ bpm: Param<number> }> {
+  readonly beatDuration: () => number;
 
   constructor(ctx: AudioContext) {
-    super(ctx);
+    super(ctx, ({ param }) => ({
+      params: { bpm: param({ default: 120 }) },
+    }));
+
+    this.beatDuration = this.computed(() => 60000 / this.params.bpm.value);
 
     this.effect(() => {
       console.log("Beat duration:", this.beatDuration(), "ms");
@@ -346,28 +346,32 @@ class Metronome extends AudioProcessor {
 
 const met = new Metronome(ctx);
 // logs: "Beat duration: 500 ms"
-met.bpm.value = 240;
+met.params.bpm.value = 240;
 // logs: "Beat duration: 250 ms"
 ```
 
 ### Object Bind (Non-AudioParam Properties)
 
 ```typescript
-class Synth extends AudioProcessor {
-  private osc = new OscillatorNode(this.context);
-
-  readonly waveform = this.param<OscillatorType>({
-    default: "sawtooth",
-    bind: {
-      get: () => this.osc.type,
-      set: (v) => {
-        this.osc.type = v;
-      },
-    },
-  });
+class Synth extends AudioProcessor<{ waveform: Param<OscillatorType> }> {
+  private readonly osc: OscillatorNode;
 
   constructor(ctx: AudioContext) {
-    super(ctx);
+    const osc = new OscillatorNode(ctx);
+    super(ctx, ({ param }) => ({
+      params: {
+        waveform: param<OscillatorType>({
+          default: "sawtooth",
+          bind: {
+            get: () => osc.type,
+            set: (v) => {
+              osc.type = v;
+            },
+          },
+        }),
+      },
+    }));
+    this.osc = osc;
     this.osc.start();
   }
 
@@ -377,7 +381,7 @@ class Synth extends AudioProcessor {
 }
 
 const synth = new Synth(ctx);
-synth.waveform.value = "square"; // effect pushes to osc.type
+synth.params.waveform.value = "square"; // effect pushes to osc.type
 ```
 
 ### Standalone Params (Outside AudioProcessor)
@@ -514,5 +518,5 @@ export { createEngine, cell };
 export { DEFAULT_SYNC_INTERVAL_MS };
 
 // Types
-export type { ParamBind, ParamOptions, ProcessorState, EngineState, Readable, SignalAccessor, ComputedAccessor };
+export type { ParamBind, ParamOptions, EngineState, Readable, SignalAccessor, ComputedAccessor, BuildHelpers, BuildResult };
 ```
