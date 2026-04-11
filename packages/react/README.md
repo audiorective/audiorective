@@ -49,20 +49,6 @@ function VolumeSlider({ synth }) {
 
 Computeds have no setter on the source, so they are read-only by construction — no special hook needed.
 
-### useProcessor
-
-Create and manage an AudioProcessor's lifecycle. Destroys and recreates when deps change. Cleans up on unmount.
-
-```tsx
-import { useProcessor } from "@audiorective/react";
-
-function SynthPanel({ ctx }) {
-  const synth = useProcessor(() => new Synth(ctx), [ctx]);
-  const freq = useValue(synth.frequency);
-  // ...
-}
-```
-
 ## Context
 
 ### createEngineContext
@@ -82,17 +68,11 @@ const engine = createEngine((ctx) => {
 export const { EngineProvider, useEngine } = createEngineContext(engine);
 ```
 
-#### EngineProvider modes
+#### EngineProvider
 
-**Suspense mode** — pass `fallback` to block children until the engine starts. A gesture listener calls `engine.start()` on first click/keydown/touch.
+Always renders children immediately. Safe because `createEngine` wires all processors eagerly at construction time.
 
-```tsx
-<EngineProvider fallback={<p>Click anywhere to start</p>}>
-  <App />
-</EngineProvider>
-```
-
-**Overlay mode** — omit `fallback` to render children immediately. Safe because `createEngine` wires all processors eagerly. `autoStart` defaults to `true`.
+`autoStart` (default `true`) registers a one-time gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.core.start()` on first interaction. Re-arms if the engine state drops from running (e.g. mobile background suspend).
 
 ```tsx
 <EngineProvider>
@@ -100,33 +80,9 @@ export const { EngineProvider, useEngine } = createEngineContext(engine);
 </EngineProvider>
 ```
 
+Components use `useValue(engine.core.state)` to know whether audio is running and show UI accordingly.
+
 The provider does NOT destroy the engine on unmount — engines are module-level singletons that outlive the component tree.
-
-### createProcessorContext
-
-Creates a typed context for passing a processor through the component tree.
-
-```tsx
-const { Provider: SynthProvider, useProcessor: useSynth } = createProcessorContext<Synth>();
-
-<SynthProvider value={synth}>
-  <SynthControls />
-</SynthProvider>;
-
-function SynthControls() {
-  const synth = useSynth();
-  const cutoff = useValue(synth.cutoff);
-  return (
-    <input
-      type="range"
-      value={cutoff}
-      onChange={(e) => {
-        synth.cutoff.value = +e.target.value;
-      }}
-    />
-  );
-}
-```
 
 ## Full Example
 
@@ -136,7 +92,7 @@ import { EngineProvider, useEngine } from "./audio/engine";
 
 function App() {
   return (
-    <EngineProvider fallback={<p>Click to start</p>}>
+    <EngineProvider>
       <Sequencer />
     </EngineProvider>
   );

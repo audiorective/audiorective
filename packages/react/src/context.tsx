@@ -1,33 +1,9 @@
-import { createContext, useContext, useEffect, Suspense, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { effect as alienEffect } from "alien-signals";
-import { type AudioProcessor, type AudioEngine } from "@audiorective/core";
-
-export function createProcessorContext<T extends AudioProcessor>() {
-  const Context = createContext<T | null>(null);
-
-  function useProcessor(): T {
-    const processor = useContext(Context);
-    if (!processor) {
-      throw new Error("useProcessor must be used within a Provider");
-    }
-    return processor;
-  }
-
-  return {
-    Provider: Context.Provider,
-    useProcessor,
-  };
-}
+import { type AudioEngine } from "@audiorective/core";
 
 export function createEngineContext<T extends { core: AudioEngine }>(engine: T) {
   const Context = createContext<T | null>(null);
-
-  function EngineGate({ children }: { children: ReactNode }) {
-    if (engine.core.state() !== "running") {
-      throw engine.core.untilReady();
-    }
-    return <Context.Provider value={engine}>{children}</Context.Provider>;
-  }
 
   function AutoStartListener() {
     useEffect(() => {
@@ -73,24 +49,10 @@ export function createEngineContext<T extends { core: AudioEngine }>(engine: T) 
     return null;
   }
 
-  function EngineProvider({ fallback, autoStart, children }: { fallback?: ReactNode; autoStart?: boolean; children: ReactNode }) {
-    const shouldAutoStart = autoStart ?? fallback === undefined;
-    const autoStartEl = shouldAutoStart ? <AutoStartListener /> : null;
-
-    if (fallback !== undefined) {
-      return (
-        <>
-          {autoStartEl}
-          <Suspense fallback={fallback}>
-            <EngineGate>{children}</EngineGate>
-          </Suspense>
-        </>
-      );
-    }
-
+  function EngineProvider({ autoStart = true, children }: { autoStart?: boolean; children: ReactNode }) {
     return (
       <Context.Provider value={engine}>
-        {autoStartEl}
+        {autoStart && <AutoStartListener />}
         {children}
       </Context.Provider>
     );

@@ -44,18 +44,19 @@ vi.stubGlobal("AudioParam", class {});
 import { describe, test, expect, afterEach } from "vitest";
 import { render, screen, act, cleanup } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
-import { createEngine, AudioProcessor, createEngine as _createEngine } from "@audiorective/core";
-import { createEngineContext, createProcessorContext } from "../src/context";
+import { createEngine, AudioProcessor, type Param } from "@audiorective/core";
+import { createEngineContext } from "../src/context";
 import React from "react";
 
 afterEach(() => {
   cleanup();
 });
 
-class DummyProcessor extends AudioProcessor {
-  readonly vol = this.param({ default: 0.5 });
+class DummyProcessor extends AudioProcessor<{ vol: Param<number> }> {
   constructor(ctx: AudioContext) {
-    super(ctx);
+    super(ctx, (b) => ({
+      params: { vol: b.param({ default: 0.5 }) },
+    }));
   }
   get output(): AudioNode | undefined {
     return undefined;
@@ -70,7 +71,7 @@ function makeEngine() {
 }
 
 describe("createEngineContext", () => {
-  describe("EngineProvider (overlay mode — no fallback)", () => {
+  describe("EngineProvider", () => {
     test("always renders children regardless of engine state", () => {
       const engine = makeEngine();
       const { EngineProvider } = createEngineContext(engine);
@@ -86,13 +87,13 @@ describe("createEngineContext", () => {
       engine.core.destroy();
     });
 
-    test("useEngine() works in overlay mode", () => {
+    test("useEngine() returns typed engine", () => {
       const engine = makeEngine();
       const { EngineProvider, useEngine } = createEngineContext(engine);
 
       function Inner() {
         const e = useEngine();
-        return <div data-testid="processor">{e.processor.vol.value}</div>;
+        return <div data-testid="processor">{e.processor.params.vol.value}</div>;
       }
 
       render(
@@ -124,7 +125,7 @@ describe("createEngineContext", () => {
   });
 
   describe("autoStart", () => {
-    test("calls engine.start() on click in overlay mode", async () => {
+    test("calls engine.start() on first gesture", async () => {
       const engine = makeEngine();
       const startSpy = vi.spyOn(engine.core, "start");
       const { EngineProvider } = createEngineContext(engine);
@@ -167,7 +168,7 @@ describe("createEngineContext", () => {
       engine.core.destroy();
     });
 
-    test("explicit autoStart={false} disables in overlay mode", async () => {
+    test("autoStart={false} disables gesture listener", async () => {
       const engine = makeEngine();
       const startSpy = vi.spyOn(engine.core, "start");
       const { EngineProvider } = createEngineContext(engine);
@@ -216,39 +217,5 @@ describe("createEngineContext", () => {
 
       engine.core.destroy();
     });
-  });
-});
-
-describe("createProcessorContext", () => {
-  test("useProcessor() returns processor from provider", () => {
-    const { Provider, useProcessor } = createProcessorContext<DummyProcessor>();
-    const ctx = new AudioContext() as any;
-    const processor = new DummyProcessor(ctx);
-
-    function Inner() {
-      const p = useProcessor();
-      return <div data-testid="vol">{p.vol.value}</div>;
-    }
-
-    render(
-      <Provider value={processor}>
-        <Inner />
-      </Provider>,
-    );
-
-    expect(screen.getByTestId("vol").textContent).toBe("0.5");
-  });
-
-  test("useProcessor() throws outside provider", () => {
-    const { useProcessor } = createProcessorContext<DummyProcessor>();
-
-    function Bad() {
-      useProcessor();
-      return null;
-    }
-
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<Bad />)).toThrow("useProcessor must be used within a Provider");
-    consoleSpy.mockRestore();
   });
 });

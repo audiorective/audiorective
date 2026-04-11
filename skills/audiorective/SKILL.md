@@ -40,9 +40,7 @@ Reactive audio primitives. The foundation.
 React bindings. Thin observation layer — no state duplication.
 
 - `useValue(source)` — subscribe to any `Readable<T>` (Param, Cell) or `ComputedAccessor<T>`, re-renders on change. Read-only snapshot; mutate via `param.value = x` directly on the source.
-- `useProcessor(factory, deps)` — create processor, auto-destroy on unmount
-- `createProcessorContext<T>()` — typed Provider + hook
-- `createEngineContext(engine)` — EngineProvider with Suspense or overlay mode
+- `createEngineContext(engine)` — EngineProvider (auto-start on gesture) + useEngine hook
 
 > For full API reference: read `references/react.md`
 
@@ -126,13 +124,8 @@ export const engine = createEngine((ctx) => {
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
 
-// Suspense mode
-<EngineProvider fallback={<button onClick={() => engine.core.start()}>Start</button>}>
-  <SynthUI />
-</EngineProvider>
-
-// Overlay mode — auto-starts on first user gesture
-<EngineProvider autoStart>
+// Auto-starts on first user gesture (click/keydown/touchstart)
+<EngineProvider>
   <SynthUI />
 </EngineProvider>
 ```

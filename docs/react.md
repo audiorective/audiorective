@@ -82,52 +82,17 @@ function StepGrid() {
 }
 ```
 
-### `useProcessor(factory, deps)`
-
-Create and manage processor lifecycle. Calls `destroy()` on unmount.
-
-```typescript
-const synth = useProcessor(() => new Synthesizer(ctx), [ctx]);
-```
-
 ---
 
 ## Context
-
-### `createProcessorContext<T>()`
-
-Create a typed Provider and hook for passing processors through the component tree.
-
-```typescript
-const {
-  Provider: SynthProvider,
-  useProcessor: useSynth
-} = createProcessorContext<Synthesizer>();
-
-function VolumeControl() {
-  const synth = useSynth();
-  const volume = useValue(synth.volume);
-  return (
-    <input
-      value={volume}
-      onChange={(e) => {
-        synth.volume.value = +e.target.value;
-      }}
-    />
-  );
-}
-```
 
 ### `createEngineContext(engine)`
 
 Creates a typed `EngineProvider` and `useEngine` hook for an engine created by `createEngine`. Accepts `T extends { core: AudioEngine }`. Works with React 18 and 19.
 
-`EngineProvider` supports two rendering modes:
+`EngineProvider` always renders children immediately. Safe because `createEngine` wires up all processors eagerly at construction time. Components use `useValue(engine.core.state)` to know whether audio is running and show UI accordingly.
 
-- **Suspense mode** (`fallback` provided) — blocks children until `engine.core.start()` is called, shows fallback while waiting
-- **Overlay mode** (no `fallback`) — always renders children. Components check `engine.core.state` to show/hide UI. Safe because `createEngine` wires up all processors eagerly at construction time.
-
-The `autoStart` prop registers a one-time gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.core.start()` automatically on the first user interaction. Defaults to `true` in overlay mode (no `fallback`), `false` in Suspense mode.
+The `autoStart` prop (default `true`) registers a one-time gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.core.start()` on the first user interaction. Re-arms if the engine state drops from running (e.g. mobile background suspend).
 
 ```typescript
 // audio/engine.ts
@@ -142,26 +107,14 @@ export const engine = createEngine((ctx) => {
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
 
-// Suspense mode — explicit start button
 function App() {
   return (
-    <EngineProvider fallback={<button onClick={() => engine.core.start()}>Start</button>}>
+    <EngineProvider>
       <SynthUI />
     </EngineProvider>
   );
 }
 
-// Overlay mode with autoStart — first click/key anywhere starts audio
-function App() {
-  return (
-    <EngineProvider autoStart>
-      <SynthUI />
-      <AudioOverlay />
-    </EngineProvider>
-  );
-}
-
-// Components access the typed engine via context — no prop drilling.
 function SynthUI() {
   const { synth } = useEngine();
   const volume = useValue(synth.volume);
