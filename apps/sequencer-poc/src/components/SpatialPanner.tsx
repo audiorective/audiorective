@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { attach, SpatialSource } from "@audiorective/threejs";
+import { attach, PannerAnchor } from "@audiorective/threejs";
 import { engine } from "../audio/engine";
 import type { Track } from "../audio/trackConfig";
 
@@ -60,11 +60,10 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
     grid.position.y = FLOOR_Y;
     scene.add(grid);
 
-    // Per-track spatial sources + spheres.
     const sphereGeometry = new THREE.SphereGeometry(SPHERE_RADIUS, 24, 16);
     type TrackEntry = {
       track: Track;
-      spatial: SpatialSource;
+      anchor: PannerAnchor;
       mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>;
       ring: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
     };
@@ -80,20 +79,12 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
       const mesh = new THREE.Mesh(sphereGeometry, material);
       mesh.userData["trackId"] = track.id;
 
-      const spatial = new SpatialSource(listener, {
-        distanceModel: "inverse",
-        refDistance: 2,
-        rolloffFactor: 1,
-      });
-      // Spread tracks along X on the floor.
+      const anchor = new PannerAnchor(track.spatial.panner);
       const x = (i - (tracks.length - 1) / 2) * 1.5;
-      spatial.position.set(x, SPHERE_Y, 0);
-      spatial.add(mesh);
-      scene.add(spatial);
+      anchor.position.set(x, SPHERE_Y, 0);
+      anchor.add(mesh);
+      scene.add(anchor);
 
-      track.instrument.synth.output?.connect(spatial.input);
-
-      // Selection ring: a flat ring on the floor under each sphere.
       const ringGeometry = new THREE.RingGeometry(SPHERE_RADIUS * 1.2, SPHERE_RADIUS * 1.5, 32);
       const ringMaterial = new THREE.MeshBasicMaterial({
         color,
@@ -104,9 +95,9 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
       const ring = new THREE.Mesh(ringGeometry, ringMaterial);
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = -SPHERE_Y + 0.01;
-      spatial.add(ring);
+      anchor.add(ring);
 
-      return { track, spatial, mesh, ring };
+      return { track, anchor, mesh, ring };
     });
 
     const syncSelection = () => {
@@ -118,7 +109,6 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
     };
     syncSelection();
 
-    // Drag: raycast against an invisible XZ plane at y = SPHERE_Y.
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -SPHERE_Y);
@@ -145,7 +135,7 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
       renderer.domElement.setPointerCapture(e.pointerId);
 
       if (raycaster.ray.intersectPlane(dragPlane, hitPoint)) {
-        dragOffset.copy(hitPoint).sub(entry.spatial.position);
+        dragOffset.copy(hitPoint).sub(entry.anchor.position);
       } else {
         dragOffset.set(0, 0, 0);
       }
@@ -160,8 +150,8 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
       setPointerFromEvent(e);
       raycaster.setFromCamera(pointer, camera);
       if (raycaster.ray.intersectPlane(dragPlane, hitPoint)) {
-        dragging.spatial.position.x = hitPoint.x - dragOffset.x;
-        dragging.spatial.position.z = hitPoint.z - dragOffset.z;
+        dragging.anchor.position.x = hitPoint.x - dragOffset.x;
+        dragging.anchor.position.z = hitPoint.z - dragOffset.z;
       }
     };
 
@@ -214,8 +204,7 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
       detachEngine();
 
       for (const e of entries) {
-        e.track.instrument.synth.output?.disconnect(e.spatial.input);
-        e.spatial.destroy();
+        scene.remove(e.anchor);
         e.mesh.material.dispose();
         e.ring.geometry.dispose();
         e.ring.material.dispose();
