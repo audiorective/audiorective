@@ -457,7 +457,28 @@ class AudioEngine {
   destroy(): void; // terminal — cannot restart
 
   register<T extends AudioProcessor>(processor: T): T;
+
+  autoStart(
+    target: EventTarget,
+    options?: { events?: readonly string[] }, // default: ["click", "keydown", "touchstart"]
+  ): () => void; // returns a detach function
 }
+```
+
+### `autoStart(target, options?)`
+
+Arms one-shot gesture listeners on `target` that call `start()` on the first user interaction. Re-arms automatically if the engine state later drops from `running` (e.g. mobile background suspend). Disarms permanently when the engine is destroyed. Returns a detach function that stops the effect and removes any armed listeners.
+
+This is the engine-side primitive used by `@audiorective/react`'s `EngineProvider` and `@audiorective/threejs`'s `attach()`. Use it directly in frameworks without a wrapper.
+
+```typescript
+// Vanilla
+const detach = engine.core.autoStart(document);
+// ...later
+detach();
+
+// Custom events
+engine.core.autoStart(canvas, { events: ["pointerdown"] });
 ```
 
 ### `createEngine(setup, options?)`

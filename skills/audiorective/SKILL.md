@@ -32,6 +32,7 @@ Reactive audio primitives. The foundation.
 - `Cell` — standalone reactive container for structured/complex data (step patterns, presets, config). Uses Immer `produce` for ergonomic `.update(draft => ...)` mutations. Not tied to AudioProcessor.
 - `AudioProcessor` — base class for audio components, owns graph + params + lifecycle
 - `AudioEngine` / `createEngine()` — singleton audio context + processor graph
+- `engine.autoStart(target, options?)` — arm gesture listeners on any `EventTarget`; calls `start()` on first interaction, re-arms on state drops, auto-disarms on destroy. Returns a detach function.
 
 > For full API reference: read `references/core.md`
 
@@ -54,9 +55,14 @@ Look-ahead scheduling engine. Beat-based timing (Ableton Link style).
 
 > For full API reference: read `references/clock.md`
 
-### @audiorective/threejs (design phase)
+### @audiorective/threejs
 
-Three.js spatial audio integration via wrapping, not a parallel audio system.
+Three.js bindings. Wraps built-in three.js audio (`AudioListener`, `PannerNode`) with reactive params — no parallel audio system.
+
+**Exports:** `attach`, `SpatialSource`, `SpatialOptions`
+
+- `attach(engine, renderer)` — sets `THREE.AudioContext` to the engine's context and auto-starts on first canvas gesture. Returns a detach function.
+- `SpatialSource` — `Object3D` wrapping a `PannerNode`. Seven reactive params (`refDistance`, `maxDistance`, `rolloffFactor`, `distanceModel`, `coneInnerAngle`, `coneOuterAngle`, `coneOuterGain`). Position/orientation sync via `updateMatrixWorld`.
 
 > For full API reference: read `references/threejs.md`
 
@@ -129,6 +135,28 @@ export const { EngineProvider, useEngine } = createEngineContext(engine);
   <SynthUI />
 </EngineProvider>
 ```
+
+### Three.js Engine Setup Pattern
+
+```typescript
+import * as THREE from "three";
+import { createEngine } from "@audiorective/core";
+import { attach, SpatialSource } from "@audiorective/threejs";
+
+const engine = createEngine((ctx) => ({ synth: new MySynth(ctx) }));
+
+const renderer = new THREE.WebGLRenderer({ canvas });
+attach(engine, renderer); // sets THREE.AudioContext, auto-starts on canvas gesture
+
+const listener = new THREE.AudioListener();
+camera.add(listener);
+
+const spatial = new SpatialSource(listener, { distanceModel: "inverse" });
+engine.synth.output.connect(spatial.input);
+mesh.add(spatial); // position follows mesh via updateMatrixWorld
+```
+
+`attach` must run before constructing `THREE.AudioListener` — it calls `THREE.AudioContext.setContext` so the listener is wired to the engine's context.
 
 ### Cell vs Param
 

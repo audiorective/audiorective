@@ -3,6 +3,7 @@ import { EngineProvider, useEngine } from "./audio/engine";
 import { Transport } from "./components/Transport";
 import { TrackMatrix } from "./components/TrackMatrix";
 import { ParamPanel } from "./components/ParamPanel";
+import { SpatialPanner } from "./components/SpatialPanner";
 import type { Track } from "./audio/trackConfig";
 
 function SequencerApp() {
@@ -15,14 +16,20 @@ function SequencerApp() {
         <h1 style={styles.title}>Audiorective</h1>
       </header>
 
-      <main style={styles.main}>
-        <Transport />
-        <TrackMatrix selectedTrack={selectedTrack} onSelectTrack={setSelectedTrack} />
-      </main>
-
-      <footer style={styles.footer}>
-        <ParamPanel track={selectedTrack} />
-      </footer>
+      <div style={styles.body}>
+        <div style={styles.leftColumn}>
+          <div style={styles.sequencer}>
+            <Transport />
+            <TrackMatrix selectedTrack={selectedTrack} onSelectTrack={setSelectedTrack} />
+          </div>
+          <div style={styles.inspector}>
+            <ParamPanel track={selectedTrack} />
+          </div>
+        </div>
+        <div style={styles.rightColumn}>
+          <SpatialPanner tracks={tracks} selectedTrackId={selectedTrack.id} onSelectTrack={setSelectedTrack} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -39,7 +46,7 @@ const styles = {
   page: {
     display: "flex",
     flexDirection: "column" as const,
-    minHeight: "100vh",
+    height: "100vh",
     background: "#0a0a0a",
     color: "#e0e0e0",
     fontFamily: "system-ui, sans-serif",
@@ -56,16 +63,32 @@ const styles = {
     fontWeight: "normal" as const,
     letterSpacing: "0.1em",
   },
-  main: {
+  body: {
+    flex: 1,
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+    minHeight: 0,
+  },
+  leftColumn: {
+    display: "flex",
+    flexDirection: "column" as const,
+    minWidth: 0,
+    borderRight: "1px solid #1a1a1a",
+    overflow: "hidden",
+  },
+  sequencer: {
     flex: 1,
     padding: "16px 20px",
-    minWidth: "900px",
-    overflowX: "auto" as const,
+    overflow: "auto" as const,
+    minHeight: 0,
   },
-  footer: {
-    position: "sticky" as const,
-    bottom: 0,
+  inspector: {
     flexShrink: 0,
     borderTop: "1px solid #1e1e1e",
+  },
+  rightColumn: {
+    position: "relative" as const,
+    minWidth: 0,
+    minHeight: 0,
   },
 };
