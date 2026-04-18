@@ -25,7 +25,7 @@ Web Audio's imperative API with UI frameworks.
 
 Reactive audio primitives. The foundation.
 
-**Exports:** `Param`, `SchedulableParam`, `ParamSync`, `AudioProcessor`, `AudioEngine`, `createEngine`, `Cell`, `cell`
+**Exports:** `Param`, `SchedulableParam`, `ParamSync`, `AudioProcessor`, `AudioEngine`, `createEngine`, `Cell`, `cell`, `Spatial`, `SpatialOptions`
 
 - `Param` — reactive parameter, set `.value` to update
 - `SchedulableParam` — numeric param with Web Audio scheduling methods (ramps, setTargetAtTime, etc.)
@@ -33,6 +33,7 @@ Reactive audio primitives. The foundation.
 - `AudioProcessor` — base class for audio components, owns graph + params + lifecycle
 - `AudioEngine` / `createEngine()` — singleton audio context + processor graph
 - `engine.autoStart(target, options?)` — arm gesture listeners on any `EventTarget`; calls `start()` on first interaction, re-arms on state drops, auto-disarms on destroy. Returns a detach function.
+- `Spatial` — `AudioProcessor` owning a `PannerNode` (HRTF). `input` (GainNode) + `output` (panner) for graph wiring; seven reactive params (`refDistance`, `maxDistance`, `rolloffFactor`, `distanceModel`, `coneInnerAngle`, `coneOuterAngle`, `coneOuterGain`). Position/orientation are regular `AudioParam`s on `spatial.panner` — `@audiorective/threejs` provides `PannerAnchor` to sync them from a scene Object3D.
 
 > For full API reference: read `references/core.md`
 
@@ -57,12 +58,12 @@ Look-ahead scheduling engine. Beat-based timing (Ableton Link style).
 
 ### @audiorective/threejs
 
-Three.js bindings. Wraps built-in three.js audio (`AudioListener`, `PannerNode`) with reactive params — no parallel audio system.
+Three.js bindings. Thin scene-side glue — audio (including the `PannerNode`) lives in `@audiorective/core`'s `Spatial`. This package just binds a scene `Object3D`'s world transform to an existing `PannerNode`.
 
-**Exports:** `attach`, `SpatialSource`, `SpatialOptions`
+**Exports:** `attach`, `PannerAnchor`
 
 - `attach(engine, renderer)` — sets `THREE.AudioContext` to the engine's context and auto-starts on first canvas gesture. Returns a detach function.
-- `SpatialSource` — `Object3D` wrapping a `PannerNode`. Seven reactive params (`refDistance`, `maxDistance`, `rolloffFactor`, `distanceModel`, `coneInnerAngle`, `coneOuterAngle`, `coneOuterGain`). Position/orientation sync via `updateMatrixWorld`.
+- `PannerAnchor` — `Object3D` that takes an externally-owned `PannerNode` (usually `coreSpatial.panner`) and syncs its world position + forward vector into `panner.positionX/Y/Z` and `panner.orientationX/Y/Z` via `updateMatrixWorld`. Does not own the panner — removing the anchor from the scene does not disconnect the audio.
 
 > For full API reference: read `references/threejs.md`
 
@@ -138,25 +139,35 @@ export const { EngineProvider, useEngine } = createEngineContext(engine);
 
 ### Three.js Engine Setup Pattern
 
+Audio and 3D scene are decoupled: the engine owns every `Spatial` (and thus every `PannerNode`), so sound works even with no three.js mounted. The `@audiorective/threejs` layer only provides a scene binding.
+
 ```typescript
 import * as THREE from "three";
-import { createEngine } from "@audiorective/core";
-import { attach, SpatialSource } from "@audiorective/threejs";
+import { createEngine, Spatial } from "@audiorective/core";
+import { attach, PannerAnchor } from "@audiorective/threejs";
 
-const engine = createEngine((ctx) => ({ synth: new MySynth(ctx) }));
+const engine = createEngine((ctx) => {
+  const synth = new MySynth(ctx);
+  const spatial = new Spatial(ctx, { distanceModel: "inverse" });
+  synth.output.connect(spatial.input);
+  spatial.output.connect(ctx.destination); // audio works with no scene
+  return { synth, spatial };
+});
 
 const renderer = new THREE.WebGLRenderer({ canvas });
 attach(engine, renderer); // sets THREE.AudioContext, auto-starts on canvas gesture
 
 const listener = new THREE.AudioListener();
-camera.add(listener);
+camera.add(listener); // keeps ctx.listener tracking the camera's transform
 
-const spatial = new SpatialSource(listener, { distanceModel: "inverse" });
-engine.synth.output.connect(spatial.input);
-mesh.add(spatial); // position follows mesh via updateMatrixWorld
+const anchor = new PannerAnchor(engine.spatial.panner);
+anchor.add(mesh);
+scene.add(anchor); // mesh position now pans the audio via updateMatrixWorld
 ```
 
 `attach` must run before constructing `THREE.AudioListener` — it calls `THREE.AudioContext.setContext` so the listener is wired to the engine's context.
+
+`PannerAnchor` does **not** own the panner. Unmounting the scene leaves the audio running at the last-written position; lifetime is owned by whoever destroys the `Spatial`.
 
 ### Cell vs Param
 

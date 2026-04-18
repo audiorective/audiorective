@@ -265,6 +265,54 @@ interface BuildHelpers {
 
 **`destroy()`** stops all effects, calls `destroy()` on every param in the registry (cleaning up bind effects and `ParamSync` registrations), and disconnects any internally-created `ConstantSourceNode`s. Cells are not destroyed automatically — they're plain reactive containers with no audio-graph resources.
 
+### Spatial
+
+Built-in `AudioProcessor` that owns a `PannerNode` (HRTF) and exposes its seven properties as reactive `Param<T>`s. Lives in core — audio works end-to-end without any 3D renderer. `@audiorective/threejs` provides `PannerAnchor` to bind a scene `Object3D`'s world transform to the panner.
+
+```typescript
+import { Spatial, type SpatialOptions } from "@audiorective/core";
+
+class Spatial extends AudioProcessor<{
+  refDistance: Param<number>;
+  maxDistance: Param<number>;
+  rolloffFactor: Param<number>;
+  distanceModel: Param<DistanceModelType>;
+  coneInnerAngle: Param<number>;
+  coneOuterAngle: Param<number>;
+  coneOuterGain: Param<number>;
+}> {
+  readonly panner: PannerNode;
+  readonly input: GainNode;
+  get output(): AudioNode; // returns panner
+
+  constructor(context: AudioContext, options?: SpatialOptions);
+}
+
+interface SpatialOptions {
+  distanceModel?: DistanceModelType; // default "inverse"
+  refDistance?: number; // default 1
+  maxDistance?: number; // default 10000
+  rolloffFactor?: number; // default 1
+  coneInnerAngle?: number; // default 360
+  coneOuterAngle?: number; // default 0
+  coneOuterGain?: number; // default 0
+}
+```
+
+Feed audio into `spatial.input` (a `GainNode`) and connect `spatial.output` to `ctx.destination` (or further). Writing to any of the seven `Param<T>`s propagates to the underlying `PannerNode` via a bind effect.
+
+```typescript
+const synth = new MySynth(ctx);
+const spatial = new Spatial(ctx, { distanceModel: "inverse", refDistance: 2 });
+synth.output.connect(spatial.input);
+spatial.output.connect(ctx.destination);
+
+spatial.params.maxDistance.value = 500;
+spatial.params.rolloffFactor.value = 0.5;
+```
+
+Position/orientation are plain `AudioParam`s on `spatial.panner`. Drive them directly from a render loop, or hand `spatial.panner` to `PannerAnchor` in `@audiorective/threejs` for automatic world-transform sync.
+
 ---
 
 ## Usage Examples
@@ -522,6 +570,7 @@ signals/src/
 ├── Param.ts             # reactive parameter wrapper
 ├── SchedulableParam.ts  # numeric param with Web Audio scheduling
 ├── ParamSync.ts         # per-context RAF sync loop
+├── Spatial.ts           # AudioProcessor wrapping a PannerNode
 ├── types.ts             # SignalAccessor, ComputedAccessor, Readable, ParamBind, etc.
 └── index.ts             # public exports
 ```
@@ -530,7 +579,7 @@ signals/src/
 
 ```typescript
 // Classes
-export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell };
+export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell, Spatial };
 
 // Factories
 export { createEngine, cell };
@@ -539,5 +588,5 @@ export { createEngine, cell };
 export { DEFAULT_SYNC_INTERVAL_MS };
 
 // Types
-export type { ParamBind, ParamOptions, EngineState, Readable, SignalAccessor, ComputedAccessor, BuildHelpers, BuildResult };
+export type { ParamBind, ParamOptions, EngineState, Readable, SignalAccessor, ComputedAccessor, BuildHelpers, BuildResult, SpatialOptions };
 ```
