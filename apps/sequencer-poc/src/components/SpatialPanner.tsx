@@ -79,7 +79,7 @@ export function SpatialPanner({ tracks, selectedTrackId, onSelectTrack }: Spatia
       const mesh = new THREE.Mesh(sphereGeometry, material);
       mesh.userData["trackId"] = track.id;
 
-      const anchor = new PannerAnchor(track.spatial.panner);
+      const anchor = new PannerAnchor(track.seq.spatial.panner);
       const x = (i - (tracks.length - 1) / 2) * 1.5;
       anchor.position.set(x, SPHERE_Y, 0);
       anchor.add(mesh);

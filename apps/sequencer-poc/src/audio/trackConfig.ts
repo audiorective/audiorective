@@ -1,4 +1,4 @@
-import type { AudioProcessor, Spatial } from "@audiorective/core";
+import type { AudioProcessor } from "@audiorective/core";
 import type { TrackSequencer } from "./TrackSequencer";
 import type { DrumSequencer } from "./DrumSequencer";
 
@@ -70,5 +70,4 @@ export type Track = {
   color: string;
   seq: TrackSequencer | DrumSequencer;
   instrument: Instrument;
-  spatial: Spatial;
 };
