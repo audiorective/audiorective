@@ -1,6 +1,6 @@
 # @audiorective/threejs
 
-Three.js integration via wrapping, not a parallel audio system.
+Three.js bindings for `@audiorective/core`. Thin scene-side glue — audio lives in `@audiorective/core` (including `Spatial`, which owns the `PannerNode`). This package only binds a scene `Object3D`'s world transform to an existing `PannerNode` and wires the engine's context into three.js.
 
 ## Dependencies
 
@@ -19,221 +19,131 @@ Three.js integration via wrapping, not a parallel audio system.
 
 ```
 threejs/src/
-├── SpatialSource.ts
-├── AudioAnalyser.ts
-├── types.ts
+├── attach.ts         # one-call engine ↔ renderer setup
+├── PannerAnchor.ts   # Object3D that syncs world transform → PannerNode
 └── index.ts
 ```
 
----
-
-## Philosophy
-
-Three.js has built-in audio (AudioListener, PositionalAudio). It works but lacks:
-
-- Parameter automation
-- Audio analysis
-- Scheduling precision
-- Reactive state
-
-Audiorective wraps Three.js audio objects, exposes internals as signals, and adds missing capabilities. One audio system, enhanced.
-
----
-
-## AudioProcessor Output Requirement
-
-All AudioProcessors must expose their output node via `get output(): AudioNode`. Input is only required for effects processors.
+## Exports
 
 ```typescript
-class MySynth extends AudioProcessor {
-  private gainNode: GainNode;
-  get output() {
-    return this.gainNode;
-  }
-}
-
-class Reverb extends AudioProcessor {
-  private inputGain: GainNode;
-  private outputGain: GainNode;
-  get input() {
-    return this.inputGain;
-  }
-  get output() {
-    return this.outputGain;
-  }
-}
+export { attach, PannerAnchor };
 ```
 
 ---
 
-## SpatialSource
+## `attach(engine, renderer)`
 
-Extends `Object3D`. Attach to any mesh to make audio follow it in 3D space.
+One-call setup that does two things in the right order:
 
-### Constructor Options
+1. `THREE.AudioContext.setContext(engine.core.context)` — must run **before** any `THREE.AudioListener` is constructed, so that three.js uses your engine's context instead of its own.
+2. `engine.core.autoStart(renderer.domElement)` — arms the engine to start on the first pointer/key gesture inside the canvas.
+
+Accepts either a bare `AudioEngine` or the `{ core: AudioEngine }` wrapper returned by `createEngine`.
+
+Returns a detach function that unhooks the auto-start listener.
 
 ```typescript
-interface SpatialOptions {
-  distanceModel?: "linear" | "inverse" | "exponential";
-  refDistance?: number;
-  maxDistance?: number;
-  rolloffFactor?: number;
-  coneInnerAngle?: number;
-  coneOuterAngle?: number;
-  coneOuterGain?: number;
-}
+import * as THREE from "three";
+import { createEngine } from "@audiorective/core";
+import { attach } from "@audiorective/threejs";
+
+const engine = createEngine((ctx) => {
+  const synth = new MySynth(ctx);
+  return { synth };
+});
+
+const renderer = new THREE.WebGLRenderer({ canvas });
+const detach = attach(engine, renderer);
 ```
 
-### Class API
+---
+
+## `PannerAnchor`
+
+Extends `THREE.Object3D`. Takes an externally-owned `PannerNode` (typically from a `Spatial` in `@audiorective/core`) and keeps its `positionX/Y/Z` and `orientationX/Y/Z` AudioParams in sync with the object's world transform.
+
+### Constructor
 
 ```typescript
-class SpatialSource extends Object3D {
+class PannerAnchor extends THREE.Object3D {
   readonly panner: PannerNode;
 
-  readonly refDistance = reactiveParam(1);
-  readonly maxDistance = reactiveParam(10000);
-  readonly rolloffFactor = reactiveParam(1);
-
-  get input(): AudioNode; // connect AudioProcessor output here
-
-  constructor(listener: AudioListener, options?: SpatialOptions);
-
-  updateMatrixWorld(force?: boolean): void; // syncs position + orientation to PannerNode
-
-  destroy(): void;
+  constructor(panner: PannerNode);
 }
 ```
 
-Position and orientation sync happens automatically in `updateMatrixWorld` — called by Three.js render loop. Reactive properties (refDistance, maxDistance, rolloffFactor) sync to the PannerNode via effects.
+The anchor does **not** own the panner's lifetime — it never disconnects or destroys it. Construct the `Spatial` in your engine, pass `spatial.panner` in here, and let the engine own teardown. Removing the anchor from the scene stops position sync; the audio keeps playing at the last-written position.
+
+### World transform sync
+
+`PannerAnchor` overrides `updateMatrixWorld(force?)` to push the object's world position and forward vector into `panner.positionX/Y/Z.value` and `panner.orientationX/Y/Z.value`. Direct `.value` assignment is used (not `setValueAtTime`) — position sync runs once per frame, no sample-accurate automation needed, and this mirrors what three.js's own `PositionalAudio` does.
+
+> three.js convention: `getWorldDirection()` returns the local `+Z` axis in world space. A default `Object3D` orients the panner to `(0, 0, 1)`.
 
 ---
 
 ## Usage
 
-### Basic Spatial Audio
+The engine owns the audio graph (including `Spatial` → `ctx.destination`). The three.js layer is purely cosmetic: it binds each `Spatial.panner` to a scene object so moving the object pans the audio.
+
+### Basic spatial synth
 
 ```typescript
+import * as THREE from "three";
+import { createEngine, Spatial } from "@audiorective/core";
+import { attach, PannerAnchor } from "@audiorective/threejs";
+
+const engine = createEngine((ctx) => {
+  const synth = new MySynth(ctx);
+  const spatial = new Spatial(ctx, { distanceModel: "inverse" });
+  synth.output.connect(spatial.input);
+  spatial.output.connect(ctx.destination);
+  return { synth, spatial };
+});
+
+const renderer = new THREE.WebGLRenderer({ canvas });
+attach(engine, renderer);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera();
+
+// THREE.AudioListener keeps ctx.listener synced with the camera's transform.
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
-const synth = new MySynth(listener.context);
+const anchor = new PannerAnchor(engine.spatial.panner);
+const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial());
+anchor.add(mesh);
+scene.add(anchor);
 
-const spatial = new SpatialSource(listener);
-synth.output.connect(spatial.input);
-
-alienShip.add(spatial);
-// synth sound now follows alienShip in 3D
+// render loop: renderer.render(scene, camera) calls updateMatrixWorld on PannerAnchor.
 ```
 
-### Chaining Effects
+### Audio without three.js
 
-```typescript
-const synth = new MySynth(ctx);
-const reverb = new Reverb(ctx);
-const compressor = new Compressor(ctx);
-
-synth.output.connect(reverb.input);
-reverb.output.connect(compressor.input);
-
-const spatial = new SpatialSource(listener);
-compressor.output.connect(spatial.input);
-
-alienShip.add(spatial);
-```
-
-### Non-Spatial (Global) Audio
-
-Connect directly to destination — no special handling:
-
-```typescript
-const backgroundMusic = new MusicPlayer(audioContext);
-backgroundMusic.output.connect(audioContext.destination);
-```
-
-### Reactive Spatial Parameters
-
-```typescript
-const spatial = new SpatialSource(listener, {
-  distanceModel: "inverse",
-  refDistance: 1,
-});
-
-effect(() => {
-  if (currentArea.value === "outdoor") {
-    spatial.maxDistance.value = 500;
-    spatial.rolloffFactor.value = 0.5;
-  } else {
-    spatial.maxDistance.value = 50;
-    spatial.rolloffFactor.value = 2;
-  }
-});
-```
+Because the `Spatial` lives in core and already connects to `ctx.destination`, the engine produces sound with or without any scene mounted. Skip `PannerAnchor` and the panner stays at origin — mono-ish unity pan, fully audible.
 
 ---
 
-## Sync Directions
+## Sync directions
 
-**Audio → Visual**
+**Visual → Audio** — `PannerAnchor.updateMatrixWorld` (world pos + forward → `PannerNode` AudioParams).
 
-- Frequency data → object scale/color
-- Beat events → trigger animations
-- Amplitude → emission intensity
-
-**Visual → Audio**
-
-- Object3D position → PannerNode position (handled by SpatialSource)
-- Object velocity → filter cutoff, doppler
-- Camera distance → reverb mix
+**Audio → Visual** — read `ComputedAccessor<T>` / `Param<T>` values from your render loop or React component to drive visuals (e.g. analyser amplitude → emissive intensity).
 
 ---
 
-## Update Timing
+## React Three Fiber
 
-Two loops exist:
+`PannerAnchor` is a plain `Object3D`, so it works as a primitive:
 
-**Three.js render loop** — requestAnimationFrame, ~60fps
-
-- Position sync happens here (via `updateMatrixWorld`)
-- Read amplitude/frequency signals for visualization
-
-**Audio clock** — look-ahead scheduling, sample-accurate
-
-- Beat-synced events
-- Precise timing for musical applications
-
-For continuous visual sync, read signals in render loop.
-For discrete events, use clock callbacks.
-
----
-
-## React Three Fiber Support
-
-R3F users get the same primitives via `useFrame`:
-
-```typescript
-function SpatialSynth({ mesh }) {
-  const spatial = useRef<SpatialSource>();
-  const synth = useRef<MySynth>();
-
-  useEffect(() => {
-    const listener = /* get from context */;
-    synth.current = new MySynth(listener.context);
-    spatial.current = new SpatialSource(listener);
-    synth.current.output.connect(spatial.current.input);
-
-    return () => {
-      synth.current?.destroy();
-      spatial.current?.destroy();
-    };
-  }, []);
-
-  useFrame(() => {
-    // Spatial position syncs automatically via updateMatrixWorld
-    // Read analysis data for visuals here if needed
-  });
-
-  return (
-    <primitive object={spatial.current} />
-  );
+```tsx
+function SpatialSynth({ spatial }: { spatial: Spatial }) {
+  const ref = useRef<PannerAnchor>(null);
+  if (!ref.current) ref.current = new PannerAnchor(spatial.panner);
+  return <primitive object={ref.current} />;
 }
 ```
+
+No `useFrame` needed for position sync — `updateMatrixWorld` runs as part of `renderer.render`. Cleanup is a no-op since the anchor doesn't own the panner.

@@ -92,7 +92,7 @@ Creates a typed `EngineProvider` and `useEngine` hook for an engine created by `
 
 `EngineProvider` always renders children immediately. Safe because `createEngine` wires up all processors eagerly at construction time. Components use `useValue(engine.core.state)` to know whether audio is running and show UI accordingly.
 
-The `autoStart` prop (default `true`) registers a one-time gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.core.start()` on the first user interaction. Re-arms if the engine state drops from running (e.g. mobile background suspend).
+The `autoStart` prop (default `true`) delegates to [`engine.core.autoStart(document)`](./core.md) — a one-shot gesture listener (`click`/`keydown`/`touchstart`) that calls `engine.core.start()` on the first user interaction. Re-arms automatically if the engine state drops from running (e.g. mobile background suspend).
 
 ```typescript
 // audio/engine.ts

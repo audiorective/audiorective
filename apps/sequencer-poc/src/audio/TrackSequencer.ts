@@ -1,4 +1,4 @@
-import { cell, type Cell } from "@audiorective/core";
+import { cell, Spatial, type Cell, type SpatialOptions } from "@audiorective/core";
 import type { StepSynth } from "./instruments/StepSynth";
 
 export interface Step {
@@ -8,11 +8,16 @@ export interface Step {
 
 export class TrackSequencer {
   readonly steps: Cell<Step[]>;
+  readonly spatial: Spatial;
   private readonly synth: StepSynth;
 
-  constructor(synth: StepSynth, defaultFreq = 440) {
+  constructor(synth: StepSynth, spatialOptions: SpatialOptions = {}, defaultFreq = 440) {
     this.synth = synth;
     this.steps = cell<Step[]>(Array.from({ length: 8 }, () => ({ active: false, frequency: defaultFreq })));
+
+    this.spatial = new Spatial(synth.context, spatialOptions);
+    synth.output?.connect(this.spatial.input);
+    this.spatial.output.connect(synth.context.destination);
   }
 
   tick(stepIndex: number, time: number): void {

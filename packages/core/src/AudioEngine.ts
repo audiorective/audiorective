@@ -2,6 +2,8 @@ import { signal, effect } from "alien-signals";
 import { AudioProcessor } from "./AudioProcessor";
 import type { EngineState, SignalAccessor } from "./types";
 
+const DEFAULT_AUTO_START_EVENTS = ["click", "keydown", "touchstart"] as const;
+
 export class AudioEngine {
   private readonly _context: AudioContext;
   private _processors: AudioProcessor[] = [];
@@ -73,6 +75,43 @@ export class AudioEngine {
   register<T extends AudioProcessor>(processor: T): T {
     this._processors.push(processor);
     return processor;
+  }
+
+  autoStart(target: EventTarget, options?: { events?: readonly string[] }): () => void {
+    const events = options?.events ?? DEFAULT_AUTO_START_EVENTS;
+    let gestureCleanup: (() => void) | null = null;
+
+    const arm = () => {
+      if (gestureCleanup) return;
+      const handler = () => {
+        disarm();
+        void this.start();
+      };
+      for (const ev of events) target.addEventListener(ev, handler);
+      gestureCleanup = () => {
+        for (const ev of events) target.removeEventListener(ev, handler);
+        gestureCleanup = null;
+      };
+    };
+
+    const disarm = () => {
+      gestureCleanup?.();
+    };
+
+    const stop = effect(() => {
+      const s = this._state();
+      if (s === "destroyed") {
+        disarm();
+        return;
+      }
+      if (s !== "running") arm();
+      else disarm();
+    });
+
+    return () => {
+      stop();
+      disarm();
+    };
   }
 
   destroy(): void {

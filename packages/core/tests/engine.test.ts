@@ -178,6 +178,88 @@ describe("AudioEngine", () => {
   });
 });
 
+describe("AudioEngine.autoStart", () => {
+  test("starts engine on first gesture", async () => {
+    const engine = new TestEngine();
+    const target = new EventTarget();
+    engine.autoStart(target);
+    target.dispatchEvent(new Event("click"));
+    await engine.untilReady();
+    expect(engine.state()).toBe("running");
+    engine.destroy();
+  });
+
+  test("self-detaches after firing (subsequent events are no-ops)", async () => {
+    const engine = new TestEngine();
+    const target = new EventTarget();
+    engine.autoStart(target);
+    target.dispatchEvent(new Event("click"));
+    await engine.untilReady();
+    const startSpy = vi.spyOn(engine, "start");
+    target.dispatchEvent(new Event("click"));
+    target.dispatchEvent(new Event("keydown"));
+    expect(startSpy).not.toHaveBeenCalled();
+    startSpy.mockRestore();
+    engine.destroy();
+  });
+
+  test("re-arms when state drops from running back to suspended", async () => {
+    const engine = new TestEngine();
+    const target = new EventTarget();
+    engine.autoStart(target);
+
+    target.dispatchEvent(new Event("click"));
+    await engine.untilReady();
+    expect(engine.state()).toBe("running");
+
+    await engine.suspend();
+    expect(engine.state()).toBe("suspended");
+
+    target.dispatchEvent(new Event("click"));
+    await engine.untilReady();
+    expect(engine.state()).toBe("running");
+    engine.destroy();
+  });
+
+  test("returned detach removes listeners and stops effect", async () => {
+    const engine = new TestEngine();
+    const target = new EventTarget();
+    const detach = engine.autoStart(target);
+    detach();
+    const startSpy = vi.spyOn(engine, "start");
+    target.dispatchEvent(new Event("click"));
+    target.dispatchEvent(new Event("keydown"));
+    expect(startSpy).not.toHaveBeenCalled();
+    startSpy.mockRestore();
+    engine.destroy();
+  });
+
+  test("respects custom events option", async () => {
+    const engine = new TestEngine();
+    const target = new EventTarget();
+    engine.autoStart(target, { events: ["pointerdown"] });
+
+    target.dispatchEvent(new Event("click"));
+    expect(engine.state()).toBe("idle");
+
+    target.dispatchEvent(new Event("pointerdown"));
+    await engine.untilReady();
+    expect(engine.state()).toBe("running");
+    engine.destroy();
+  });
+
+  test("disarms permanently when engine is destroyed", async () => {
+    const engine = new TestEngine();
+    const target = new EventTarget();
+    engine.autoStart(target);
+    engine.destroy();
+    const startSpy = vi.spyOn(engine, "start");
+    target.dispatchEvent(new Event("click"));
+    expect(startSpy).not.toHaveBeenCalled();
+    startSpy.mockRestore();
+  });
+});
+
 describe("createEngine", () => {
   test("returns engine with user-defined properties and .core", () => {
     const engine = createEngine((ctx) => {

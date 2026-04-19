@@ -4,5 +4,7 @@ export { ParamSync, DEFAULT_SYNC_INTERVAL_MS } from "./ParamSync";
 export { AudioProcessor } from "./AudioProcessor";
 export { AudioEngine, createEngine } from "./AudioEngine";
 export { Cell, cell } from "./Cell";
+export { Spatial } from "./Spatial";
+export type { SpatialOptions } from "./Spatial";
 export type { ParamBind, ParamOptions, EngineState, SignalAccessor, ComputedAccessor, Readable } from "./types";
 export type { BuildHelpers, BuildResult } from "./AudioProcessor";
