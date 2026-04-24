@@ -1,18 +1,16 @@
 import { useEffect, useRef } from "react";
-import { useEngine } from "../audio/engine";
 import { SpatialScene } from "../scene/SpatialScene";
 
 export function SpatialPanner() {
-  const { tracks, selectedTrackId } = useEngine();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const scene = new SpatialScene({ tracks, selectedTrackId });
+    const scene = new SpatialScene();
     scene.mount(container);
     return () => scene.dispose();
-  }, [tracks, selectedTrackId]);
+  }, []);
 
   return <div ref={containerRef} style={styles.container} />;
 }

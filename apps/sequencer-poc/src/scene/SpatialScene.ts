@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { effect } from "alien-signals";
-import type { Cell } from "@audiorective/core";
 import { attach, PannerAnchor } from "@audiorective/threejs";
 import { engine } from "../audio/engine";
 import type { Track } from "../audio/trackConfig";
@@ -16,14 +15,7 @@ type TrackEntry = {
   ring: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
 };
 
-export interface SpatialSceneOptions {
-  tracks: readonly Track[];
-  selectedTrackId: Cell<string>;
-}
-
 export class SpatialScene {
-  private readonly tracks: readonly Track[];
-  private readonly selectedTrackId: Cell<string>;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
@@ -34,10 +26,7 @@ export class SpatialScene {
   private container: HTMLElement | null = null;
   private rafId = 0;
 
-  constructor({ tracks, selectedTrackId }: SpatialSceneOptions) {
-    this.tracks = tracks;
-    this.selectedTrackId = selectedTrackId;
-
+  constructor() {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setClearColor(0x0a0a0a, 1);
@@ -61,13 +50,13 @@ export class SpatialScene {
     this.scene.add(this.grid);
 
     this.sphereGeometry = new THREE.SphereGeometry(SPHERE_RADIUS, 24, 16);
-    this.entries = tracks.map((track, i) => this.buildEntry(track, i));
+    this.entries = engine.tracks.map((track, i) => this.buildEntry(track, i));
 
     this.disposers.push(attach(engine, this.renderer));
     this.disposers.push(this.installPointerHandlers());
     this.disposers.push(
       effect(() => {
-        const id = this.selectedTrackId.$();
+        const id = engine.selectedTrackId.$();
         this.syncSelection(id);
       }),
     );
@@ -129,8 +118,10 @@ export class SpatialScene {
     const mesh = new THREE.Mesh(this.sphereGeometry, material);
     mesh.userData["trackId"] = track.id;
 
+    // Bind the track's spatial PannerNode to this scene Object3D so dragging
+    // the sphere pans the audio — the only visual→audio coupling in this scene.
     const anchor = new PannerAnchor(track.seq.spatial.panner);
-    const x = (i - (this.tracks.length - 1) / 2) * 1.5;
+    const x = (i - (engine.tracks.length - 1) / 2) * 1.5;
     anchor.position.set(x, SPHERE_Y, 0);
     anchor.add(mesh);
     this.scene.add(anchor);
@@ -190,8 +181,8 @@ export class SpatialScene {
         dragOffset.set(0, 0, 0);
       }
 
-      if (entry.track.id !== this.selectedTrackId.value) {
-        this.selectedTrackId.value = entry.track.id;
+      if (entry.track.id !== engine.selectedTrackId.value) {
+        engine.selectedTrackId.value = entry.track.id;
       }
     };
 
