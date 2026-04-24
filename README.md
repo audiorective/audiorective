@@ -16,12 +16,12 @@ What's even better: we also ship an agent skill that teaches LLMs how to use aud
 
 ## Packages
 
-| Package                                   | Description                                                            |
-| ----------------------------------------- | ---------------------------------------------------------------------- |
-| [`@audiorective/core`](./packages/core)   | Reactive primitives for Web Audio — Param, AudioProcessor, AudioEngine |
-| [`@audiorective/react`](./packages/react) | React hooks and context factories                                      |
-| `@audiorective/clock`                     | Timing, scheduling, transport _(planned)_                              |
-| `@audiorective/threejs`                   | Three.js spatial audio integration _(planned)_                         |
+| Package                                       | Description                                                            |
+| --------------------------------------------- | ---------------------------------------------------------------------- |
+| [`@audiorective/core`](./packages/core)       | Reactive primitives for Web Audio — Param, AudioProcessor, AudioEngine |
+| [`@audiorective/react`](./packages/react)     | React hooks and context factories                                      |
+| [`@audiorective/threejs`](./packages/threejs) | Three.js spatial audio integration                                     |
+| `@audiorective/clock`                         | Timing, scheduling, transport _(planned)_                              |
 
 Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
@@ -34,7 +34,7 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 ## Example
 
-[apps/sequencer-poc](./apps/sequencer-poc) — a multi-track step sequencer with melodic synths, kick, snare, and hihat, built with `@audiorective/core` and `@audiorective/react`.
+[apps/sequencer-poc](./apps/sequencer-poc) — a multi-track step sequencer with melodic synths, kick, snare, and hihat, built with `@audiorective/core`, `@audiorective/react`, and `@audiorective/threejs` (spatial panning in a three.js scene).
 
 ## Agent Skill
 
@@ -48,7 +48,7 @@ The CLI auto-detects whichever agent you have installed (Claude Code, Cursor, Op
 
 ## Status
 
-v0.1.0 — early release. API may change before 1.0.
+Published packages at v1.1.x. Early release — API may change before 1.0.
 
 ## License
 
@@ -59,3 +59,4 @@ MIT
 - [GitHub](https://github.com/audiorective/audiorective)
 - [@audiorective/core on npm](https://www.npmjs.com/package/@audiorective/core)
 - [@audiorective/react on npm](https://www.npmjs.com/package/@audiorective/react)
+- [@audiorective/threejs on npm](https://www.npmjs.com/package/@audiorective/threejs)
