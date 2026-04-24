@@ -20,7 +20,7 @@ What's even better: we also ship an agent skill that teaches LLMs how to use aud
 | --------------------------------------------- | ---------------------------------------------------------------------- |
 | [`@audiorective/core`](./packages/core)       | Reactive primitives for Web Audio — Param, AudioProcessor, AudioEngine |
 | [`@audiorective/react`](./packages/react)     | React hooks and context factories                                      |
-| [`@audiorective/threejs`](./packages/threejs) | Three.js spatial audio integration                                     |
+| [`@audiorective/threejs`](./packages/threejs) | Three.js bindings — engine glue, spatial transform sync                |
 | `@audiorective/clock`                         | Timing, scheduling, transport _(planned)_                              |
 
 Framework-agnostic core. First-class React bindings. Works headless in Node.js.

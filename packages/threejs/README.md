@@ -1,8 +1,8 @@
 # @audiorective/threejs
 
-Three.js bindings for [`@audiorective/core`](https://www.npmjs.com/package/@audiorective/core) — spatial audio and engine glue.
+Three.js bindings for [`@audiorective/core`](https://www.npmjs.com/package/@audiorective/core).
 
-Thin scene-side glue. Audio still lives in `@audiorective/core` (`Spatial` owns the `PannerNode`); this package only binds a scene `Object3D`'s world transform onto an existing `PannerNode` and wires the engine's `AudioContext` into three.js. For the full API reference, see [`docs/threejs.md`](../../docs/threejs.md).
+The integration layer between an audiorective engine and a three.js scene. Audio always lives in `@audiorective/core`; this package provides the scene-side glue — wiring the engine's `AudioContext` into three.js, syncing scene transforms onto audio nodes, and (over time) any other binding that needs the renderer or `Object3D` graph. Today it ships `attach` (engine ↔ renderer setup) and `PannerAnchor` (spatial transform sync). For the full API reference, see [`docs/threejs.md`](../../docs/threejs.md).
 
 ## Install
 
