@@ -3,19 +3,23 @@ import { useEngine } from "../audio/engine";
 import type { Track } from "../audio/trackConfig";
 import { TrackRow } from "./TrackRow";
 
-interface TrackMatrixProps {
-  selectedTrack: Track;
-  onSelectTrack: (track: Track) => void;
-}
-
-export function TrackMatrix({ selectedTrack, onSelectTrack }: TrackMatrixProps) {
-  const { masterSeq, tracks } = useEngine();
+export function TrackMatrix() {
+  const { masterSeq, tracks, selectedTrackId } = useEngine();
   const currentStep = useValue(masterSeq.params.currentStep);
+  const selectedId = useValue(selectedTrackId);
 
   return (
     <div style={styles.matrix}>
       {tracks.map((track: Track) => (
-        <TrackRow key={track.id} track={track} currentStep={currentStep} isSelected={selectedTrack === track} onSelect={() => onSelectTrack(track)} />
+        <TrackRow
+          key={track.id}
+          track={track}
+          currentStep={currentStep}
+          isSelected={selectedId === track.id}
+          onSelect={() => {
+            selectedTrackId.value = track.id;
+          }}
+        />
       ))}
     </div>
   );

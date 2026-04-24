@@ -1,11 +1,12 @@
-import type { Track } from "../audio/trackConfig";
+import { useValue } from "@audiorective/react";
+import { useEngine } from "../audio/engine";
 import { InstrumentParams } from "./InstrumentParams";
 
-interface ParamPanelProps {
-  track: Track;
-}
+export function ParamPanel() {
+  const { tracks, selectedTrackId } = useEngine();
+  const selectedId = useValue(selectedTrackId);
+  const track = tracks.find((t) => t.id === selectedId) ?? tracks[0];
 
-export function ParamPanel({ track }: ParamPanelProps) {
   return (
     <div style={styles.panel}>
       <div style={styles.header}>

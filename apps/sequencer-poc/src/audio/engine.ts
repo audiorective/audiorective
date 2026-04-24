@@ -1,4 +1,4 @@
-import { createEngine } from "@audiorective/core";
+import { cell, createEngine } from "@audiorective/core";
 import { createEngineContext } from "@audiorective/react";
 import { StepSynth } from "./instruments/StepSynth";
 import { KickSynth } from "./instruments/KickSynth";
@@ -57,7 +57,9 @@ export const engine = createEngine((ctx) => {
     { id: "hihat", label: "HIHAT", color: "#16a34a", seq: hihatSeq, instrument: { synth: hihatSynth } },
   ];
 
-  return { masterSeq, tracks };
+  const selectedTrackId = cell<string>(tracks[0].id);
+
+  return { masterSeq, tracks, selectedTrackId };
 });
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
