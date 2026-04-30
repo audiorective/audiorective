@@ -12,7 +12,7 @@ audiorective aims to solve this — think JUCE-grade infrastructure, but for the
 
 We fill that structural gap with independent, composable packages. Each one solves a specific recurring problem — from reactive state management to scheduling, analysis, and beyond — so you can focus on the exciting part: audio.
 
-What's even better: we also ship agent skill that teaches LLMs how to use audiorective to solve real audio problems correctly. Whether you're a vibe-coder, an AI-assisted session engineer, or a 100% hand-crafting master — we've got you covered.
+What's even better: we also ship an agent skill that teaches LLMs how to use audiorective to solve real audio problems correctly. Whether you're a vibe-coder, an AI-assisted session engineer, or a 100% hand-crafting master — we've got you covered. See [Agent Skill](#agent-skill) below for install instructions.
 
 ## Packages
 
@@ -35,6 +35,16 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 ## Example
 
 [apps/sequencer-poc](./apps/sequencer-poc) — a multi-track step sequencer with melodic synths, kick, snare, and hihat, built with `@audiorective/core` and `@audiorective/react`.
+
+## Agent Skill
+
+Install the audiorective skill into your coding agent with the [Vercel skills CLI](https://github.com/vercel-labs/skills):
+
+```sh
+npx skills add audiorective/audiorective
+```
+
+The CLI auto-detects whichever agent you have installed (Claude Code, Cursor, OpenCode, Cline, and 50+ others) and writes the skill into the right place.
 
 ## Status
 
