@@ -1,15 +1,10 @@
-import { useState } from "react";
-import { EngineProvider, useEngine } from "./audio/engine";
+import { EngineProvider } from "./audio/engine";
 import { Transport } from "./components/Transport";
 import { TrackMatrix } from "./components/TrackMatrix";
 import { ParamPanel } from "./components/ParamPanel";
 import { SpatialPanner } from "./components/SpatialPanner";
-import type { Track } from "./audio/trackConfig";
 
 function SequencerApp() {
-  const { tracks } = useEngine();
-  const [selectedTrack, setSelectedTrack] = useState<Track>(tracks[0]);
-
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -20,14 +15,14 @@ function SequencerApp() {
         <div style={styles.leftColumn}>
           <div style={styles.sequencer}>
             <Transport />
-            <TrackMatrix selectedTrack={selectedTrack} onSelectTrack={setSelectedTrack} />
+            <TrackMatrix />
           </div>
           <div style={styles.inspector}>
-            <ParamPanel track={selectedTrack} />
+            <ParamPanel />
           </div>
         </div>
         <div style={styles.rightColumn}>
-          <SpatialPanner tracks={tracks} selectedTrackId={selectedTrack.id} onSelectTrack={setSelectedTrack} />
+          <SpatialPanner />
         </div>
       </div>
     </div>
