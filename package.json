@@ -1,6 +1,6 @@
 {
   "name": "audiorective",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "The wholestack audio primitives",
   "private": true,
   "packageManager": "pnpm@9.15.3",
