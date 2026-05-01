@@ -58,7 +58,7 @@ Look-ahead scheduling engine. Beat-based timing (Ableton Link style).
 
 ### @audiorective/threejs
 
-Three.js bindings. Thin scene-side glue — audio (including the `PannerNode`) lives in `@audiorective/core`'s `Spatial`. This package just binds a scene `Object3D`'s world transform to an existing `PannerNode`.
+Three.js bindings for `@audiorective/core`. The integration layer between the engine and a three.js scene — audio always lives in core; this package provides the scene-side glue (engine context wiring, scene transform sync, and any future binding that needs the renderer or `Object3D` graph).
 
 **Exports:** `attach`, `PannerAnchor`
 
