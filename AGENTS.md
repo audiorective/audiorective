@@ -15,7 +15,7 @@ Modular toolkit for web audio development. Independent, composable packages that
 ├── core         # Reactive state for audio parameters (alien-signals)
 ├── clock        # Timing, scheduling, transport
 ├── react        # React bindings
-└── threejs      # Three.js spatial audio integration
+└── threejs      # Three.js bindings (engine glue, scene transform sync)
 ```
 
 ## Core Conventions
