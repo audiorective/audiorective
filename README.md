@@ -46,10 +46,6 @@ npx skills add audiorective/audiorective
 
 The CLI auto-detects whichever agent you have installed (Claude Code, Cursor, OpenCode, Cline, and 50+ others) and writes the skill into the right place.
 
-## Status
-
-Published packages at v1.1.x. Early release — API may change before 1.0.
-
 ## License
 
 MIT
