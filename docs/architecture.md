@@ -120,3 +120,75 @@ class DrumSequencer {
 > Can I run this audio behavior from a unit test or a script with no DOM?
 
 If not, the logic is in the wrong layer.
+
+---
+
+# UI/UI Separation — Decoupling React from Imperative Views
+
+The same principle extends to UI/UI: when React shares the screen with an imperative renderer (Three.js scene, Canvas2D, WebGPU, etc.), put **any state both views read or write** — selection, hover, mode, drag target, anything — on the engine as a `Cell` or `Param`. Both views then observe the engine independently.
+
+Do not let React own the shared state and thread it into the imperative side via refs or callbacks. That creates back-channels and lifecycle bugs.
+
+- React reads with `useValue(engine.foo)`, writes with `engine.foo.value = x`.
+- The imperative view reads with alien-signals `effect(() => engine.foo.$())`, writes with the same `.value =` setter.
+
+The React component for the imperative view collapses to a DOM host that constructs the scene class, mounts it, and disposes on unmount. No props, no `useRef` mirrors of React state, no callbacks crossing the boundary.
+
+### Wrong — React owns state, scene needs back-channels
+
+```typescript
+function SpatialPanner({ selectedId, onSelect }: Props) {
+  const selectedIdRef = useRef(selectedId);
+  const onSelectRef = useRef(onSelect);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+  // ...200 lines of three.js reading refs and calling onSelectRef.current(...)
+}
+```
+
+### Right — engine owns state, React and the scene are peers
+
+```typescript
+// engine.ts — selection is engine state, not React state
+export const engine = createEngine((ctx) => {
+  const tracks = buildTracks(ctx);
+  const selectedTrackId = cell<string>(tracks[0].id);
+  return { tracks, selectedTrackId };
+});
+
+// scene/SpatialScene.ts — plain TS class, no React
+import { effect } from "alien-signals";
+class SpatialScene {
+  constructor() {
+    // ...
+    this.disposers.push(effect(() => this.syncSelection(engine.selectedTrackId.$())));
+  }
+  private onPointerDown(/* ... */) {
+    engine.selectedTrackId.value = entry.track.id; // write directly
+  }
+}
+
+// SpatialPanner.tsx — DOM host only, ~15 lines
+function SpatialPanner() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const scene = new SpatialScene();
+    scene.mount(ref.current!);
+    return () => scene.dispose();
+  }, []);
+  return <div ref={ref} />;
+}
+
+// Any other React component reads/writes the same Cell
+function TrackMatrix() {
+  const { selectedTrackId } = useEngine();
+  const id = useValue(selectedTrackId);
+  // onSelect: selectedTrackId.value = track.id
+}
+```
+
+The scene class becomes plain TypeScript — testable and mountable without React. The engine is the meeting point for _every_ observer. See `apps/sequencer-poc/src/scene/SpatialScene.ts` for a worked example.
