@@ -8,10 +8,8 @@ export interface UIState {
   cdHover: boolean;
 }
 
-const initialTracks = await loadTracksJson();
-
 export const engine = createEngine((ctx) => {
-  const player = new MusicPlayer(ctx, initialTracks);
+  const player = new MusicPlayer(ctx, []);
   const spatial = new Spatial(ctx, {
     distanceModel: "inverse",
     refDistance: 1.5,
@@ -26,3 +24,9 @@ export const engine = createEngine((ctx) => {
 });
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
+
+void loadTracksJson().then((tracks) => {
+  if (tracks.length === 0) return;
+  engine.player.cells.tracks.value = tracks;
+  engine.player.loadTrack(0);
+});
