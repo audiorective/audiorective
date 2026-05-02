@@ -157,7 +157,7 @@ class SchedulableParam extends Param<number> {
 
 ### Automation Gotchas
 
-- Always anchor with `setValueAtTime(currentValue, now)` before any ramp — otherwise the ramp starts from whatever value the AudioParam holds at the *previous* scheduled point, not "now".
+- Always anchor with `setValueAtTime(currentValue, now)` before any ramp — otherwise the ramp starts from whatever value the AudioParam holds at the _previous_ scheduled point, not "now".
 - Call `cancelScheduledValues(now)` before starting a new automation sequence if previous automations may still be queued.
 - Don't bind a volume `Param` directly to an envelope gain node — use a separate gain. Otherwise envelope writes and volume writes fight for the same `AudioParam`.
 

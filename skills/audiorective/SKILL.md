@@ -21,11 +21,11 @@ Web Audio's imperative API with UI frameworks.
 
 ## Packages
 
-| Package                  | Purpose                                                                                  | Reference                  |
-| ------------------------ | ---------------------------------------------------------------------------------------- | -------------------------- |
-| `@audiorective/core`     | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`. Required by everything.  | `references/core.md`       |
-| `@audiorective/react`    | React bindings (`useValue`, `EngineProvider`, `useEngine`).                              | `references/react.md`      |
-| `@audiorective/threejs`  | three.js scene bindings (`attach`, `PannerAnchor`).                                      | `references/threejs.md`    |
+| Package                 | Purpose                                                                                 | Reference               |
+| ----------------------- | --------------------------------------------------------------------------------------- | ----------------------- |
+| `@audiorective/core`    | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`. Required by everything. | `references/core.md`    |
+| `@audiorective/react`   | React bindings (`useValue`, `EngineProvider`, `useEngine`).                             | `references/react.md`   |
+| `@audiorective/threejs` | three.js scene bindings (`attach`, `PannerAnchor`).                                     | `references/threejs.md` |
 
 ## What to read next
 
@@ -33,13 +33,13 @@ Web Audio's imperative API with UI frameworks.
 
 Then load only what your task actually needs:
 
-| If you're doing…                                                                | Also read                                       |
-| ------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                    |
-| React UI bound to an engine                                                     | `references/react.md`                           |
-| 3D scene with spatial audio                                                     | `references/threejs.md` + `architecture.md`     |
-| Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                    |
-| Understanding rationale ("why does this exist?")                                | `references/overview.md`                        |
+| If you're doing…                                                                | Also read                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------- |
+| Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                |
+| React UI bound to an engine                                                     | `references/react.md`                       |
+| 3D scene with spatial audio                                                     | `references/threejs.md` + `architecture.md` |
+| Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                |
+| Understanding rationale ("why does this exist?")                                | `references/overview.md`                    |
 
 ## The one rule that always applies
 
@@ -48,7 +48,7 @@ Then load only what your task actually needs:
 - **Audio layer owns:** graph construction, envelope shaping, parameter automation, transport logic, anything touching `AudioContext.currentTime`.
 - **UI layer does:** read params (`useValue(processor.params.foo)`), set params (`processor.params.foo.value = x`), call audio methods (`synth.filterSweep()`).
 
-**Litmus test:** *Can I run this audio behavior from a unit test with no DOM?* If not, it's in the wrong layer.
+**Litmus test:** _Can I run this audio behavior from a unit test with no DOM?_ If not, it's in the wrong layer.
 
 Wrong — scheduling in React:
 
