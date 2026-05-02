@@ -1,0 +1,27 @@
+[
+  {
+    "title": "Constructor",
+    "artist": "Thundermine",
+    "src": "/tracks/constructor.mp3"
+  },
+  {
+    "title": "Forbidden Island",
+    "artist": "Kevin MacLeod",
+    "src": "/tracks/forbidden-island.mp3"
+  },
+  {
+    "title": "Journey of Solitude",
+    "artist": "Kevin MacLeod",
+    "src": "/tracks/journey-of-solitude.mp3"
+  },
+  {
+    "title": "Pulse",
+    "artist": "Kevin MacLeod",
+    "src": "/tracks/pulse.mp3"
+  },
+  {
+    "title": "Connecting Rainbows",
+    "artist": "Kevin MacLeod",
+    "src": "/tracks/connecting-rainbows.mp3"
+  }
+]
