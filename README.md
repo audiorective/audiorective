@@ -32,9 +32,12 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 - **LLM-friendly** — every package ships with agent skills so LLMs can build with audiorective out of the box.
 - **Standalone packages** — use what you need. No monolithic framework lock-in.
 
-## Example
+## Examples
 
-[apps/sequencer-poc](./apps/sequencer-poc) — a multi-track step sequencer with melodic synths, kick, snare, and hihat, built with `@audiorective/core`, `@audiorective/react`, and `@audiorective/threejs` (spatial panning in a three.js scene).
+[apps/showroom](./apps/showroom) — a gallery of demos built with `@audiorective/core`, `@audiorective/react`, and `@audiorective/threejs`:
+
+- **Step Sequencer** — five-track step sequencer with melodic synths, kick, snare, and hihat, plus spatial panning in a three.js scene.
+- **Spatial Music Room** — first-person 3D room with a CD player and a positional speaker; turn the camera to hear the panning shift, with transport and 3-band EQ on the player.
 
 ## Agent Skill
 
