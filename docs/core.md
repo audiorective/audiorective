@@ -155,6 +155,12 @@ class SchedulableParam extends Param<number> {
 
 **`read()` vs `.value`:** `.value` returns the signal's last-synced value (updated by `ParamSync` at ~10Hz). `read()` returns the live `AudioParam.value` directly — more accurate during active automations, but doesn't trigger reactive updates.
 
+### Automation Gotchas
+
+- Always anchor with `setValueAtTime(currentValue, now)` before any ramp — otherwise the ramp starts from whatever value the AudioParam holds at the *previous* scheduled point, not "now".
+- Call `cancelScheduledValues(now)` before starting a new automation sequence if previous automations may still be queued.
+- Don't bind a volume `Param` directly to an envelope gain node — use a separate gain. Otherwise envelope writes and volume writes fight for the same `AudioParam`.
+
 ### ParamSync
 
 ```typescript
