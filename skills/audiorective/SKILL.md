@@ -26,7 +26,6 @@ Web Audio's imperative API with UI frameworks.
 | `@audiorective/core`     | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`. Required by everything.  | `references/core.md`       |
 | `@audiorective/react`    | React bindings (`useValue`, `EngineProvider`, `useEngine`).                              | `references/react.md`      |
 | `@audiorective/threejs`  | three.js scene bindings (`attach`, `PannerAnchor`).                                      | `references/threejs.md`    |
-| `@audiorective/clock`    | Look-ahead beat scheduling (design phase).                                               | `references/clock.md`      |
 
 ## What to read next
 
@@ -39,7 +38,6 @@ Then load only what your task actually needs:
 | Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                    |
 | React UI bound to an engine                                                     | `references/react.md`                           |
 | 3D scene with spatial audio                                                     | `references/threejs.md` + `architecture.md`     |
-| Sequencing, transport, beat-based scheduling                                    | `references/clock.md`                           |
 | Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                    |
 | Understanding rationale ("why does this exist?")                                | `references/overview.md`                        |
 

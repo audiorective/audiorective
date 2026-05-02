@@ -18,13 +18,12 @@ Modular toolkit for web audio development. Independent, composable packages that
 - **`$` prefix for raw signal access** — escape hatch for framework adapters that need the underlying alien-signals accessor.
 - **`Cell` for structured state** — Immer `produce` for ergonomic immutable updates, separate from the param system.
 - **Plain classes for state-only types** — classes that only hold structured state (no audio nodes, no scheduling) should be plain classes with `Cell`, not `AudioProcessor` subclasses.
-- **Clock doesn't own state** — separation of concerns. Signals own state, clock provides timing windows.
 - **rAF polling for AudioParam → signal sync at ~60fps** — pragmatic tradeoff: not perfectly real-time but good enough for UI updates.
 - **`bind` option unifies AudioParam backing and custom sync** — one field on `ParamOptions` covers both schedulable AudioParam binding and arbitrary `{ get, set }` sync.
 - **No state duplication** — `AudioProcessor` owns all state; UI observes and mutates directly.
 
 ## Roadmap
 
-**V1:** signals, clock (constant tempo), react, threejs, docs site
-**V2:** tempo automation, analysis (FFT, beat detection), Vue bindings
-**V3:** full tempo maps, Phaser.js, component library
+**V1:** signals, react, threejs, docs site
+**V2:** analysis (FFT, beat detection), Vue bindings
+**V3:** Phaser.js, component library
