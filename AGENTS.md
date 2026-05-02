@@ -13,7 +13,6 @@ Modular toolkit for web audio development. Independent, composable packages that
 ```
 @audiorective/
 ├── core         # Reactive state for audio parameters (alien-signals)
-├── clock        # Timing, scheduling, transport
 ├── react        # React bindings
 └── threejs      # Three.js bindings (engine glue, scene transform sync)
 ```
@@ -116,6 +115,5 @@ All processors extend `AudioProcessor<P, C>` with explicit registry generics:
 ## Package Dependencies
 
 - `core`: depends on `alien-signals`
-- `clock`: peer-depends on `core`
 - `react`: depends on `core`, peer-depends on `react`
 - `threejs`: depends on `core`, peer-depends on `three`
