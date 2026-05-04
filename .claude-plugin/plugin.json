@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "audiorective",
+  "version": "1.1.2",
+  "description": "Web Audio toolkit for coding agents — reactive primitives, scheduling, parameter automation, and React/three.js bindings. Teaches Claude how to build synthesizers, sequencers, DAWs, audio visualizers, and spatial audio apps with correct audio/UI separation.",
+  "author": {
+    "name": "audiorective",
+    "url": "https://github.com/audiorective"
+  },
+  "homepage": "https://github.com/audiorective/audiorective",
+  "repository": "https://github.com/audiorective/audiorective",
+  "license": "MIT",
+  "keywords": [
+    "web-audio",
+    "audio",
+    "synthesis",
+    "react",
+    "three.js",
+    "spatial-audio",
+    "scheduler",
+    "audio-engine"
+  ],
+  "skills": "./skills/"
+}

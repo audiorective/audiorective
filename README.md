@@ -41,13 +41,26 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 ## Agent Skill
 
-Install the audiorective skill into your coding agent with the [Vercel skills CLI](https://github.com/vercel-labs/skills):
+### Any agent (Claude Code, Cursor, OpenCode, Cline, …)
+
+Install with the [Vercel skills CLI](https://github.com/vercel-labs/skills):
 
 ```sh
 npx skills add audiorective/audiorective
 ```
 
-The CLI auto-detects whichever agent you have installed (Claude Code, Cursor, OpenCode, Cline, and 50+ others) and writes the skill into the right place.
+The CLI auto-detects whichever agent you have installed and writes the skill into the right place.
+
+### Claude Code plugin
+
+This repo is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces). Add the marketplace and install the plugin:
+
+```sh
+/plugin marketplace add audiorective/audiorective
+/plugin install audiorective@audiorective
+```
+
+You'll get the audiorective skill plus auto-updates whenever the repo is tagged with a new version.
 
 ## License
 
