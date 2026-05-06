@@ -1,0 +1,19 @@
+{
+  "name": "audiorective",
+  "description": "The audiorective plugin — Web Audio primitives and an agent skill that teaches LLMs to build audio apps correctly.",
+  "owner": {
+    "name": "audiorective"
+  },
+  "plugins": [
+    {
+      "name": "audiorective",
+      "source": "./",
+      "description": "Web Audio toolkit for coding agents — reactive primitives, scheduling, parameter automation, and React/three.js bindings.",
+      "category": "agent-skills",
+      "tags": ["web-audio", "audio", "react", "three.js", "spatial-audio"],
+      "homepage": "https://github.com/audiorective/audiorective",
+      "repository": "https://github.com/audiorective/audiorective",
+      "license": "MIT"
+    }
+  ]
+}
