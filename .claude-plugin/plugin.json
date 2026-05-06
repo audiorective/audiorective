@@ -10,15 +10,6 @@
   "homepage": "https://github.com/audiorective/audiorective",
   "repository": "https://github.com/audiorective/audiorective",
   "license": "MIT",
-  "keywords": [
-    "web-audio",
-    "audio",
-    "synthesis",
-    "react",
-    "three.js",
-    "spatial-audio",
-    "scheduler",
-    "audio-engine"
-  ],
+  "keywords": ["web-audio", "audio", "synthesis", "react", "three.js", "spatial-audio", "scheduler", "audio-engine"],
   "skills": "./skills/"
 }
