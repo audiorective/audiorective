@@ -53,14 +53,24 @@ The CLI auto-detects whichever agent you have installed and writes the skill int
 
 ### Claude Code plugin
 
-This repo is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces). Add the marketplace and install the plugin:
+audiorective also ships as a [Claude Code plugin](https://code.claude.com/docs/en/plugins). Run `/plugin` inside Claude Code (CLI or desktop app) to open the plugin manager, or use the slash commands below directly. Full install reference: [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins).
+
+**Option 1 — Official Anthropic marketplace** _(coming soon)_
+
+Once accepted into [`claude-plugins-official`](https://claude.com/plugins), one command:
+
+```sh
+/plugin install audiorective@claude-plugins-official
+```
+
+**Option 2 — This repo as a custom marketplace** _(available today)_
 
 ```sh
 /plugin marketplace add audiorective/audiorective
 /plugin install audiorective@audiorective
 ```
 
-You'll get the audiorective skill plus auto-updates whenever the repo is tagged with a new version.
+`/plugin marketplace add` accepts `owner/repo` for GitHub, full git URLs for other hosts, or local paths — see the [docs](https://code.claude.com/docs/en/discover-plugins#add-marketplaces) for variants.
 
 ## License
 
