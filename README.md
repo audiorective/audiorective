@@ -53,38 +53,21 @@ The CLI auto-detects whichever agent you have installed and writes the skill int
 
 ### Claude Code plugin
 
-audiorective also ships as a [Claude Code plugin](https://code.claude.com/docs/en/plugins). It works in both the CLI and the Code tab of the [Claude Desktop app](https://code.claude.com/docs/en/desktop) — the install surface differs.
+audiorective also ships as a [Claude Code plugin](https://code.claude.com/docs/en/plugins). Add this repo as a marketplace, then install the plugin from it.
 
-**Option 1 — Official Anthropic marketplace** _(coming soon)_
-
-Once accepted into [`claude-plugins-official`](https://claude.com/plugins):
-
-- **CLI**: `/plugin install audiorective@claude-plugins-official`
-- **Desktop (Code tab)**: click the **+** button next to the prompt box → **Plugins** → **Add plugin**, then pick audiorective from the browser. See the [Desktop plugin install docs](https://code.claude.com/docs/en/desktop#install-plugins).
-
-**Option 2 — This repo as a custom marketplace** _(available today)_
-
-CLI:
+**CLI**
 
 ```sh
 /plugin marketplace add audiorective/audiorective
 /plugin install audiorective@audiorective
 ```
 
-Desktop (Code tab): the in-app plugin browser only lists plugins from marketplaces you've already added, and there's currently no UI to add a new marketplace. To make audiorective show up in the browser, register the marketplace once via the CLI (the command above) or via `extraKnownMarketplaces` in your [settings](https://code.claude.com/docs/en/settings#plugin-settings):
+**Claude Desktop (Code or Cowork tab)**
 
-```jsonc
-// ~/.claude/settings.json or .claude/settings.json
-{
-  "extraKnownMarketplaces": {
-    "audiorective": {
-      "source": { "source": "github", "repo": "audiorective/audiorective" }
-    }
-  }
-}
-```
-
-After that, audiorective appears in the Desktop plugin browser and can be installed with one click.
+1. Click **Customize** in the sidebar
+2. Click the **+** button in the **Personal Skills** section → **Add Marketplace**
+3. Enter `audiorective/audiorective`
+4. Install the audiorective plugin from the browser
 
 Full reference: [Discover and install plugins](https://code.claude.com/docs/en/discover-plugins).
 
