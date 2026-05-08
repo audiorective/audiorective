@@ -23,7 +23,7 @@ type SpatialParams = {
 
 export class Spatial extends AudioProcessor<SpatialParams> {
   readonly panner: PannerNode;
-  readonly input: GainNode;
+  private readonly _input: GainNode;
 
   constructor(context: AudioContext, options: SpatialOptions = {}) {
     const panner = context.createPanner();
@@ -72,7 +72,11 @@ export class Spatial extends AudioProcessor<SpatialParams> {
     }));
 
     this.panner = panner;
-    this.input = input;
+    this._input = input;
+  }
+
+  override get input(): GainNode {
+    return this._input;
   }
 
   get output(): AudioNode {
@@ -81,7 +85,7 @@ export class Spatial extends AudioProcessor<SpatialParams> {
 
   override destroy(): void {
     super.destroy();
-    this.input.disconnect();
+    this._input.disconnect();
     this.panner.disconnect();
   }
 }

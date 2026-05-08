@@ -23,4 +23,12 @@ export const examples: readonly ExampleEntry[] = [
     path: "/spatial-room/",
     tags: ["three.js", "spatial", "music-player", "EQ"],
   },
+  {
+    id: "spatial-room-playcanvas",
+    title: "Spatial Music Room (PlayCanvas)",
+    description:
+      "Same room, ported to PlayCanvas. The speaker is a positional SoundComponent, the camera carries an AudioListenerComponent, and the EQ chain is spliced pre-panner via @audiorective/playcanvas — the FOH-style placement PlayCanvas's public API doesn't natively support.",
+    path: "/spatial-room-playcanvas/",
+    tags: ["playcanvas", "spatial", "pre-panner", "music-player", "EQ"],
+  },
 ] as const;

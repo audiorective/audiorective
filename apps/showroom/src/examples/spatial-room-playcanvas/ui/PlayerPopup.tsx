@@ -11,14 +11,14 @@ function fmtTime(t: number): string {
 }
 
 export function PlayerPopup() {
-  const { player, ui } = useEngine();
+  const { player, eq, ui } = useEngine();
   const { popupOpen } = useValue(ui);
-  const transport = useValue(player.cells.transport);
-  const tracks = useValue(player.cells.tracks);
-  const masterVolume = useValue(player.eq.params.masterVolume);
-  const eqLow = useValue(player.eq.params.eqLow);
-  const eqMid = useValue(player.eq.params.eqMid);
-  const eqHigh = useValue(player.eq.params.eqHigh);
+  const transport = useValue(player.transport);
+  const tracks = useValue(player.tracks);
+  const masterVolume = useValue(eq.params.masterVolume);
+  const eqLow = useValue(eq.params.eqLow);
+  const eqMid = useValue(eq.params.eqMid);
+  const eqHigh = useValue(eq.params.eqHigh);
 
   useEffect(() => {
     if (!popupOpen) return;
@@ -43,7 +43,7 @@ export function PlayerPopup() {
   };
   const togglePlay = () => {
     if (transport.isPlaying) player.pause();
-    else void player.play();
+    else player.play();
   };
 
   const noTracks = tracks.length === 0;
@@ -98,7 +98,6 @@ export function PlayerPopup() {
           </div>
         )}
 
-        {/* Transport */}
         <div style={{ marginTop: 18, display: "flex", gap: 8, alignItems: "center" }}>
           <button onClick={() => player.prev()} disabled={tracks.length < 2} style={btnStyle("default")} aria-label="Previous">
             ⏮
@@ -111,7 +110,6 @@ export function PlayerPopup() {
           </button>
         </div>
 
-        {/* Seek */}
         <div style={{ marginTop: 18 }}>
           <input
             type="range"
@@ -129,7 +127,6 @@ export function PlayerPopup() {
           </div>
         </div>
 
-        {/* Volume */}
         <Slider
           label="Volume"
           value={masterVolume}
@@ -137,20 +134,15 @@ export function PlayerPopup() {
           max={1}
           step={0.01}
           onChange={(v) => {
-            player.eq.params.masterVolume.value = v;
+            eq.params.masterVolume.value = v;
           }}
           format={(v) => `${Math.round(v * 100)}%`}
         />
 
-        {/* EQ */}
-        <div
-          style={{
-            marginTop: 18,
-            paddingTop: 14,
-            borderTop: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          <div style={{ fontSize: 11, opacity: 0.55, textTransform: "uppercase", letterSpacing: 1 }}>3-band EQ</div>
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ fontSize: 11, opacity: 0.55, textTransform: "uppercase", letterSpacing: 1 }}>
+            3-band EQ <span style={{ marginLeft: 8, opacity: 0.7 }}>· pre-panner (FOH)</span>
+          </div>
           <Slider
             label="Low (250 Hz)"
             value={eqLow}
@@ -158,7 +150,7 @@ export function PlayerPopup() {
             max={12}
             step={0.1}
             onChange={(v) => {
-              player.eq.params.eqLow.value = v;
+              eq.params.eqLow.value = v;
             }}
             format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
           />
@@ -169,7 +161,7 @@ export function PlayerPopup() {
             max={12}
             step={0.1}
             onChange={(v) => {
-              player.eq.params.eqMid.value = v;
+              eq.params.eqMid.value = v;
             }}
             format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
           />
@@ -180,7 +172,7 @@ export function PlayerPopup() {
             max={12}
             step={0.1}
             onChange={(v) => {
-              player.eq.params.eqHigh.value = v;
+              eq.params.eqHigh.value = v;
             }}
             format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
           />

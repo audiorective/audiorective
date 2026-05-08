@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@audiorective/core": "workspace:*",
+    "@audiorective/playcanvas": "workspace:*",
     "@audiorective/react": "workspace:*",
     "@audiorective/threejs": "workspace:*",
     "alien-signals": "^3.1.2",
+    "playcanvas": "^2.18.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "three": "^0.182.0"

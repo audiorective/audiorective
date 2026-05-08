@@ -24,6 +24,6 @@ Modular toolkit for web audio development. Independent, composable packages that
 
 ## Roadmap
 
-**V1:** signals, react, threejs, docs site
+**V1:** signals, react, threejs, playcanvas, docs site
 **V2:** analysis (FFT, beat detection), Vue bindings
 **V3:** Phaser.js, component library

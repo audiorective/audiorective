@@ -16,12 +16,13 @@ What's even better: we also ship an agent skill that teaches LLMs how to use aud
 
 ## Packages
 
-| Package                                       | Description                                                            |
-| --------------------------------------------- | ---------------------------------------------------------------------- |
-| [`@audiorective/core`](./packages/core)       | Reactive primitives for Web Audio — Param, AudioProcessor, AudioEngine |
-| [`@audiorective/react`](./packages/react)     | React hooks and context factories                                      |
-| [`@audiorective/threejs`](./packages/threejs) | Three.js bindings — engine glue, spatial transform sync                |
-| `@audiorective/clock`                         | Timing, scheduling, transport _(planned)_                              |
+| Package                                             | Description                                                                 |
+| --------------------------------------------------- | --------------------------------------------------------------------------- |
+| [`@audiorective/core`](./packages/core)             | Reactive primitives for Web Audio — Param, AudioProcessor, AudioEngine      |
+| [`@audiorective/react`](./packages/react)           | React hooks and context factories                                           |
+| [`@audiorective/threejs`](./packages/threejs)       | Three.js bindings — engine glue, spatial transform sync                     |
+| [`@audiorective/playcanvas`](./packages/playcanvas) | PlayCanvas bindings — shared AudioContext + pre/post-panner FX on SoundSlot |
+| `@audiorective/clock`                               | Timing, scheduling, transport _(planned)_                                   |
 
 Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
@@ -34,10 +35,11 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 ## Examples
 
-[apps/showroom](./apps/showroom) — a gallery of demos built with `@audiorective/core`, `@audiorective/react`, and `@audiorective/threejs`:
+[apps/showroom](./apps/showroom) — a gallery of demos built with `@audiorective/core`, `@audiorective/react`, `@audiorective/threejs`, and `@audiorective/playcanvas`:
 
 - **Step Sequencer** — five-track step sequencer with melodic synths, kick, snare, and hihat, plus spatial panning in a three.js scene.
 - **Spatial Music Room** — first-person 3D room with a CD player and a positional speaker; turn the camera to hear the panning shift, with transport and 3-band EQ on the player.
+- **Spatial Music Room (PlayCanvas)** — same room, ported to PlayCanvas. The audiorective EQ chain is spliced **pre-panner** onto the `SoundSlot` via `@audiorective/playcanvas` — the FOH-desk placement PlayCanvas's public `setExternalNodes` API doesn't natively support.
 
 ## Agent Skill
 

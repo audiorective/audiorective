@@ -14,6 +14,7 @@ export default defineConfig({
         picker: resolve(__dirname, "index.html"),
         sequencer: resolve(__dirname, "sequencer/index.html"),
         spatialRoom: resolve(__dirname, "spatial-room/index.html"),
+        spatialRoomPlayCanvas: resolve(__dirname, "spatial-room-playcanvas/index.html"),
       },
     },
   },
