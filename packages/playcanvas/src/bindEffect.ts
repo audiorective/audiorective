@@ -21,6 +21,30 @@ interface SoundInstance3dInternals {
   panner?: PannerNode;
 }
 
+// Toggle from DevTools to trace splice/cleanup activity per slot/instance:
+//   window.__audiorectiveBindEffectDebug = true;
+declare global {
+  interface Window {
+    __audiorectiveBindEffectDebug?: boolean;
+  }
+}
+function debug(...args: unknown[]): void {
+  if (typeof window !== "undefined" && window.__audiorectiveBindEffectDebug) {
+    console.log("[bindEffect]", ...args);
+  }
+}
+
+let nextInstanceTag = 1;
+const instanceTags = new WeakMap<object, number>();
+function tagFor(instance: object): number {
+  let t = instanceTags.get(instance);
+  if (t === undefined) {
+    t = nextInstanceTag++;
+    instanceTags.set(instance, t);
+  }
+  return t;
+}
+
 export function bindEffect(slot: SoundSlot, processor: AudioProcessor, options: BindEffectOptions = {}): () => void {
   const position = options.position ?? "pre";
   const input = processor.input;
@@ -49,15 +73,14 @@ export function bindEffect(slot: SoundSlot, processor: AudioProcessor, options: 
   const splice = (instance: SoundInstance) => {
     const internals = instance as unknown as SoundInstance3dInternals;
     const { source, panner } = internals;
+    const tag = tagFor(instance);
     if (!source || !panner) {
       // Not a positional instance, or source not yet created. Pre-panner injection
       // is meaningful only for SoundInstance3d. Leave 2D instances alone.
+      debug("splice skipped (no source/panner)", { tag, hasSource: !!source, hasPanner: !!panner });
       return;
     }
-    // Disconnect ALL of source's outgoing edges, not just the source → panner edge.
-    // The no-arg form is robust: it doesn't throw if source has no connections, and
-    // guarantees we're not silently mixing the dry source with the processed signal
-    // if PlayCanvas ever changes the default wiring of SoundInstance3d.
+    debug("splice", { tag, source, panner, processorInput: input, processorOutput: output });
     source.disconnect();
     source.connect(input);
     output.connect(panner);
@@ -66,6 +89,7 @@ export function bindEffect(slot: SoundSlot, processor: AudioProcessor, options: 
     const cleanup = () => {
       if (cleaned) return;
       cleaned = true;
+      debug("cleanup", { tag, panner });
       try {
         output.disconnect(panner);
       } catch {
