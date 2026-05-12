@@ -140,8 +140,8 @@ export class PCRoomScene {
   }
 
   private buildRoom(): void {
-    const wallColor = new pc.Color(0.165, 0.165, 0.208);
-    const floorColor = new pc.Color(0.267, 0.267, 0.227);
+    const wallColor = new pc.Color(0.93, 0.91, 0.88);
+    const floorColor = new pc.Color(0.85, 0.79, 0.66);
 
     const wallMat = new pc.StandardMaterial();
     wallMat.diffuse = wallColor;
@@ -161,13 +161,19 @@ export class PCRoomScene {
     const floor = new pc.Entity("floor");
     floor.addComponent("render", { type: "plane", material: floorMat });
     floor.setLocalScale(ROOM_W, 1, ROOM_D);
+    // lifted slightly to avoid z-fighting with the room's back-face bottom
+    floor.setLocalPosition(0, 0.01, 0);
     this.app.root.addChild(floor);
+
+    // Ambient lift for overall scene brightness — the StandardMaterial respects
+    // app.scene.ambientLight as a diffuse floor across all unlit surfaces.
+    this.app.scene.ambientLight = new pc.Color(0.45, 0.45, 0.5);
 
     const sun = new pc.Entity("sun");
     sun.addComponent("light", {
       type: "directional",
       color: new pc.Color(1, 1, 1),
-      intensity: 0.9,
+      intensity: 1.4,
     });
     sun.setEulerAngles(50, 30, 0);
     this.app.root.addChild(sun);
@@ -175,8 +181,8 @@ export class PCRoomScene {
     const ambient = new pc.Entity("ambient");
     ambient.addComponent("light", {
       type: "omni",
-      color: new pc.Color(0.8, 0.85, 1),
-      intensity: 0.3,
+      color: new pc.Color(0.95, 0.95, 1),
+      intensity: 0.8,
       range: 30,
     });
     ambient.setPosition(0, ROOM_H - 0.2, 0);

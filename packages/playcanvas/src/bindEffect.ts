@@ -54,11 +54,11 @@ export function bindEffect(slot: SoundSlot, processor: AudioProcessor, options: 
       // is meaningful only for SoundInstance3d. Leave 2D instances alone.
       return;
     }
-    try {
-      source.disconnect(panner);
-    } catch {
-      // Already disconnected (rare race); proceed to splice from source forward.
-    }
+    // Disconnect ALL of source's outgoing edges, not just the source → panner edge.
+    // The no-arg form is robust: it doesn't throw if source has no connections, and
+    // guarantees we're not silently mixing the dry source with the processed signal
+    // if PlayCanvas ever changes the default wiring of SoundInstance3d.
+    source.disconnect();
     source.connect(input);
     output.connect(panner);
 
