@@ -2,25 +2,20 @@ import { describe, test, expect, vi } from "vitest";
 import { AudioEngine, createEngine } from "@audiorective/core";
 import { attach } from "../src";
 
+interface FakeManager {
+  _context: AudioContext | null;
+  context: AudioContext | null;
+}
+
 interface FakeApp {
-  systems: { sound?: { _context: AudioContext | null; context: AudioContext } };
+  soundManager: FakeManager;
   graphicsDevice: { canvas: HTMLCanvasElement };
 }
 
 function makeApp(soundContext: AudioContext | null): FakeApp {
   const canvas = document.createElement("canvas");
   return {
-    systems: {
-      sound:
-        soundContext === null
-          ? {
-              _context: null,
-              get context(): AudioContext {
-                throw new Error("not set");
-              },
-            }
-          : { _context: soundContext, context: soundContext },
-    },
+    soundManager: { _context: soundContext, context: soundContext },
     graphicsDevice: { canvas },
   };
 }
@@ -31,7 +26,7 @@ describe("attach", () => {
     const app = makeApp(null);
 
     const dispose = attach(engine, app as never);
-    expect(app.systems.sound!._context).toBe(engine.context);
+    expect(app.soundManager._context).toBe(engine.context);
     dispose();
   });
 
@@ -40,7 +35,7 @@ describe("attach", () => {
     const app = makeApp(null);
 
     const dispose = attach(created, app as never);
-    expect(app.systems.sound!._context).toBe(created.core.context);
+    expect(app.soundManager._context).toBe(created.core.context);
     dispose();
   });
 

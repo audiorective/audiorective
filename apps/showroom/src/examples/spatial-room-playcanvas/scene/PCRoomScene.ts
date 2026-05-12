@@ -342,21 +342,29 @@ export class PCRoomScene {
         dz *= inv;
       }
 
+      // velocity in camera-local axes: x = right intent, z = forward intent
       const targetVx = dx * MOVE_SPEED;
       const targetVz = dz * MOVE_SPEED;
       const damp = 1 - Math.exp(-DAMPING * clamped);
       this.velocity.x += (targetVx - this.velocity.x) * damp;
       this.velocity.z += (targetVz - this.velocity.z) * damp;
 
-      // Compute world-space movement based on camera yaw (ignore pitch).
-      const cy = Math.cos(this.yaw);
-      const sy = Math.sin(this.yaw);
-      const moveX = this.velocity.x * cy - this.velocity.z * -sy;
-      const moveZ = this.velocity.x * sy + this.velocity.z * -cy;
+      // Resolve into world-space deltas using camera basis (flattened to horizontal).
+      const fwd = this.camera.forward;
+      const right = this.camera.right;
+      const fLen = Math.hypot(fwd.x, fwd.z);
+      const rLen = Math.hypot(right.x, right.z);
+      const fX = fLen > 1e-6 ? fwd.x / fLen : 0;
+      const fZ = fLen > 1e-6 ? fwd.z / fLen : 0;
+      const rX = rLen > 1e-6 ? right.x / rLen : 0;
+      const rZ = rLen > 1e-6 ? right.z / rLen : 0;
+
+      const worldDX = rX * this.velocity.x + fX * this.velocity.z;
+      const worldDZ = rZ * this.velocity.x + fZ * this.velocity.z;
 
       const pos = this.camera.getPosition().clone();
-      pos.x += moveX * clamped;
-      pos.z += moveZ * clamped;
+      pos.x += worldDX * clamped;
+      pos.z += worldDZ * clamped;
       const limX = ROOM_W / 2 - WALL_MARGIN;
       const limZ = ROOM_D / 2 - WALL_MARGIN;
       pos.x = Math.max(-limX, Math.min(limX, pos.x));
