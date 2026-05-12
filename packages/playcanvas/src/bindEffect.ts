@@ -83,13 +83,20 @@ export function bindEffect(slot: SoundSlot, processor: AudioProcessor, options: 
     splice(instance);
   }
 
+  // 'play' fires on each freshly-created instance.
+  // 'resume' fires when an instance comes back from a context-suspend cycle
+  // (e.g. tab-switch) — PlayCanvas re-creates the source inside instance.resume()
+  // and the new source connects directly to the panner, bypassing any previous
+  // splice. Re-splicing on 'resume' keeps the FOH chain attached.
   slot.on("play", splice);
+  slot.on("resume", splice);
 
   let unbound = false;
   return () => {
     if (unbound) return;
     unbound = true;
     slot.off("play", splice);
+    slot.off("resume", splice);
     // In-flight instances finish naturally and clean up via their own end/stop listeners.
   };
 }

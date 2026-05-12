@@ -33,6 +33,17 @@ export const engine = createEngine((ctx) => {
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
 
+// Expose the engine on window for DevTools inspection (read params, mutate,
+// inspect AudioContext state). Same shape as the other demos.
+declare global {
+  interface Window {
+    __audiorectiveEngine?: typeof engine;
+  }
+}
+if (typeof window !== "undefined") {
+  window.__audiorectiveEngine = engine;
+}
+
 void loadTracksJson().then((tracks) => {
   if (tracks.length === 0) return;
   engine.player.tracks.value = tracks;
