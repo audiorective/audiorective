@@ -81,7 +81,16 @@ export function bindEffect(slot: SoundSlot, processor: AudioProcessor, options: 
       return;
     }
     debug("splice", { tag, source, panner, processorInput: input, processorOutput: output });
+    // Defensive full-clear: drop any outgoing edges on both source AND output
+    // before re-wiring. In non-overlap mode only one instance plays at a time,
+    // so output should only ever feed the current instance's panner — if the
+    // previous instance's cleanup somehow left an output→old_panner edge alive
+    // (e.g. PlayCanvas pooled a panner across instances, or a 'stop'/'end'
+    // event was suppressed), `output.connect(new_panner)` would add a second
+    // edge and the signal would split between live and dead panners, silently
+    // halving EQ effectiveness. Always start from a clean output.
     source.disconnect();
+    output.disconnect();
     source.connect(input);
     output.connect(panner);
 
@@ -94,6 +103,17 @@ export function bindEffect(slot: SoundSlot, processor: AudioProcessor, options: 
         output.disconnect(panner);
       } catch {
         // Edge already torn down by the engine; ignore.
+      }
+      // Also drop source → input — the source is held alive by that edge even
+      // after instance.stop() nulls instance.source. Without this, input
+      // accumulates a growing list of dead-but-connected sources across track
+      // switches. Channel mixing semantics for dead BufferSourceNodes are
+      // technically silent per spec, but several browsers have shown subtle
+      // mixing/channel-routing quirks; clear the edges and avoid the question.
+      try {
+        source.disconnect();
+      } catch {
+        // Already disconnected by the next splice's full-clear.
       }
       instance.off("end", cleanup);
       instance.off("stop", cleanup);
