@@ -1,6 +1,6 @@
 # @audiorective/playcanvas
 
-PlayCanvas bindings for `@audiorective/core`. The integration layer between an audiorective engine and a PlayCanvas application. Audio always lives in core; this package provides the scene-side glue — sharing the `AudioContext` with PlayCanvas's `SoundManager`, and routing audiorective effect chains into PlayCanvas `SoundSlot`s in the right position relative to the per-instance panner.
+PlayCanvas bindings for `@audiorective/core`. The integration layer between an audiorective engine and a PlayCanvas application. Audio always lives in core; this package provides the scene-side glue — sharing the `AudioContext` with PlayCanvas's `SoundManager`, and producing audiorective-owned `SoundSlot`s whose per-instance graph routes through audiorective effect chains in the right position relative to the per-instance panner.
 
 The headline capability: **pre-panner effect injection**, which PlayCanvas's public `setExternalNodes` API does not natively support. This is the placement source-character processing (FOH-style EQ, bus compression, instrument coloration) actually needs — see "Why pre-panner" below.
 
@@ -17,20 +17,26 @@ The headline capability: **pre-panner effect injection**, which PlayCanvas's pub
 }
 ```
 
+The **tested** version set lives in `packages/playcanvas/compat.json`. CI runs the package's tests against every version in `compat.tested`; a separate scheduled workflow flags PlayCanvas releases newer than `compat.latestKnown`. Update both fields together when promoting a new upstream version.
+
 ## Package structure
 
 ```
 playcanvas/src/
-├── attach.ts        # one-call engine ↔ app setup (shared AudioContext + autoStart)
-├── bindEffect.ts    # insert an audiorective AudioProcessor into a SoundSlot, pre or post panner
+├── attach.ts                              # share AudioContext + autoStart
+├── createAudiorectiveSlot.ts              # factory: per-slot audiorective binding
+├── AudiorectiveSoundSlot.ts               # SoundSlot subclass that owns the FX wiring
+├── internal/
+│   ├── AudiorectiveSoundInstance.ts       # 2D instance (pre-gain FX)
+│   └── AudiorectiveSoundInstance3d.ts     # 3D instance (pre-panner FX)
 └── index.ts
 ```
 
 ## Exports
 
 ```typescript
-export { attach, bindEffect };
-export type { BindEffectOptions };
+export { attach, createAudiorectiveSlot, AudiorectiveSoundSlot, AudiorectiveSoundInstance, AudiorectiveSoundInstance3d };
+export type { AudiorectiveSlotOptions };
 ```
 
 ---
@@ -63,39 +69,13 @@ const detach = attach(engine, app); // share AudioContext + arm autoStart
 
 ### AudioContext sharing — two valid orderings
 
-PlayCanvas's `SoundManager` lazy-creates an `AudioContext` on first use. There are two ways to make sure both halves agree on a single context:
+PlayCanvas's `SoundManager` lazy-creates an `AudioContext` on first use.
 
-**Path A — engine first (recommended).** Construct the engine first; `attach()` installs `engine.core.context` into PlayCanvas's `SoundManager` before any sound plays. Idiomatic and order-independent at the user's level — just call `attach()` before triggering any sound.
+**Path A — engine first (recommended).** `attach()` installs `engine.core.context` into PlayCanvas's `SoundManager` before any sound plays.
 
-```typescript
-const engine = createEngine((ctx) => ({
-  /* ... */
-}));
-const app = new pc.Application(canvas, {
-  /* ... */
-});
-attach(engine, app); // installs engine.core.context into app.systems.sound
-// safe to add SoundComponents and play sounds from here on
-```
+**Path B — PlayCanvas first.** Construct the engine with `{ context: app.soundManager.context }`; `attach()` verifies the contexts match.
 
-**Path B — PlayCanvas first.** Let PlayCanvas create the context (by reading `app.systems.sound.context`), then construct the engine with it.
-
-```typescript
-const app = new pc.Application(canvas, {
-  /* ... */
-});
-const engine = createEngine(
-  (ctx) => ({
-    /* ... */
-  }),
-  {
-    context: app.systems.sound.context,
-  },
-);
-attach(engine, app); // verifies the contexts are identical (no-op if so)
-```
-
-If the two ever diverge (e.g. the engine was constructed with a different context than the one PlayCanvas already created), `attach` throws with actionable guidance.
+If the two ever diverge, `attach` throws with actionable guidance.
 
 ### Listener sync is automatic
 
@@ -103,67 +83,71 @@ If the camera entity carries an `AudioListenerComponent` (PlayCanvas's standard 
 
 ---
 
-## `bindEffect(slot, processor, options?)`
+## `createAudiorectiveSlot(component, name, options?, audiorectiveOptions?)`
 
-Insert an audiorective `AudioProcessor` (effect-shaped — exposes both `.input` and `.output`) into a `SoundSlot`, either before or after the per-instance panner.
+Adds an audiorective-managed `SoundSlot` to a `SoundComponent`. Mirrors `SoundComponent.addSlot()` (dup-name check, register, optional autoplay) but constructs an `AudiorectiveSoundSlot` so the per-instance Web Audio graph is built around an audiorective `AudioProcessor` from the start — no live-graph splice.
 
 ```typescript
-function bindEffect(
-  slot: pc.SoundSlot,
-  processor: AudioProcessor,
-  options?: { position?: "pre" | "post" }, // default: "pre"
-): () => void;
+function createAudiorectiveSlot(
+  component: pc.SoundComponent,
+  name: string,
+  options?: SoundSlotOptions,
+  audiorectiveOptions?: { processor?: AudioProcessor },
+): AudiorectiveSoundSlot | null;
 ```
 
-Returns a disposer that detaches the binding. Does **not** call `processor.destroy()` — the processor's lifetime is owned by the engine, not the slot.
+Returns `null` if a slot with the same name already exists on the component (matching `addSlot()`).
 
-The processor must be **effect-shaped**: both `processor.input` and `processor.output` must be defined `AudioNode`s. Instruments (which only declare `output`) cannot be inserted as effects; `bindEffect` throws with a clear message if you try.
+**Always use `createAudiorectiveSlot` for audiorective-owned audio, even without a processor.** The subclass is the extension point for future audiorective features (PDC, panner config, multi-processor chains, …) — having every audiorective slot already go through it means those features become opt-in field additions on `AudiorectiveSlotOptions`, never API churn.
 
-### `position: "pre"` (default) — the FOH placement
+### How the per-instance graph is built
 
-Resulting graph for each new `SoundInstance3d`:
+When `slot.play()` calls `_createInstance()`, the subclass's override constructs an `AudiorectiveSoundInstance3d` (positional component) or `AudiorectiveSoundInstance` (non-positional). The instance's `_initializeNodes()` runs once with a class-static "pending processor" reference and produces the audible graph directly:
+
+**Positional, with processor:**
 
 ```
 source → processor.input → … → processor.output → panner → gain → destination
 ```
 
-Implementation: the package subscribes to the slot's `play` event and, on each new instance, splices the processor into the live `source → panner` edge. On the instance's `end`/`stop`, the splice is torn down. PlayCanvas does not expose this insertion point publicly; this is workaround #2 from the audiorective PlayCanvas audit. Stable on PlayCanvas 2.18.1 (the audited version, our peer-dep floor); review on engine upgrades.
-
-### `position: "post"` — the headphone-correction placement
-
-Resulting graph (PlayCanvas's stock `setExternalNodes` shape):
+**Non-positional, with processor** (pre-gain — no panner exists):
 
 ```
-source → panner → gain → processor.input → … → processor.output → destination
+source → processor.input → … → processor.output → gain → destination
 ```
 
-Implementation: thin wrapper around `slot.setExternalNodes(processor.input, processor.output)`; disposer calls `slot.clearExternalNodes()`.
+**Without processor:** falls through to the stock graph. A slot created via `createAudiorectiveSlot()` without `audiorectiveOptions.processor` is byte-equivalent to a stock `SoundComponent.addSlot()` instance, just typed as `AudiorectiveSoundSlot`.
 
-### Example
+`this.panner` remains a standard `PannerNode`, so every positional setter on `SoundInstance3d` (position, maxDistance, refDistance, rollOffFactor, distanceModel) keeps working unchanged. Listener sync via `AudioListenerComponent` is unaffected.
+
+The processor must be **effect-shaped**: both `processor.input` and `processor.output` defined `AudioNode`s. Instruments (output-only) throw with a clear message at instance construction.
+
+### Example — per-track EQ chains
+
+The PlayCanvas showroom demo builds one audiorective slot per track, each with its own `EQ3`. Track selection just repoints which EQ the UI reads from; parameter values are independent across tracks.
 
 ```typescript
 import * as pc from "playcanvas";
 import { createEngine } from "@audiorective/core";
-import { attach, bindEffect } from "@audiorective/playcanvas";
+import { attach, createAudiorectiveSlot } from "@audiorective/playcanvas";
 
-const engine = createEngine((ctx) => ({ eq: new EQ3(ctx) }));
-
-const app = new pc.Application(canvas, {
-  /* ... */
-});
+const engine = createEngine((ctx) => ({
+  /* … */
+}));
+const app = new pc.Application(canvas, {});
 attach(engine, app);
 
 const speaker = new pc.Entity();
 speaker.addComponent("sound", { positional: true, refDistance: 1.5, maxDistance: 25 });
-const slot = speaker.sound!.addSlot("music", { volume: 1 })!;
-slot.asset = trackAssetId;
 app.root.addChild(speaker);
 
-// FOH-style EQ before spatialization. Default position: "pre".
-const dispose = bindEffect(slot, engine.eq);
+const slots = tracks.map((track, i) => {
+  const eq = new EQ3(engine.context);
+  return createAudiorectiveSlot(speaker.sound!, `track-${i}`, { volume: 1, loop: false, overlap: false }, { processor: eq })!;
+});
 
-// later: slot.play();
-// later still: dispose(); // unbind future instances; in-flight ones finish + clean up.
+slots[0]!.asset = firstTrackAssetId;
+slots[0]!.play();
 ```
 
 ---
@@ -184,16 +168,22 @@ source → panner (HRTF, hard-coded) → gain → [setExternalNodes user chain] 
 
 For LTI effects through `equalpower` panning, pre vs. post-panner placement differs only by per-channel gain. For **HRTF + nonlinear effects**, the two paths sound audibly different.
 
-The `Spatial Music Room (PlayCanvas)` showroom demo flips between `position: "pre"` and `position: "post"` to make this difference audible — try it with the EQ pushed and the camera moving.
+The `Spatial Music Room (PlayCanvas)` showroom demo uses pre-panner EQ to make this difference audible — try it with the EQ pushed and the camera moving.
+
+---
+
+## Post-panner (`setExternalNodes`)
+
+PlayCanvas's stock `slot.setExternalNodes(processor.input, processor.output)` still works on any `AudiorectiveSoundSlot`. Use it directly when you want a master-bus / headphone-correction effect rather than per-source character.
 
 ---
 
 ## Lifecycle
 
-`AudioProcessor.destroy()` is the cleanup primitive. It is independent of `attach`/`bindEffect` disposers:
+`AudioProcessor.destroy()` is the cleanup primitive. The slot does not own the processor:
 
-- `attach`'s disposer only removes the gesture-autostart listeners. Calling it doesn't tear down the audio engine or close the AudioContext.
-- `bindEffect`'s disposer only removes the slot subscription (and, for `"post"`, calls `clearExternalNodes`). In-flight instances finish naturally and clean up via their own end/stop listeners. Calling it never destroys the processor.
+- `attach()`'s disposer only removes the gesture-autostart listeners. Calling it doesn't tear down the audio engine or close the AudioContext.
+- Destroying a slot (via `component.removeSlot(name)`) stops in-flight instances; in-flight nodes finish their natural lifecycle. The processor lives on — call `processor.destroy()` yourself when you're done with it.
 - Entity-tied processors: tie `processor.destroy()` to your own scene-cleanup path.
 
 ---
@@ -202,7 +192,7 @@ The `Spatial Music Room (PlayCanvas)` showroom demo flips between `position: "pr
 
 **Visual → Audio** — PlayCanvas's `AudioListenerComponent` syncs the camera's world transform to `AudioContext.listener`. Each positional `SoundComponent` slot syncs its emitter entity's transform to the slot's `PannerNode`. The package adds nothing here — PlayCanvas already does it.
 
-**Audio → Visual** — read `ComputedAccessor<T>` / `Param<T>` values from your `app.on('update', ...)` callback or React component to drive visuals.
+**Audio → Visual** — read `ComputedAccessor<T>` / `Param<T>` values from your `app.on('update', …)` callback or React component to drive visuals.
 
 ---
 
@@ -210,16 +200,16 @@ The `Spatial Music Room (PlayCanvas)` showroom demo flips between `position: "pr
 
 ### HRTF panning is hard-coded
 
-PlayCanvas creates each `PannerNode` without setting `panningModel`, so it defaults to Web Audio's `"HRTF"`. There is no public API to pick `"equalpower"`. For projects that want to reason about effect commutativity with the spatializer (LTI filters compose differently through HRTF than through equalpower), this matters. A `configurePanner(slot, { panningModel })` helper that mutates each new instance's panner is on the roadmap.
+PlayCanvas creates each `PannerNode` without setting `panningModel`, so it defaults to Web Audio's `"HRTF"`. There is no public API to pick `"equalpower"`. A `configurePanner` option on `AudiorectiveSlotOptions` is on the roadmap.
 
 ### No PDC / latency compensation
 
-PlayCanvas does not honour an `AudioProcessor.latencySamples` field. Effects with non-zero PDC inserted into slots play untrimmed and may drift relative to non-audiorective audio. Recommendation: sample-style SFX and effect chains accept the limitation; latency-critical paths (sequencer-aligned audio, sample-accurate triggering) should wait for audiorective-native synth emitters.
+PlayCanvas does not honour an `AudioProcessor.latencySamples` field. Effects with non-zero PDC inserted into slots play untrimmed and may drift relative to non-audiorective audio.
 
-### Pre-panner is single-processor-per-slot
+### Single processor per slot
 
-Chaining multiple pre-effects on one slot is via a user-built composite processor (one input gain, several stages, one output gain). Stacked `bindEffect(..., { position: "pre" })` calls on the same slot are not supported.
+The current `AudiorectiveSlotOptions.processor` slot is single-valued. For multi-stage pre-FX, compose your own pipeline processor (one input gain, N stages, one output gain). A `processors: AudioProcessor[]` option is reserved for a future release.
 
-### Peer-dep version pinning
+### Internal-property dependency
 
-`position: "pre"` reads `instance.source` and `instance.panner` from PlayCanvas's `SoundInstance3d`. These are public-but-not-API-stability-guaranteed properties. Tested against `playcanvas@2.18.1`. Pin or test before upgrading.
+The package overrides `SoundInstance._initializeNodes()` and `SoundSlot._createInstance()`, both of which are JSDoc-private in PlayCanvas. The runtime methods are plain and overridable; PlayCanvas's audio module has been in maintenance mode since ~2017 so churn risk is low. Compatibility is enforced by the matrix CI job — see `packages/playcanvas/compat.json`.

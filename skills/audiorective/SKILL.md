@@ -21,12 +21,12 @@ Web Audio's imperative API with UI frameworks.
 
 ## Packages
 
-| Package                    | Purpose                                                                                                 | Reference                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------- |
-| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`. Required by everything.                 | `references/core.md`       |
-| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                             | `references/react.md`      |
-| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                     | `references/threejs.md`    |
-| `@audiorective/playcanvas` | PlayCanvas bindings (`attach`, `bindEffect`). Pre-panner FX injection on `SoundSlot` — and post-panner. | `references/playcanvas.md` |
+| Package                    | Purpose                                                                                                    | Reference                  |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`. Required by everything.                    | `references/core.md`       |
+| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                | `references/react.md`      |
+| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                        | `references/threejs.md`    |
+| `@audiorective/playcanvas` | PlayCanvas bindings (`attach`, `createAudiorectiveSlot`). Pre-panner/pre-gain FX injection on `SoundSlot`. | `references/playcanvas.md` |
 
 ## What to read next
 

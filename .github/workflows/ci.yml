@@ -46,3 +46,40 @@ jobs:
       - run: pnpm -r run typecheck
 
       - run: pnpm -r run test -- --run
+
+  playcanvas-compat:
+    name: playcanvas-compat (${{ matrix.playcanvas }})
+    runs-on: ubuntu-latest
+    needs: build-typecheck-test
+    strategy:
+      fail-fast: false
+      matrix:
+        playcanvas: ["2.16.2", "2.17.0", "2.17.1", "2.17.2", "2.18.0", "2.18.1"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Pin playcanvas to the matrix version via pnpm overrides at the root
+      # package.json, then install. The matrix list is the source of truth and
+      # must stay in sync with packages/playcanvas/compat.json.
+      - name: Pin playcanvas via pnpm.overrides
+        run: |
+          node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); p.pnpm = p.pnpm || {}; p.pnpm.overrides = p.pnpm.overrides || {}; p.pnpm.overrides.playcanvas = process.env.PC_VERSION; fs.writeFileSync('package.json', JSON.stringify(p, null, 2));"
+        env:
+          PC_VERSION: ${{ matrix.playcanvas }}
+
+      - run: pnpm install --no-frozen-lockfile
+
+      - run: pnpm --filter @audiorective/core exec playwright install --with-deps chromium
+
+      - run: pnpm -r run build
+
+      - run: pnpm --filter @audiorective/playcanvas run typecheck
+
+      - run: pnpm --filter @audiorective/playcanvas run test -- --run

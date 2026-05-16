@@ -1,5 +1,7 @@
 import * as pc from "playcanvas";
 import { Cell } from "@audiorective/core";
+import { createAudiorectiveSlot, type AudiorectiveSoundSlot } from "@audiorective/playcanvas";
+import { EQ3 } from "../../spatial-room/audio/EQ3";
 import type { Track } from "../../spatial-room/audio/tracks";
 
 export interface TransportState {
@@ -9,83 +11,52 @@ export interface TransportState {
   currentTrackIndex: number;
 }
 
+interface TrackChain {
+  track: Track;
+  slot: AudiorectiveSoundSlot;
+  eq: EQ3;
+  asset: pc.Asset | null;
+  pendingPlay: boolean;
+}
+
 /**
- * PlayCanvas-side music player. Mirrors the shape of {@link MusicPlayer} from the
- * Three.js demo but delegates source ownership to PlayCanvas's `SoundComponent`/`SoundSlot`.
+ * PlayCanvas-side music player with **per-track audiorective chains**.
  *
- * Tracks are loaded as `pc.Asset`s on demand and assigned to the slot. Transport state
- * is driven by slot events plus a per-frame `currentTime` poll on the active instance.
+ * Each track owns its own `SoundSlot` + `EQ3`, wired at slot construction via
+ * `createAudiorectiveSlot`. Track selection is purely UI routing of slider
+ * params to the active track's EQ — moving sliders on track 1 never bleeds
+ * into track 2.
  *
- * The audiorective EQ chain is wired in separately by `bindEffect(slot, eq, { position: "pre" })`.
+ * PlayCanvas's `SoundComponent` still owns source + spatializer (PannerNode +
+ * listener); audiorective owns each chain's EQ pre-panner.
  */
 export class PCMusicPlayer {
   readonly transport: Cell<TransportState>;
   readonly tracks: Cell<Track[]>;
+  readonly activeEq: Cell<EQ3 | null>;
 
-  private _slot: pc.SoundSlot | null = null;
+  private readonly _ctx: AudioContext;
   private _app: pc.AppBase | null = null;
-  private _assets: pc.Asset[] = [];
-  private _disposers: Array<() => void> = [];
+  private _component: pc.SoundComponent | null = null;
+  private _chains: TrackChain[] = [];
   private _activeInstance: pc.SoundInstance | null = null;
-  private _wasPlayingBeforeSwap = false;
+  private _disposers: Array<() => void> = [];
 
-  constructor(initialTracks: Track[]) {
+  constructor(ctx: AudioContext) {
+    this._ctx = ctx;
     this.transport = new Cell<TransportState>({
       isPlaying: false,
       currentTime: 0,
       duration: NaN,
       currentTrackIndex: 0,
     });
-    this.tracks = new Cell<Track[]>(initialTracks);
+    this.tracks = new Cell<Track[]>([]);
+    this.activeEq = new Cell<EQ3 | null>(null);
   }
 
-  attach(app: pc.AppBase, slot: pc.SoundSlot): void {
+  attach(app: pc.AppBase, component: pc.SoundComponent): void {
     this._app = app;
-    this._slot = slot;
-
-    const onPlay = (instance: pc.SoundInstance) => {
-      this._activeInstance = instance;
-      this.transport.update((d) => {
-        d.isPlaying = true;
-        const dur = instance.duration;
-        if (Number.isFinite(dur) && dur > 0) d.duration = dur;
-      });
-    };
-    const onPause = () => {
-      this.transport.update((d) => {
-        d.isPlaying = false;
-      });
-    };
-    const onResume = () => {
-      this.transport.update((d) => {
-        d.isPlaying = true;
-      });
-    };
-    const onStop = () => {
-      this._activeInstance = null;
-      this.transport.update((d) => {
-        d.isPlaying = false;
-      });
-    };
-    const onEnd = () => {
-      this._activeInstance = null;
-      this.transport.update((d) => {
-        d.isPlaying = false;
-      });
-      // auto-advance on natural end — match the HTMLAudio demo's behaviour
-      if (!this._wasPlayingBeforeSwap) this.next();
-    };
-
-    slot.on("play", onPlay);
-    slot.on("pause", onPause);
-    slot.on("resume", onResume);
-    slot.on("stop", onStop);
-    slot.on("end", onEnd);
-    this._disposers.push(() => slot.off("play", onPlay));
-    this._disposers.push(() => slot.off("pause", onPause));
-    this._disposers.push(() => slot.off("resume", onResume));
-    this._disposers.push(() => slot.off("stop", onStop));
-    this._disposers.push(() => slot.off("end", onEnd));
+    this._component = component;
 
     const onUpdate = () => {
       const inst = this._activeInstance;
@@ -101,7 +72,7 @@ export class PCMusicPlayer {
     this._disposers.push(() => app.off("update", onUpdate));
 
     if (this.tracks.value.length > 0) {
-      this.loadTrack(this.transport.value.currentTrackIndex);
+      this._rebuildChains();
     }
   }
 
@@ -113,29 +84,42 @@ export class PCMusicPlayer {
         // ignore
       }
     }
-    if (this._slot) {
-      this._slot.stop();
-    }
-    this._slot = null;
+    this._teardownChains();
+    this._component = null;
     this._app = null;
     this._activeInstance = null;
-    for (const a of this._assets) {
-      a.unload();
+  }
+
+  /**
+   * Replace the track list and rebuild per-track chains. Called by the demo
+   * after `loadTracksJson()` resolves. Must run after `attach()`.
+   */
+  setTracks(tracks: Track[]): void {
+    this.tracks.value = tracks;
+    if (this._component && this._app) {
+      this._rebuildChains();
     }
-    this._assets = [];
   }
 
   play(): void {
-    if (!this._slot) return;
-    this._slot.play();
+    const chain = this._chains[this.transport.value.currentTrackIndex];
+    if (!chain) return;
+    if (!chain.asset) {
+      chain.pendingPlay = true;
+      this._loadAsset(chain);
+      return;
+    }
+    chain.slot.play();
   }
 
   pause(): void {
-    this._slot?.pause();
+    const chain = this._chains[this.transport.value.currentTrackIndex];
+    chain?.slot.pause();
   }
 
   resume(): void {
-    this._slot?.resume();
+    const chain = this._chains[this.transport.value.currentTrackIndex];
+    chain?.slot.resume();
   }
 
   seek(t: number): void {
@@ -148,39 +132,37 @@ export class PCMusicPlayer {
   }
 
   loadTrack(i: number): void {
-    if (!this._app || !this._slot) return;
-    const list = this.tracks.value;
-    if (list.length === 0) return;
-    const idx = ((i % list.length) + list.length) % list.length;
-    const track = list[idx]!;
+    if (this._chains.length === 0) {
+      this.transport.update((d) => {
+        d.currentTrackIndex = i;
+      });
+      return;
+    }
+    const idx = ((i % this._chains.length) + this._chains.length) % this._chains.length;
+    const prev = this._chains[this.transport.value.currentTrackIndex];
+    const next = this._chains[idx]!;
+    const wasPlaying = this.transport.value.isPlaying;
 
-    this._wasPlayingBeforeSwap = this.transport.value.isPlaying;
-    this._slot.stop();
+    if (prev && prev !== next) {
+      prev.slot.stop();
+    }
 
     this.transport.update((d) => {
       d.currentTrackIndex = idx;
       d.currentTime = 0;
       d.duration = NaN;
     });
+    this.activeEq.value = next.eq;
 
-    const asset = new pc.Asset(track.title || `track-${idx}`, "audio", { url: track.src });
-    this._app.assets.add(asset);
-    this._assets.push(asset);
-    asset.ready(() => {
-      if (!this._slot || this._slot.asset === asset.id) return;
-      this._slot.asset = asset.id;
-      const sound = asset.resource as pc.Sound | undefined;
-      if (sound && Number.isFinite(sound.duration)) {
-        this.transport.update((d) => {
-          d.duration = sound.duration;
-        });
-      }
-      if (this._wasPlayingBeforeSwap) {
-        this._wasPlayingBeforeSwap = false;
-        this._slot.play();
-      }
-    });
-    this._app.assets.load(asset);
+    if (wasPlaying) {
+      next.pendingPlay = true;
+    }
+    if (!next.asset) {
+      this._loadAsset(next);
+    } else if (next.pendingPlay) {
+      next.pendingPlay = false;
+      next.slot.play();
+    }
   }
 
   next(): void {
@@ -189,5 +171,106 @@ export class PCMusicPlayer {
 
   prev(): void {
     this.loadTrack(this.transport.value.currentTrackIndex - 1);
+  }
+
+  /** Read-only view of all chains. Exposed for DevTools / tests. */
+  get chains(): readonly { track: Track; eq: EQ3 }[] {
+    return this._chains.map((c) => ({ track: c.track, eq: c.eq }));
+  }
+
+  private _rebuildChains(): void {
+    if (!this._component || !this._app) return;
+    this._teardownChains();
+
+    const tracks = this.tracks.value;
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i]!;
+      const eq = new EQ3(this._ctx);
+      const slot = createAudiorectiveSlot(this._component, `track-${i}`, { volume: 1, loop: false, overlap: false }, { processor: eq });
+      if (!slot) continue;
+
+      const chain: TrackChain = { track, slot, eq, asset: null, pendingPlay: false };
+
+      slot.on("play", (instance: pc.SoundInstance) => {
+        this._activeInstance = instance;
+        this.transport.update((d) => {
+          d.isPlaying = true;
+          const dur = instance.duration;
+          if (Number.isFinite(dur) && dur > 0) d.duration = dur;
+        });
+      });
+      slot.on("pause", () => {
+        this.transport.update((d) => {
+          d.isPlaying = false;
+        });
+      });
+      slot.on("resume", () => {
+        this.transport.update((d) => {
+          d.isPlaying = true;
+        });
+      });
+      slot.on("stop", () => {
+        this._activeInstance = null;
+        this.transport.update((d) => {
+          d.isPlaying = false;
+        });
+      });
+      slot.on("end", () => {
+        this._activeInstance = null;
+        this.transport.update((d) => {
+          d.isPlaying = false;
+        });
+        this.next();
+      });
+
+      this._chains.push(chain);
+    }
+
+    if (this._chains.length === 0) {
+      this.activeEq.value = null;
+      return;
+    }
+    const idx = Math.min(this.transport.value.currentTrackIndex, this._chains.length - 1);
+    this.transport.update((d) => {
+      d.currentTrackIndex = idx;
+    });
+    this.activeEq.value = this._chains[idx]!.eq;
+  }
+
+  private _teardownChains(): void {
+    if (!this._component || !this._app) return;
+    for (const chain of this._chains) {
+      chain.slot.stop();
+      this._component.removeSlot(chain.slot.name);
+      chain.eq.destroy();
+      if (chain.asset) {
+        chain.asset.unload();
+        this._app.assets.remove(chain.asset);
+      }
+    }
+    this._chains = [];
+    this._activeInstance = null;
+  }
+
+  private _loadAsset(chain: TrackChain): void {
+    if (!this._app || chain.asset) return;
+    const asset = new pc.Asset(chain.track.title || chain.slot.name, "audio", { url: chain.track.src });
+    chain.asset = asset;
+    this._app.assets.add(asset);
+    asset.ready(() => {
+      if (!this._component) return;
+      chain.slot.asset = asset.id;
+      const sound = asset.resource as pc.Sound | undefined;
+      if (sound && Number.isFinite(sound.duration) && this._chains[this.transport.value.currentTrackIndex] === chain) {
+        this.transport.update((d) => {
+          d.duration = sound.duration;
+        });
+      }
+      if (chain.pendingPlay) {
+        chain.pendingPlay = false;
+        chain.slot.play();
+      }
+    });
+    this._app.assets.load(asset);
   }
 }

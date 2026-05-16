@@ -1,6 +1,6 @@
 import * as pc from "playcanvas";
 import { effect } from "alien-signals";
-import { attach, bindEffect } from "@audiorective/playcanvas";
+import { attach } from "@audiorective/playcanvas";
 import { engine } from "../audio/engine";
 
 const ROOM_W = 10;
@@ -22,7 +22,6 @@ export class PCRoomScene {
   private readonly speaker: pc.Entity;
   private readonly cdPlayer: pc.Entity;
   private readonly cdMaterial: pc.StandardMaterial;
-  private readonly slot: pc.SoundSlot;
 
   private readonly keys: KeyState = { w: false, a: false, s: false, d: false };
   private readonly velocity = new pc.Vec3();
@@ -88,18 +87,10 @@ export class PCRoomScene {
 
     const sound = this.speaker.sound;
     if (!sound) throw new Error("speaker SoundComponent failed to mount");
-    this.slot = sound.addSlot("music", {
-      volume: 1,
-      loop: false,
-      overlap: false,
-      autoPlay: false,
-    })!;
 
-    // 6. Wire the audiorective EQ chain pre-panner on every instance the slot creates.
-    //    This is the cooperate-first payoff: PlayCanvas owns source + spatializer,
-    //    audiorective owns the FOH-style source-character processing.
-    this.disposers.push(bindEffect(this.slot, engine.eq, { position: "pre" }));
-    engine.player.attach(this.app, this.slot);
+    // PlayCanvas owns source + spatializer; the player builds one
+    // audiorective slot per track with its own EQ chain.
+    engine.player.attach(this.app, sound);
     this.disposers.push(() => engine.player.detach());
 
     // 7. CD player mesh (clickable popup target).
