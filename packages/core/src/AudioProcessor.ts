@@ -91,6 +91,10 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
 
   abstract get output(): AudioNode | undefined;
 
+  get input(): AudioNode | undefined {
+    return undefined;
+  }
+
   protected computed<T>(fn: () => T): ComputedAccessor<T> {
     return alienComputed(fn);
   }

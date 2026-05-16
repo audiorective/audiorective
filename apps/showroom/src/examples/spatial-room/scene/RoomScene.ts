@@ -97,23 +97,24 @@ export class RoomScene {
     // inverted box for walls + ceiling
     const wallGeo = new THREE.BoxGeometry(ROOM_W, ROOM_H, ROOM_D);
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x2a2a35,
+      color: 0xeeeae0,
       side: THREE.BackSide,
-      roughness: 0.9,
+      roughness: 0.85,
     });
     const room = new THREE.Mesh(wallGeo, wallMat);
     room.position.y = ROOM_H / 2;
     this.scene.add(room);
 
-    // floor (separate, contrasting)
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), new THREE.MeshStandardMaterial({ color: 0x44443a, roughness: 0.8 }));
+    // floor (lifted slightly to avoid z-fighting with room's back-face bottom)
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), new THREE.MeshStandardMaterial({ color: 0xd9c9a8, roughness: 0.75 }));
     floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0.01;
     this.scene.add(floor);
 
     // lights
-    const hemi = new THREE.HemisphereLight(0xddddff, 0x303025, 0.7);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xc8c8d8, 1.3);
     this.scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.4);
     dir.position.set(2, 4, 2);
     this.scene.add(dir);
   }

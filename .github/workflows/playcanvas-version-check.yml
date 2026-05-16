@@ -1,0 +1,71 @@
+name: playcanvas-version-check
+
+# Daily check for new PlayCanvas releases. Independent of PR/push CI: a new
+# upstream release should not red-light unrelated PRs. Instead, this workflow
+# fails on its own schedule and (best-effort) opens / updates a tracking issue
+# so the team can verify the new version and promote it in compat.json.
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compare npm latest vs compat.json
+        id: compare
+        run: |
+          set -euo pipefail
+          NPM_LATEST=$(npm view playcanvas versions --json | node -e "let s=''; process.stdin.on('data',c=>s+=c).on('end',()=>{const v=JSON.parse(s).filter(x=>!x.includes('-')); console.log(v[v.length-1]);})")
+          KNOWN=$(node -e "console.log(require('./packages/playcanvas/compat.json').latestKnown)")
+          echo "npm_latest=$NPM_LATEST" >> "$GITHUB_OUTPUT"
+          echo "compat_latest=$KNOWN" >> "$GITHUB_OUTPUT"
+          if [ "$NPM_LATEST" != "$KNOWN" ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            echo "::error::PlayCanvas $NPM_LATEST released, not in compat.json (latestKnown=$KNOWN). Verify locally and update packages/playcanvas/compat.json."
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure tracking issue exists
+        if: steps.compare.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_LATEST: ${{ steps.compare.outputs.npm_latest }}
+          COMPAT_LATEST: ${{ steps.compare.outputs.compat_latest }}
+        run: |
+          set -euo pipefail
+          TITLE="playcanvas $NPM_LATEST released — verify and update compat.json"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          BODY=$(cat <<EOF
+          Upstream npm has published \`playcanvas@$NPM_LATEST\`. \`packages/playcanvas/compat.json\` still pins \`latestKnown\` to \`$COMPAT_LATEST\`.
+
+          Action items:
+          1. Run \`pnpm install\` locally with \`pnpm.overrides.playcanvas\` set to \`$NPM_LATEST\`.
+          2. Run \`pnpm --filter @audiorective/playcanvas run typecheck build test\`.
+          3. Smoke-test \`apps/showroom\` Spatial Music Room (PlayCanvas) demo.
+          4. If green, append \`$NPM_LATEST\` to \`compat.tested\` and bump \`latestKnown\`.
+          5. Update the matrix list in \`.github/workflows/ci.yml\` to match.
+          EOF
+          )
+          if [ -z "$EXISTING" ]; then
+            gh issue create --title "$TITLE" --body "$BODY" --label "dependency" || gh issue create --title "$TITLE" --body "$BODY"
+          else
+            echo "Tracking issue #$EXISTING already open."
+          fi
+
+      - name: Fail if drift detected
+        if: steps.compare.outputs.drift == 'true'
+        run: exit 1

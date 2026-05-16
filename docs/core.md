@@ -252,6 +252,7 @@ abstract class AudioProcessor<
   protected constructor(context: AudioContext, build: (helpers: BuildHelpers) => { params?: P; cells?: C });
 
   abstract get output(): AudioNode | undefined;
+  get input(): AudioNode | undefined; // default: undefined
 
   protected computed<T>(fn: () => T): ComputedAccessor<T>;
   protected effect(fn: () => void): () => void;
@@ -271,6 +272,8 @@ interface BuildHelpers {
 
 **`destroy()`** stops all effects, calls `destroy()` on every param in the registry (cleaning up bind effects and `ParamSync` registrations), and disconnects any internally-created `ConstantSourceNode`s. Cells are not destroyed automatically — they're plain reactive containers with no audio-graph resources.
 
+**Effects vs instruments — the `.input` convention.** A processor that **transforms** incoming audio (EQ, compressor, reverb, distortion) declares both `input` and `output`. A processor that **produces** audio from scratch (synth, sampler, oscillator) declares only `output`; `input` returns `undefined` from the base class. There are no `EffectProcessor`/`InstrumentProcessor` subclasses — the convention is purely about which getters a processor exposes. Downstream code that needs to insert a processor as an effect (e.g. `bindEffect` in `@audiorective/playcanvas`) checks `processor.input !== undefined`. Spatial's `input` getter is the prototype: it returns the entry `GainNode` that connects into the underlying `PannerNode`.
+
 ### Spatial
 
 Built-in `AudioProcessor` that owns a `PannerNode` (HRTF) and exposes its seven properties as reactive `Param<T>`s. Lives in core — audio works end-to-end without any 3D renderer. `@audiorective/threejs` provides `PannerAnchor` to bind a scene `Object3D`'s world transform to the panner.
@@ -288,7 +291,7 @@ class Spatial extends AudioProcessor<{
   coneOuterGain: Param<number>;
 }> {
   readonly panner: PannerNode;
-  readonly input: GainNode;
+  override get input(): GainNode; // entry gain feeding the panner
   get output(): AudioNode; // returns panner
 
   constructor(context: AudioContext, options?: SpatialOptions);

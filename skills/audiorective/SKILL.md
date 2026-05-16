@@ -21,11 +21,12 @@ Web Audio's imperative API with UI frameworks.
 
 ## Packages
 
-| Package                 | Purpose                                                                                 | Reference               |
-| ----------------------- | --------------------------------------------------------------------------------------- | ----------------------- |
-| `@audiorective/core`    | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`. Required by everything. | `references/core.md`    |
-| `@audiorective/react`   | React bindings (`useValue`, `EngineProvider`, `useEngine`).                             | `references/react.md`   |
-| `@audiorective/threejs` | three.js scene bindings (`attach`, `PannerAnchor`).                                     | `references/threejs.md` |
+| Package                    | Purpose                                                                                                    | Reference                  |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`. Required by everything.                    | `references/core.md`       |
+| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                | `references/react.md`      |
+| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                        | `references/threejs.md`    |
+| `@audiorective/playcanvas` | PlayCanvas bindings (`attach`, `createAudiorectiveSlot`). Pre-panner/pre-gain FX injection on `SoundSlot`. | `references/playcanvas.md` |
 
 ## What to read next
 
@@ -33,13 +34,14 @@ Web Audio's imperative API with UI frameworks.
 
 Then load only what your task actually needs:
 
-| If you're doing…                                                                | Also read                                   |
-| ------------------------------------------------------------------------------- | ------------------------------------------- |
-| Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                |
-| React UI bound to an engine                                                     | `references/react.md`                       |
-| 3D scene with spatial audio                                                     | `references/threejs.md` + `architecture.md` |
-| Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                |
-| Understanding rationale ("why does this exist?")                                | `references/overview.md`                    |
+| If you're doing…                                                                | Also read                                      |
+| ------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                   |
+| React UI bound to an engine                                                     | `references/react.md`                          |
+| 3D scene with spatial audio (three.js)                                          | `references/threejs.md` + `architecture.md`    |
+| 3D scene with spatial audio (PlayCanvas) or pre-panner FX on SoundSlot          | `references/playcanvas.md` + `architecture.md` |
+| Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                   |
+| Understanding rationale ("why does this exist?")                                | `references/overview.md`                       |
 
 ## The one rule that always applies
 
