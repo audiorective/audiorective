@@ -14,15 +14,21 @@ export interface UIState {
  * Cooperate-first integration: PlayCanvas's `SoundComponent` owns source +
  * spatializer + listener; audiorective owns the per-track EQ chains. Each
  * track has its own `EQ3` wired pre-panner via `createAudiorectiveSlot`;
- * switching tracks just repoints `player.activeEq` — no parameter bleed.
+ * switching tracks just repoints `player.activeEqIndex` — no parameter bleed.
  */
 export const engine = createEngine((ctx) => {
   const player = new PCMusicPlayer(ctx);
-  const ui: Cell<UIState> = cell<UIState>({ popupOpen: false, cdHover: false });
-  return { player, ui };
+  return { player };
 });
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
+
+/**
+ * View-only state shared between the imperative PlayCanvas scene (which writes
+ * it from raycast hover / click) and the React HUD + popup. Deliberately kept
+ * out of the audio engine — it carries no audio meaning.
+ */
+export const ui: Cell<UIState> = cell<UIState>({ popupOpen: false, cdHover: false });
 
 // Expose the engine on window for DevTools inspection (read params, mutate,
 // inspect AudioContext state).
@@ -36,6 +42,7 @@ if (typeof window !== "undefined") {
 }
 
 void loadTracksJson().then((tracks) => {
-  if (tracks.length === 0) return;
-  engine.player.setTracks(tracks);
+  for (const track of tracks) {
+    engine.player.addTrack(track);
+  }
 });

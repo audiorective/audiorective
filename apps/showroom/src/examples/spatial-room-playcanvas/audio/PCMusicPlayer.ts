@@ -33,7 +33,8 @@ interface TrackChain {
 export class PCMusicPlayer {
   readonly transport: Cell<TransportState>;
   readonly tracks: Cell<Track[]>;
-  readonly activeEq: Cell<EQ3 | null>;
+  /** Index into {@link chains} of the track whose EQ the UI edits. */
+  readonly activeEqIndex: Cell<number>;
 
   private readonly _ctx: AudioContext;
   private _app: pc.AppBase | null = null;
@@ -41,6 +42,9 @@ export class PCMusicPlayer {
   private _chains: TrackChain[] = [];
   private _activeInstance: pc.SoundInstance | null = null;
   private _disposers: Array<() => void> = [];
+  private _nextSlotId = 0;
+  // Tracks added before attach() — drained once the component is available.
+  private _pendingTracks: Track[] = [];
 
   constructor(ctx: AudioContext) {
     this._ctx = ctx;
@@ -51,7 +55,7 @@ export class PCMusicPlayer {
       currentTrackIndex: 0,
     });
     this.tracks = new Cell<Track[]>([]);
-    this.activeEq = new Cell<EQ3 | null>(null);
+    this.activeEqIndex = new Cell<number>(0);
   }
 
   attach(app: pc.AppBase, component: pc.SoundComponent): void {
@@ -71,9 +75,8 @@ export class PCMusicPlayer {
     app.on("update", onUpdate);
     this._disposers.push(() => app.off("update", onUpdate));
 
-    if (this.tracks.value.length > 0) {
-      this._rebuildChains();
-    }
+    const pending = this._pendingTracks.splice(0);
+    for (const track of pending) this.addTrack(track);
   }
 
   detach(): void {
@@ -84,21 +87,57 @@ export class PCMusicPlayer {
         // ignore
       }
     }
-    this._teardownChains();
+    while (this._chains.length > 0) {
+      this._destroyChain(this._chains.length - 1);
+    }
     this._component = null;
     this._app = null;
     this._activeInstance = null;
   }
 
   /**
-   * Replace the track list and rebuild per-track chains. Called by the demo
-   * after `loadTracksJson()` resolves. Must run after `attach()`.
+   * Append a track, building its own slot + EQ chain. If called before
+   * `attach()`, the track is queued and built when the component is available.
    */
-  setTracks(tracks: Track[]): void {
-    this.tracks.value = tracks;
-    if (this._component && this._app) {
-      this._rebuildChains();
+  addTrack(track: Track): void {
+    if (!this._component || !this._app) {
+      this._pendingTracks.push(track);
+      return;
     }
+
+    const eq = new EQ3(this._ctx);
+    const slot = createAudiorectiveSlot(
+      this._component,
+      `track-${this._nextSlotId++}`,
+      { volume: 1, loop: false, overlap: false },
+      { processor: eq },
+    );
+    if (!slot) {
+      eq.destroy();
+      return;
+    }
+
+    const chain: TrackChain = { track, slot, eq, asset: null, pendingPlay: false };
+    this._wireSlot(chain);
+    this._chains.push(chain);
+    this.tracks.update((d) => {
+      d.push(track);
+    });
+  }
+
+  /** Remove the track at `index`, tearing down its chain. */
+  removeTrack(index: number): void {
+    if (index < 0 || index >= this._chains.length) return;
+    this._destroyChain(index);
+    this.tracks.update((d) => {
+      d.splice(index, 1);
+    });
+
+    const clamped = Math.max(0, Math.min(this.transport.value.currentTrackIndex, this._chains.length - 1));
+    this.transport.update((d) => {
+      d.currentTrackIndex = clamped;
+    });
+    this.activeEqIndex.value = clamped;
   }
 
   play(): void {
@@ -113,13 +152,11 @@ export class PCMusicPlayer {
   }
 
   pause(): void {
-    const chain = this._chains[this.transport.value.currentTrackIndex];
-    chain?.slot.pause();
+    this._chains[this.transport.value.currentTrackIndex]?.slot.pause();
   }
 
   resume(): void {
-    const chain = this._chains[this.transport.value.currentTrackIndex];
-    chain?.slot.resume();
+    this._chains[this.transport.value.currentTrackIndex]?.slot.resume();
   }
 
   seek(t: number): void {
@@ -152,7 +189,7 @@ export class PCMusicPlayer {
       d.currentTime = 0;
       d.duration = NaN;
     });
-    this.activeEq.value = next.eq;
+    this.activeEqIndex.value = idx;
 
     if (wasPlaying) {
       next.pendingPlay = true;
@@ -178,78 +215,55 @@ export class PCMusicPlayer {
     return this._chains.map((c) => ({ track: c.track, eq: c.eq }));
   }
 
-  private _rebuildChains(): void {
-    if (!this._component || !this._app) return;
-    this._teardownChains();
-
-    const tracks = this.tracks.value;
-    for (let i = 0; i < tracks.length; i++) {
-      const track = tracks[i]!;
-      const eq = new EQ3(this._ctx);
-      const slot = createAudiorectiveSlot(this._component, `track-${i}`, { volume: 1, loop: false, overlap: false }, { processor: eq });
-      if (!slot) continue;
-
-      const chain: TrackChain = { track, slot, eq, asset: null, pendingPlay: false };
-
-      slot.on("play", (instance: pc.SoundInstance) => {
-        this._activeInstance = instance;
-        this.transport.update((d) => {
-          d.isPlaying = true;
-          const dur = instance.duration;
-          if (Number.isFinite(dur) && dur > 0) d.duration = dur;
-        });
+  private _wireSlot(chain: TrackChain): void {
+    const { slot } = chain;
+    slot.on("play", (instance: pc.SoundInstance) => {
+      this._activeInstance = instance;
+      this.transport.update((d) => {
+        d.isPlaying = true;
+        const dur = instance.duration;
+        if (Number.isFinite(dur) && dur > 0) d.duration = dur;
       });
-      slot.on("pause", () => {
-        this.transport.update((d) => {
-          d.isPlaying = false;
-        });
-      });
-      slot.on("resume", () => {
-        this.transport.update((d) => {
-          d.isPlaying = true;
-        });
-      });
-      slot.on("stop", () => {
-        this._activeInstance = null;
-        this.transport.update((d) => {
-          d.isPlaying = false;
-        });
-      });
-      slot.on("end", () => {
-        this._activeInstance = null;
-        this.transport.update((d) => {
-          d.isPlaying = false;
-        });
-        this.next();
-      });
-
-      this._chains.push(chain);
-    }
-
-    if (this._chains.length === 0) {
-      this.activeEq.value = null;
-      return;
-    }
-    const idx = Math.min(this.transport.value.currentTrackIndex, this._chains.length - 1);
-    this.transport.update((d) => {
-      d.currentTrackIndex = idx;
     });
-    this.activeEq.value = this._chains[idx]!.eq;
+    slot.on("pause", () => {
+      this.transport.update((d) => {
+        d.isPlaying = false;
+      });
+    });
+    slot.on("resume", () => {
+      this.transport.update((d) => {
+        d.isPlaying = true;
+      });
+    });
+    slot.on("stop", () => {
+      this._activeInstance = null;
+      this.transport.update((d) => {
+        d.isPlaying = false;
+      });
+    });
+    slot.on("end", () => {
+      this._activeInstance = null;
+      this.transport.update((d) => {
+        d.isPlaying = false;
+      });
+      this.next();
+    });
   }
 
-  private _teardownChains(): void {
-    if (!this._component || !this._app) return;
-    for (const chain of this._chains) {
-      chain.slot.stop();
-      this._component.removeSlot(chain.slot.name);
-      chain.eq.destroy();
-      if (chain.asset) {
-        chain.asset.unload();
-        this._app.assets.remove(chain.asset);
-      }
+  private _destroyChain(index: number): void {
+    const chain = this._chains[index];
+    if (!chain) return;
+    chain.slot.stop();
+    this._component?.removeSlot(chain.slot.name);
+    chain.eq.destroy();
+    if (chain.asset && this._app) {
+      chain.asset.unload();
+      this._app.assets.remove(chain.asset);
     }
-    this._chains = [];
-    this._activeInstance = null;
+    this._chains.splice(index, 1);
+    if (this._activeInstance && !this._chains.some((c) => c.slot.isPlaying)) {
+      this._activeInstance = null;
+    }
   }
 
   private _loadAsset(chain: TrackChain): void {

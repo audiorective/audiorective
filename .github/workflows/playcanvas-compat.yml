@@ -1,9 +1,15 @@
-name: playcanvas-version-check
+name: playcanvas-compat
 
-# Daily check for new PlayCanvas releases. Independent of PR/push CI: a new
-# upstream release should not red-light unrelated PRs. Instead, this workflow
-# fails on its own schedule and (best-effort) opens / updates a tracking issue
-# so the team can verify the new version and promote it in compat.json.
+# Periodic PlayCanvas compatibility guard. Independent of PR/push CI so that an
+# upstream release (or a regression in an older supported version) never
+# red-lights unrelated PRs. Two jobs:
+#   1. compat-test — run the playcanvas package's tests against every version
+#      in compat.json's `tested` list.
+#   2. new-version-check — flag any npm release newer than compat.latestKnown,
+#      fail, and open/refresh a tracking issue.
+#
+# The per-PR `ci.yml` already exercises the package against the lockfile-pinned
+# version; this workflow adds the multi-version sweep + drift detection.
 
 on:
   schedule:
@@ -15,7 +21,52 @@ permissions:
   issues: write
 
 jobs:
-  check:
+  matrix-source:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.read.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: echo "versions=$(node -e "console.log(JSON.stringify(require('./packages/playcanvas/compat.json').tested))")" >> "$GITHUB_OUTPUT"
+
+  compat-test:
+    needs: matrix-source
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        playcanvas: ${{ fromJSON(needs.matrix-source.outputs.versions) }}
+    name: compat-test (${{ matrix.playcanvas }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Pin playcanvas to the matrix version via pnpm.overrides at the root
+      # package.json, then install.
+      - name: Pin playcanvas via pnpm.overrides
+        run: |
+          node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); p.pnpm = p.pnpm || {}; p.pnpm.overrides = p.pnpm.overrides || {}; p.pnpm.overrides.playcanvas = process.env.PC_VERSION; fs.writeFileSync('package.json', JSON.stringify(p, null, 2));"
+        env:
+          PC_VERSION: ${{ matrix.playcanvas }}
+
+      - run: pnpm install --no-frozen-lockfile
+
+      - run: pnpm --filter @audiorective/core exec playwright install --with-deps chromium
+
+      - run: pnpm -r run build
+
+      - run: pnpm --filter @audiorective/playcanvas run typecheck
+
+      - run: pnpm --filter @audiorective/playcanvas run test -- --run
+
+  new-version-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +108,6 @@ jobs:
           2. Run \`pnpm --filter @audiorective/playcanvas run typecheck build test\`.
           3. Smoke-test \`apps/showroom\` Spatial Music Room (PlayCanvas) demo.
           4. If green, append \`$NPM_LATEST\` to \`compat.tested\` and bump \`latestKnown\`.
-          5. Update the matrix list in \`.github/workflows/ci.yml\` to match.
           EOF
           )
           if [ -z "$EXISTING" ]; then

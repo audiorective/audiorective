@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
 import { useValue } from "@audiorective/react";
-import { engine, useEngine } from "../audio/engine";
+import { ui, useEngine } from "../audio/engine";
 import type { EQ3 } from "../../spatial-room/audio/EQ3";
 
 function fmtTime(t: number): string {
@@ -12,17 +12,18 @@ function fmtTime(t: number): string {
 }
 
 export function PlayerPopup() {
-  const { player, ui } = useEngine();
+  const { player } = useEngine();
   const { popupOpen } = useValue(ui);
   const transport = useValue(player.transport);
   const tracks = useValue(player.tracks);
-  const eq = useValue(player.activeEq);
+  const activeEqIndex = useValue(player.activeEqIndex);
+  const eq = player.chains[activeEqIndex]?.eq ?? null;
 
   useEffect(() => {
     if (!popupOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        engine.ui.update((d) => {
+        ui.update((d) => {
           d.popupOpen = false;
         });
       }
@@ -35,7 +36,7 @@ export function PlayerPopup() {
 
   const current = tracks[transport.currentTrackIndex];
   const close = () => {
-    engine.ui.update((d) => {
+    ui.update((d) => {
       d.popupOpen = false;
     });
   };

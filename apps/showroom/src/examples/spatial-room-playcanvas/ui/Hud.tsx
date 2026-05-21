@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { useValue } from "@audiorective/react";
 import type { EngineState } from "@audiorective/core";
-import { engine, useEngine } from "../audio/engine";
+import { engine, ui } from "../audio/engine";
 
 const overlayBase: CSSProperties = {
   position: "fixed",
@@ -10,7 +10,6 @@ const overlayBase: CSSProperties = {
 };
 
 export function Hud() {
-  const { ui } = useEngine();
   const { popupOpen, cdHover } = useValue(ui);
   const engineState = useValue<EngineState>(engine.core.state);
 

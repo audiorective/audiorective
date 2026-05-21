@@ -1,7 +1,7 @@
 import * as pc from "playcanvas";
 import { effect } from "alien-signals";
 import { attach } from "@audiorective/playcanvas";
-import { engine } from "../audio/engine";
+import { engine, ui } from "../audio/engine";
 
 const ROOM_W = 10;
 const ROOM_H = 3;
@@ -108,7 +108,7 @@ export class PCRoomScene {
     // 9. Hover-on-CD → emissive bump.
     this.disposers.push(
       effect(() => {
-        const hover = engine.ui.$().cdHover;
+        const hover = ui.$().cdHover;
         this.cdMaterial.emissiveIntensity = hover ? 0.6 : 0;
         this.cdMaterial.update();
       }),
@@ -242,11 +242,11 @@ export class PCRoomScene {
 
   private bindEventListeners(): void {
     const onClick = () => {
-      if (engine.ui.value.popupOpen) return;
+      if (ui.value.popupOpen) return;
       if (!this.isLocked) {
         this.canvas.requestPointerLock();
       } else if (this.raycastCdPlayer()) {
-        engine.ui.update((d) => {
+        ui.update((d) => {
           d.popupOpen = true;
         });
         document.exitPointerLock();
@@ -375,13 +375,13 @@ export class PCRoomScene {
     if (this.hoverDirty && this.isLocked) {
       this.hoverDirty = false;
       const hit = this.raycastCdPlayer();
-      if (engine.ui.value.cdHover !== hit) {
-        engine.ui.update((d) => {
+      if (ui.value.cdHover !== hit) {
+        ui.update((d) => {
           d.cdHover = hit;
         });
       }
-    } else if (!this.isLocked && engine.ui.value.cdHover) {
-      engine.ui.update((d) => {
+    } else if (!this.isLocked && ui.value.cdHover) {
+      ui.update((d) => {
         d.cdHover = false;
       });
     }
