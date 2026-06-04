@@ -15,10 +15,10 @@ export function PlayerPopup() {
   const { popupOpen } = useValue(ui);
   const transport = useValue(player.cells.transport);
   const tracks = useValue(player.cells.tracks);
-  const masterVolume = useValue(player.params.masterVolume);
-  const eqLow = useValue(player.params.eqLow);
-  const eqMid = useValue(player.params.eqMid);
-  const eqHigh = useValue(player.params.eqHigh);
+  const masterVolume = useValue(player.eq.params.masterVolume);
+  const eqLow = useValue(player.eq.params.eqLow);
+  const eqMid = useValue(player.eq.params.eqMid);
+  const eqHigh = useValue(player.eq.params.eqHigh);
 
   useEffect(() => {
     if (!popupOpen) return;
@@ -137,7 +137,7 @@ export function PlayerPopup() {
           max={1}
           step={0.01}
           onChange={(v) => {
-            player.params.masterVolume.value = v;
+            player.eq.params.masterVolume.value = v;
           }}
           format={(v) => `${Math.round(v * 100)}%`}
         />
@@ -158,7 +158,7 @@ export function PlayerPopup() {
             max={12}
             step={0.1}
             onChange={(v) => {
-              player.params.eqLow.value = v;
+              player.eq.params.eqLow.value = v;
             }}
             format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
           />
@@ -169,7 +169,7 @@ export function PlayerPopup() {
             max={12}
             step={0.1}
             onChange={(v) => {
-              player.params.eqMid.value = v;
+              player.eq.params.eqMid.value = v;
             }}
             format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
           />
@@ -180,7 +180,7 @@ export function PlayerPopup() {
             max={12}
             step={0.1}
             onChange={(v) => {
-              player.params.eqHigh.value = v;
+              player.eq.params.eqHigh.value = v;
             }}
             format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
           />

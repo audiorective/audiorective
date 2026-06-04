@@ -1,6 +1,7 @@
 import { AudioProcessor } from "@audiorective/core";
-import type { Cell, SchedulableParam } from "@audiorective/core";
+import type { Cell } from "@audiorective/core";
 import type { Track } from "./tracks";
+import { EQ3 } from "./EQ3";
 
 export interface TransportState {
   isPlaying: boolean;
@@ -9,21 +10,14 @@ export interface TransportState {
   currentTrackIndex: number;
 }
 
-type Params = {
-  masterVolume: SchedulableParam;
-  eqLow: SchedulableParam;
-  eqMid: SchedulableParam;
-  eqHigh: SchedulableParam;
-};
-
 type Cells = {
   transport: Cell<TransportState>;
   tracks: Cell<Track[]>;
 };
 
-export class MusicPlayer extends AudioProcessor<Params, Cells> {
+export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
   readonly audio: HTMLAudioElement;
-  private readonly _master: GainNode;
+  readonly eq: EQ3;
 
   constructor(ctx: AudioContext, initialTracks: Track[]) {
     const audio = new Audio();
@@ -31,19 +25,10 @@ export class MusicPlayer extends AudioProcessor<Params, Cells> {
     audio.preload = "metadata";
 
     const source = ctx.createMediaElementSource(audio);
-    const low = new BiquadFilterNode(ctx, { type: "lowshelf", frequency: 250 });
-    const mid = new BiquadFilterNode(ctx, { type: "peaking", frequency: 1000, Q: 1 });
-    const high = new BiquadFilterNode(ctx, { type: "highshelf", frequency: 4000 });
-    const master = new GainNode(ctx, { gain: 0.8 });
-    source.connect(low).connect(mid).connect(high).connect(master);
+    const eq = new EQ3(ctx);
+    source.connect(eq.input);
 
-    super(ctx, ({ param, cell }) => ({
-      params: {
-        masterVolume: param({ default: 0.8, min: 0, max: 1, bind: master.gain }),
-        eqLow: param({ default: 0, min: -12, max: 12, bind: low.gain }),
-        eqMid: param({ default: 0, min: -12, max: 12, bind: mid.gain }),
-        eqHigh: param({ default: 0, min: -12, max: 12, bind: high.gain }),
-      },
+    super(ctx, ({ cell }) => ({
       cells: {
         transport: cell<TransportState>({
           isPlaying: false,
@@ -56,7 +41,7 @@ export class MusicPlayer extends AudioProcessor<Params, Cells> {
     }));
 
     this.audio = audio;
-    this._master = master;
+    this.eq = eq;
 
     audio.addEventListener("play", () => {
       this.cells.transport.update((d) => {
@@ -86,7 +71,7 @@ export class MusicPlayer extends AudioProcessor<Params, Cells> {
   }
 
   get output(): AudioNode {
-    return this._master;
+    return this.eq.output;
   }
 
   async play(): Promise<void> {
@@ -137,5 +122,10 @@ export class MusicPlayer extends AudioProcessor<Params, Cells> {
 
   prev(): void {
     this.loadTrack(this.cells.transport.value.currentTrackIndex - 1);
+  }
+
+  override destroy(): void {
+    super.destroy();
+    this.eq.destroy();
   }
 }
