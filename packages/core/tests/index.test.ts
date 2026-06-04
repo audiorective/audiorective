@@ -608,6 +608,41 @@ describe("AudioProcessor", () => {
     expect(external).toBe("sawtooth");
   });
 
+  test("input defaults to undefined", () => {
+    const p = new TestProcessor();
+    expect(p.input).toBeUndefined();
+    p.destroy();
+  });
+
+  test("subclass can override input to expose an entry node", () => {
+    class EffectProcessor extends AudioProcessor<{ gain: SchedulableParam }> {
+      private readonly _entry: GainNode;
+      private readonly _exit: GainNode;
+      constructor() {
+        const entry = new GainNode(ctx);
+        const exit = new GainNode(ctx);
+        entry.connect(exit);
+        super(ctx, ({ param }) => ({
+          params: { gain: param({ default: 1, bind: exit.gain }) },
+        }));
+        this._entry = entry;
+        this._exit = exit;
+      }
+      get input(): AudioNode {
+        return this._entry;
+      }
+      get output(): AudioNode {
+        return this._exit;
+      }
+    }
+
+    const p = new EffectProcessor();
+    expect(p.input).toBeInstanceOf(GainNode);
+    expect(p.output).toBeInstanceOf(GainNode);
+    expect(p.input).not.toBe(p.output);
+    p.destroy();
+  });
+
   test("cells registry exposes typed cells", () => {
     class CellProcessor extends AudioProcessor<Record<string, never>, { steps: import("../src").Cell<number[]> }> {
       constructor() {

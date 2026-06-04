@@ -37,7 +37,7 @@ Then load only what your task actually needs:
 | ------------------------------------------------------------------------------- | ------------------------------------------- |
 | Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                |
 | React UI bound to an engine                                                     | `references/react.md`                       |
-| 3D scene with spatial audio                                                     | `references/threejs.md` + `architecture.md` |
+| 3D scene with spatial audio (three.js)                                          | `references/threejs.md` + `architecture.md` |
 | Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                |
 | Understanding rationale ("why does this exist?")                                | `references/overview.md`                    |
 
