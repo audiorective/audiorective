@@ -1,0 +1,49 @@
+{
+  "name": "@audiorective/playcanvas",
+  "version": "0.1.0",
+  "description": "PlayCanvas bindings for @audiorective/core — shared AudioContext + pre/post-panner effect chains on SoundSlot",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/audiorective/audiorective/tree/main/packages/playcanvas#readme",
+  "bugs": {
+    "url": "https://github.com/audiorective/audiorective/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/audiorective/audiorective.git",
+    "directory": "packages/playcanvas"
+  },
+  "author": "Chriest Yu <jcppman@gmai.com>",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@audiorective/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "playcanvas": ">=2.18.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@vitest/browser": "^4.0.18",
+    "@vitest/browser-playwright": "^4.0.18",
+    "playcanvas": "^2.18.1",
+    "playwright": "^1.58.2",
+    "tsdown": "^0.15.9",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
