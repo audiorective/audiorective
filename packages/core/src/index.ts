@@ -11,3 +11,5 @@ export type { BuildHelpers, BuildResult } from "./AudioProcessor";
 export { loadAudioBuffer, AudioBufferCache } from "./loadAudioBuffer";
 export { Voice } from "./Voice";
 export type { VoiceOptions } from "./Voice";
+export { SoundPlayer } from "./SoundPlayer";
+export type { SoundPlayerOptions, TriggerOptions } from "./SoundPlayer";
