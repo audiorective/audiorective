@@ -90,6 +90,46 @@ export class Voice {
     else this.endedCbs.push(cb);
   }
 
+  pause(): void {
+    if (this.paused || this.ended || !this.source) return;
+    this.offset = this.currentTime; // capture before tearing down
+    this.paused = true;
+    this.teardownCurrent();
+  }
+
+  resume(): void {
+    if (!this.paused || this.ended) return;
+    this.startSource(this.ctx.currentTime, this.offset);
+  }
+
+  seek(t: number): void {
+    if (this.ended) return;
+    const clamped = Math.max(0, Math.min(t, this.buffer.duration));
+    if (this.paused) {
+      this.offset = clamped;
+      return;
+    }
+    this.teardownCurrent();
+    this.startSource(this.ctx.currentTime, clamped);
+  }
+
+  set volume(v: number) {
+    this.gain.gain.value = v;
+  }
+
+  set rate(v: number) {
+    if (this.ended) return;
+    if (this.paused || !this.source) {
+      this._rate = v;
+      return;
+    }
+    // Rebase the offset baseline so currentTime stays continuous across the change.
+    this.offset = this.currentTime;
+    this.startedAt = this.ctx.currentTime;
+    this._rate = v;
+    this.source.playbackRate.value = v;
+  }
+
   private startSource(when: number, offset: number): void {
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;

@@ -104,3 +104,81 @@ describe("Voice — playback", () => {
     expect(v.isPlaying).toBe(false);
   });
 });
+
+describe("Voice — transport", () => {
+  let ctx: AudioContext;
+  beforeEach(async () => {
+    ctx = new AudioContext();
+    await ctx.resume();
+  });
+  afterEach(() => {
+    void ctx.close();
+  });
+
+  test("pause freezes currentTime; resume continues from the saved offset", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 2), dest, {}, () => {});
+    await delay(120);
+    v.pause();
+    expect(v.isPlaying).toBe(false);
+    const frozen = v.currentTime;
+    expect(frozen).toBeGreaterThan(0.05);
+    await delay(120);
+    expect(v.currentTime).toBeCloseTo(frozen, 2); // unchanged while paused
+    v.resume();
+    expect(v.isPlaying).toBe(true);
+    await delay(120);
+    expect(v.currentTime).toBeGreaterThan(frozen + 0.05);
+    v.stop();
+  });
+
+  test("pause does not fire onEnded", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 2), dest, {}, () => {});
+    let ended = 0;
+    v.onEnded(() => {
+      ended++;
+    });
+    await delay(60);
+    v.pause();
+    await delay(80);
+    expect(ended).toBe(0);
+    v.stop();
+  });
+
+  test("seek jumps currentTime (while playing and while paused)", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 5), dest, {}, () => {});
+    v.seek(3);
+    expect(v.currentTime).toBeGreaterThan(2.9);
+    expect(v.currentTime).toBeLessThan(3.3);
+    v.pause();
+    v.seek(1);
+    expect(v.currentTime).toBeCloseTo(1, 2);
+    v.stop();
+  });
+
+  test("seek clamps to [0, duration]", () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 1), dest, {}, () => {});
+    v.pause();
+    v.seek(-5);
+    expect(v.currentTime).toBe(0);
+    v.seek(99);
+    expect(v.currentTime).toBeCloseTo(1, 2);
+    v.stop();
+  });
+
+  test("rate change while playing keeps currentTime continuous", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 5), dest, {}, () => {});
+    await delay(120);
+    const before = v.currentTime;
+    v.rate = 3;
+    const after = v.currentTime;
+    expect(after).toBeCloseTo(before, 1); // no jump at the moment of change
+    await delay(120);
+    expect(v.currentTime).toBeGreaterThan(before + 0.2); // faster now
+    v.stop();
+  });
+});
