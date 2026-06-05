@@ -33,6 +33,7 @@ export class Voice {
   private loop: boolean;
   private paused = false;
   private ended = false;
+  private stopScheduled = false; // a future-dated stop(when) is pending; transport ops are frozen until it fires
   private endedCbs: Array<() => void> = [];
 
   constructor(ctx: AudioContext, buffer: AudioBuffer, destination: AudioNode, opts: VoiceOptions, onDone: () => void) {
@@ -74,6 +75,7 @@ export class Voice {
     if (this.ended) return;
     if (when != null && when > this.ctx.currentTime && this.source) {
       // Scheduled stop: let it play to `when`; the current source's onended finalizes.
+      this.stopScheduled = true;
       try {
         this.source.stop(when);
       } catch {
@@ -91,19 +93,19 @@ export class Voice {
   }
 
   pause(): void {
-    if (this.paused || this.ended || !this.source) return;
+    if (this.paused || this.ended || this.stopScheduled || !this.source) return;
     this.offset = this.currentTime; // capture before tearing down
     this.paused = true;
     this.teardownCurrent();
   }
 
   resume(): void {
-    if (!this.paused || this.ended) return;
+    if (!this.paused || this.ended || this.stopScheduled) return;
     this.startSource(this.ctx.currentTime, this.offset);
   }
 
   seek(t: number): void {
-    if (this.ended) return;
+    if (this.ended || this.stopScheduled) return;
     const clamped = Math.max(0, Math.min(t, this.buffer.duration));
     if (this.paused) {
       this.offset = clamped;
@@ -118,7 +120,7 @@ export class Voice {
   }
 
   set rate(v: number) {
-    if (this.ended) return;
+    if (this.ended || this.stopScheduled) return;
     if (this.paused || !this.source) {
       this._rate = v;
       return;

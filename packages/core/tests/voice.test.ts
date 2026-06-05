@@ -181,4 +181,45 @@ describe("Voice — transport", () => {
     expect(v.currentTime).toBeGreaterThan(before + 0.2); // faster now
     v.stop();
   });
+
+  test("pause() is ignored while a stop is scheduled; scheduled stop still finalizes once", async () => {
+    const dest = ctx.createGain();
+    let done = 0;
+    const v = new Voice(ctx, makeBuffer(ctx, 5), dest, {}, () => {
+      done++;
+    });
+    let ended = 0;
+    v.onEnded(() => {
+      ended++;
+    });
+    v.stop(ctx.currentTime + 0.05);
+    v.pause(); // must be ignored while the scheduled stop is pending
+    await delay(250);
+    expect(ended).toBe(1);
+    expect(done).toBe(1);
+    expect(v.isPlaying).toBe(false);
+  });
+
+  test("double pause is a no-op", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 2), dest, {}, () => {});
+    await delay(80);
+    v.pause();
+    const at = v.currentTime;
+    v.pause();
+    expect(v.currentTime).toBeCloseTo(at, 3);
+    expect(v.isPlaying).toBe(false);
+    v.stop();
+  });
+
+  test("resume while already playing is a no-op", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 2), dest, {}, () => {});
+    await delay(80);
+    const before = v.currentTime;
+    v.resume();
+    expect(v.isPlaying).toBe(true);
+    expect(v.currentTime).toBeGreaterThanOrEqual(before);
+    v.stop();
+  });
 });
