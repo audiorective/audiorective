@@ -661,3 +661,13 @@ describe("AudioProcessor", () => {
     p.destroy();
   });
 });
+
+describe("SoundPlayer exports", () => {
+  test("exposes SoundPlayer, Voice, loadAudioBuffer, AudioBufferCache", async () => {
+    const mod = await import("../src");
+    expect(typeof mod.SoundPlayer).toBe("function");
+    expect(typeof mod.Voice).toBe("function");
+    expect(typeof mod.loadAudioBuffer).toBe("function");
+    expect(typeof mod.AudioBufferCache).toBe("function");
+  });
+});
