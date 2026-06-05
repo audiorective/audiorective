@@ -78,4 +78,16 @@ describe("AudioBufferCache", () => {
     await expect(cache.load("/x.wav")).rejects.toThrow();
     expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2);
   });
+
+  test("evicts when decodeAudioData fails so it can be retried", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(new ArrayBuffer(8), { status: 200 })),
+    );
+    const decodeSpy = vi.spyOn(ctx, "decodeAudioData").mockRejectedValue(new Error("bad audio"));
+    const cache = new AudioBufferCache(ctx);
+    await expect(cache.load("/bad.wav")).rejects.toThrow(/bad audio/);
+    await expect(cache.load("/bad.wav")).rejects.toThrow();
+    expect(decodeSpy).toHaveBeenCalledTimes(2);
+  });
 });

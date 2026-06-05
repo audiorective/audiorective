@@ -34,6 +34,11 @@ export class AudioBufferCache {
     return pending;
   }
 
+  /**
+   * Forget all cached entries. Does not cancel in-flight loads — a load still in
+   * flight when clear() runs will resolve normally for its awaiters, but its
+   * result won't be re-cached.
+   */
   clear(): void {
     this.cache.clear();
   }
