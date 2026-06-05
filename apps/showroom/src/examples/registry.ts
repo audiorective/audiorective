@@ -23,4 +23,12 @@ export const examples: readonly ExampleEntry[] = [
     path: "/spatial-room/",
     tags: ["three.js", "spatial", "music-player", "EQ"],
   },
+  {
+    id: "spatial-room-playcanvas",
+    title: "Spatial Music Room (PlayCanvas)",
+    description:
+      "Same room, same shared audio engine, bound to PlayCanvas via the anchor model. audiorective owns the whole graph (source → EQ → spatial panner); bindPanner from @audiorective/playcanvas drives the panner from the speaker entity's transform, and the camera's AudioListenerComponent drives the listener — mirroring the three.js demo.",
+    path: "/spatial-room-playcanvas/",
+    tags: ["playcanvas", "spatial", "anchor", "music-player", "EQ"],
+  },
 ] as const;
