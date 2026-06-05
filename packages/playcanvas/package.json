@@ -1,7 +1,7 @@
 {
   "name": "@audiorective/playcanvas",
   "version": "0.1.0",
-  "description": "PlayCanvas bindings for @audiorective/core — shared AudioContext + pre/post-panner effect chains on SoundSlot",
+  "description": "PlayCanvas bindings for @audiorective/core — shared AudioContext + entity→panner transform binding (anchor model)",
   "type": "module",
   "license": "MIT",
   "homepage": "https://github.com/audiorective/audiorective/tree/main/packages/playcanvas#readme",

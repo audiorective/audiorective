@@ -1,8 +1,10 @@
 # @audiorective/playcanvas
 
-PlayCanvas bindings for `@audiorective/core`. The integration layer between an audiorective engine and a PlayCanvas application. Audio always lives in core; this package provides the scene-side glue — sharing the `AudioContext` with PlayCanvas's `SoundManager`, and producing audiorective-owned `SoundSlot`s whose per-instance graph routes through audiorective effect chains in the right position relative to the per-instance panner.
+PlayCanvas bindings for `@audiorective/core`. The integration layer between an audiorective engine and a PlayCanvas application. Audio always lives in core; this package provides the scene-side glue — wiring the engine's `AudioContext` into PlayCanvas's `SoundManager`, and syncing scene transforms onto audio nodes.
 
-The headline capability: **pre-panner effect injection**, which PlayCanvas's public `setExternalNodes` API does not natively support. This is the placement source-character processing (FOH-style EQ, bus compression, instrument coloration) actually needs — see "Why pre-panner" below.
+It follows the same **anchor model** as `@audiorective/threejs`: audiorective owns the entire audio graph (source → effects → `Spatial` panner → destination), and the renderer only drives the panner's transform. The whole audio layer is reused verbatim across renderers. Pre-panner effects (FOH-style EQ, bus compression, instrument coloration) are simply how you wire the graph — they come for free, with no special hook.
+
+Today the package ships `attach` (engine ↔ app setup) and `bindPanner` (entity transform → `PannerNode`).
 
 ## Dependencies
 
@@ -23,27 +25,22 @@ The **tested** version set lives in `packages/playcanvas/compat.json`. CI runs t
 
 ```
 playcanvas/src/
-├── attach.ts                              # share AudioContext + autoStart
-├── createAudiorectiveSlot.ts              # factory: per-slot audiorective binding
-├── AudiorectiveSoundSlot.ts               # SoundSlot subclass that owns the FX wiring
-├── internal/
-│   ├── AudiorectiveSoundInstance.ts       # 2D instance (pre-gain FX)
-│   └── AudiorectiveSoundInstance3d.ts     # 3D instance (pre-panner FX)
+├── attach.ts        # share AudioContext + autoStart on the canvas
+├── bindPanner.ts    # entity world transform → PannerNode (per frame)
 └── index.ts
 ```
 
 ## Exports
 
 ```typescript
-export { attach, createAudiorectiveSlot, AudiorectiveSoundSlot, AudiorectiveSoundInstance, AudiorectiveSoundInstance3d };
-export type { AudiorectiveSlotOptions };
+export { attach, bindPanner };
 ```
 
 ---
 
 ## `attach(engine, app)`
 
-One-call setup that:
+One-call setup that does two things:
 
 1. **Shares the `AudioContext`** between the engine and PlayCanvas's `SoundManager`.
 2. **Arms gesture autostart** on `app.graphicsDevice.canvas` via `engine.core.autoStart(canvas)`.
@@ -57,13 +54,11 @@ import * as pc from "playcanvas";
 import { createEngine } from "@audiorective/core";
 import { attach } from "@audiorective/playcanvas";
 
-const engine = createEngine((ctx) => ({
-  /* ... */
-}));
-
-const app = new pc.Application(canvas, {
+const engine = createEngine((ctx) => {
   /* ... */
 });
+
+const app = new pc.Application(canvas, {});
 const detach = attach(engine, app); // share AudioContext + arm autoStart
 ```
 
@@ -79,137 +74,99 @@ If the two ever diverge, `attach` throws with actionable guidance.
 
 ### Listener sync is automatic
 
-If the camera entity carries an `AudioListenerComponent` (PlayCanvas's standard idiom), PlayCanvas's per-frame sync drives `AudioContext.listener` from the camera's world transform. Because the contexts agree, this works for all audiorective audio too. **The package ships nothing for listener sync** — you don't need it.
+If the camera entity carries an `AudioListenerComponent` (PlayCanvas's standard idiom), PlayCanvas's `AudioListenerComponentSystem` drives `AudioContext.listener` from the camera's world transform **every frame, independent of any PlayCanvas sound instances**. Because the contexts agree, this spatializes all audiorective audio too. **The package ships nothing for listener sync** — you don't need it; just add an `audiolistener` component to the camera.
 
 ---
 
-## `createAudiorectiveSlot(component, name, options?, audiorectiveOptions?)`
+## `bindPanner(app, entity, panner)`
 
-Adds an audiorective-managed `SoundSlot` to a `SoundComponent`. Mirrors `SoundComponent.addSlot()` (dup-name check, register, optional autoplay) but constructs an `AudiorectiveSoundSlot` so the per-instance Web Audio graph is built around an audiorective `AudioProcessor` from the start — no live-graph splice.
+Drives an externally-owned `PannerNode` from a PlayCanvas entity's world transform, once per frame on the app's `update` event. The PlayCanvas counterpart to `@audiorective/threejs`'s `PannerAnchor`.
 
 ```typescript
-function createAudiorectiveSlot(
-  component: pc.SoundComponent,
-  name: string,
-  options?: SoundSlotOptions,
-  audiorectiveOptions?: { processor?: AudioProcessor },
-): AudiorectiveSoundSlot | null;
+function bindPanner(app: pc.AppBase, entity: pc.Entity, panner: PannerNode): () => void;
 ```
 
-Returns `null` if a slot with the same name already exists on the component (matching `addSlot()`).
+Each frame it writes the entity's world position into `panner.positionX/Y/Z` and the entity's forward vector into `panner.orientationX/Y/Z`. It writes once eagerly at call time so the panner isn't silent-at-origin until the first frame. Returns a disposer that unhooks the per-frame sync.
 
-**Always use `createAudiorectiveSlot` for audiorective-owned audio, even without a processor.** The subclass is the extension point for future audiorective features (PDC, panner config, multi-processor chains, …) — having every audiorective slot already go through it means those features become opt-in field additions on `AudiorectiveSlotOptions`, never API churn.
+`bindPanner` does **not** own the panner's lifetime — it never disconnects or destroys it. The `Spatial` (or whoever created the panner) owns teardown; the disposer only stops the transform sync. Pass `engine.spatial.panner` in and let the engine own teardown.
 
-### How the per-instance graph is built
+> Convention note: three.js's `getWorldDirection()` returns `+Z`, whereas PlayCanvas's `entity.forward` is `-Z`. Both mean "the way the object faces", so the panner orientation is consistent across renderers.
 
-When `slot.play()` calls `_createInstance()`, the subclass's override constructs an `AudiorectiveSoundInstance3d` (positional component) or `AudiorectiveSoundInstance` (non-positional). The instance's `_initializeNodes()` runs once with a class-static "pending processor" reference and produces the audible graph directly:
+---
 
-**Positional, with processor:**
+## Usage
 
-```
-source → processor.input → … → processor.output → panner → gain → destination
-```
+The engine owns the audio graph (including `Spatial` → `ctx.destination`). The PlayCanvas layer is purely cosmetic: it binds `Spatial.panner` to a scene entity so moving the entity pans the audio, and an `AudioListenerComponent` on the camera moves the listener.
 
-**Non-positional, with processor** (pre-gain — no panner exists):
-
-```
-source → processor.input → … → processor.output → gain → destination
-```
-
-**Without processor:** falls through to the stock graph. A slot created via `createAudiorectiveSlot()` without `audiorectiveOptions.processor` is byte-equivalent to a stock `SoundComponent.addSlot()` instance, just typed as `AudiorectiveSoundSlot`.
-
-`this.panner` remains a standard `PannerNode`, so every positional setter on `SoundInstance3d` (position, maxDistance, refDistance, rollOffFactor, distanceModel) keeps working unchanged. Listener sync via `AudioListenerComponent` is unaffected.
-
-The processor must be **effect-shaped**: both `processor.input` and `processor.output` defined `AudioNode`s. Instruments (output-only) throw with a clear message at instance construction.
-
-### Example — per-track EQ chains
-
-The PlayCanvas showroom demo builds one audiorective slot per track, each with its own `EQ3`. Track selection just repoints which EQ the UI reads from; parameter values are independent across tracks.
+### Basic spatial synth
 
 ```typescript
 import * as pc from "playcanvas";
-import { createEngine } from "@audiorective/core";
-import { attach, createAudiorectiveSlot } from "@audiorective/playcanvas";
+import { createEngine, Spatial } from "@audiorective/core";
+import { attach, bindPanner } from "@audiorective/playcanvas";
 
-const engine = createEngine((ctx) => ({
-  /* … */
-}));
-const app = new pc.Application(canvas, {});
-attach(engine, app);
-
-const speaker = new pc.Entity();
-speaker.addComponent("sound", { positional: true, refDistance: 1.5, maxDistance: 25 });
-app.root.addChild(speaker);
-
-const slots = tracks.map((track, i) => {
-  const eq = new EQ3(engine.context);
-  return createAudiorectiveSlot(speaker.sound!, `track-${i}`, { volume: 1, loop: false, overlap: false }, { processor: eq })!;
+const engine = createEngine((ctx) => {
+  const synth = new MySynth(ctx);
+  const spatial = new Spatial(ctx, { distanceModel: "inverse" });
+  synth.output.connect(spatial.input);
+  spatial.output.connect(ctx.destination);
+  return { synth, spatial };
 });
 
-slots[0]!.asset = firstTrackAssetId;
-slots[0]!.play();
+const app = new pc.Application(canvas, {});
+attach(engine, app); // share AudioContext + arm autoStart
+
+// Camera carries the listener — PlayCanvas syncs ctx.listener for free.
+const camera = new pc.Entity("camera");
+camera.addComponent("camera");
+camera.addComponent("audiolistener");
+app.root.addChild(camera);
+
+// Emitter entity drives the panner.
+const speaker = new pc.Entity("speaker");
+speaker.setPosition(-3.5, 1.0, -4.0);
+app.root.addChild(speaker);
+bindPanner(app, speaker, engine.spatial.panner);
+
+app.start();
 ```
 
----
+Spatialization config (`distanceModel`, `refDistance`, `maxDistance`, `rolloffFactor`, cone angles) lives on the `Spatial` constructor in core — not on a PlayCanvas `SoundComponent`. Note core uses `rolloffFactor` (lowercase `o`), unlike PlayCanvas's `rollOffFactor`.
 
-## Why pre-panner
+`Spatial` sets `panningModel = "HRTF"` explicitly, so you have full control over the panning model — there is no hard-coded value to work around.
 
-PlayCanvas's `SoundInstance3d` builds a fixed graph:
+### Audio without PlayCanvas
 
-```
-source → panner (HRTF, hard-coded) → gain → [setExternalNodes user chain] → destination
-```
-
-`setExternalNodes` is the only public hook. It injects **post-panner and post-gain** — the wrong position for source-character processing. EQ-and-compress at that point operates on the listener's-ear signal, not the source PA, which produces:
-
-- **Position-dependent EQ.** HRTF convolution shapes the spectrum per-ear and per-azimuth before the EQ sees it; the curve interacts with a moving target as the listener turns.
-- **Compressor pumping tied to head position.** Stereo-linked dynamics duck based on the louder ear, producing artefacts that track listener orientation rather than the music.
-- **Inverted mental model.** A real PA bakes its signature _before_ the speakers; spatialization models propagation _after_ the speakers.
-
-For LTI effects through `equalpower` panning, pre vs. post-panner placement differs only by per-channel gain. For **HRTF + nonlinear effects**, the two paths sound audibly different.
-
-The `Spatial Music Room (PlayCanvas)` showroom demo uses pre-panner EQ to make this difference audible — try it with the EQ pushed and the camera moving.
-
----
-
-## Post-panner (`setExternalNodes`)
-
-PlayCanvas's stock `slot.setExternalNodes(processor.input, processor.output)` still works on any `AudiorectiveSoundSlot`. Use it directly when you want a master-bus / headphone-correction effect rather than per-source character.
-
----
-
-## Lifecycle
-
-`AudioProcessor.destroy()` is the cleanup primitive. The slot does not own the processor:
-
-- `attach()`'s disposer only removes the gesture-autostart listeners. Calling it doesn't tear down the audio engine or close the AudioContext.
-- Destroying a slot (via `component.removeSlot(name)`) stops in-flight instances; in-flight nodes finish their natural lifecycle. The processor lives on — call `processor.destroy()` yourself when you're done with it.
-- Entity-tied processors: tie `processor.destroy()` to your own scene-cleanup path.
+Because the `Spatial` lives in core and already connects to `ctx.destination`, the engine produces sound with or without any scene mounted. Skip `bindPanner` and the panner stays at origin — fully audible.
 
 ---
 
 ## Sync directions
 
-**Visual → Audio** — PlayCanvas's `AudioListenerComponent` syncs the camera's world transform to `AudioContext.listener`. Each positional `SoundComponent` slot syncs its emitter entity's transform to the slot's `PannerNode`. The package adds nothing here — PlayCanvas already does it.
+**Visual → Audio** — `bindPanner` pushes the emitter entity's world position + forward into the `PannerNode` AudioParams; the camera's `AudioListenerComponent` pushes the camera transform into `AudioContext.listener`.
 
-**Audio → Visual** — read `ComputedAccessor<T>` / `Param<T>` values from your `app.on('update', …)` callback or React component to drive visuals.
+**Audio → Visual** — read `ComputedAccessor<T>` / `Param<T>` values from your `app.on('update', …)` callback or React component to drive visuals (e.g. analyser amplitude → emissive intensity).
 
 ---
 
-## Known limitations
+## Lifecycle
 
-### HRTF panning is hard-coded
+`AudioProcessor.destroy()` is the cleanup primitive. The bindings do not own the audio:
 
-PlayCanvas creates each `PannerNode` without setting `panningModel`, so it defaults to Web Audio's `"HRTF"`. There is no public API to pick `"equalpower"`. A `configurePanner` option on `AudiorectiveSlotOptions` is on the roadmap.
+- `attach()`'s disposer only removes the gesture-autostart listeners. Calling it doesn't tear down the audio engine or close the AudioContext.
+- `bindPanner()`'s disposer only unhooks the per-frame `update` sync. It never disconnects the panner — `Spatial` owns that. (`app.destroy()` also tears down `update` listeners, but call the disposer explicitly if the app outlives the scene.)
+- Tie `engine.core.destroy()` / `processor.destroy()` to your own scene-cleanup path.
 
-### No PDC / latency compensation
+---
 
-PlayCanvas does not honour an `AudioProcessor.latencySamples` field. Effects with non-zero PDC inserted into slots play untrimmed and may drift relative to non-audiorective audio.
+## Why pre-panner
 
-### Single processor per slot
+A real PA bakes its signature **before** the speakers; spatialization models propagation **after** the speakers. Source-character processing (FOH-style EQ, bus compression, instrument coloration) belongs upstream of the panner. In the anchor model that's just the natural wiring:
 
-The current `AudiorectiveSlotOptions.processor` slot is single-valued. For multi-stage pre-FX, compose your own pipeline processor (one input gain, N stages, one output gain). A `processors: AudioProcessor[]` option is reserved for a future release.
+```
+source → effects → spatial.panner → destination
+```
 
-### Internal-property dependency
+For HRTF panning plus nonlinear effects, pre- vs. post-panner placement is audibly different: HRTF convolution shapes the spectrum per-ear and per-azimuth, so EQ applied after it interacts with a moving target as the listener turns, and stereo-linked dynamics pump based on head position. Wiring effects before `spatial.input` avoids all of that.
 
-The package overrides `SoundInstance._initializeNodes()` and `SoundSlot._createInstance()`, both of which are JSDoc-private in PlayCanvas. The runtime methods are plain and overridable; PlayCanvas's audio module has been in maintenance mode since ~2017 so churn risk is low. Compatibility is enforced by the matrix CI job — see `packages/playcanvas/compat.json`.
+The `Spatial Music Room (PlayCanvas)` showroom demo uses pre-panner EQ to make this audible — try it with the EQ pushed and the camera moving.

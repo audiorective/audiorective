@@ -1,6 +1,6 @@
 import * as pc from "playcanvas";
 import { effect } from "alien-signals";
-import { attach } from "@audiorective/playcanvas";
+import { attach, bindPanner } from "@audiorective/playcanvas";
 import { engine, ui } from "../audio/engine";
 
 const ROOM_W = 10;
@@ -72,26 +72,17 @@ export class PCRoomScene {
     // 4. Room geometry + lights.
     this.buildRoom();
 
-    // 5. Speaker entity with a positional SoundComponent — slot acts as the spatial source.
+    // 5. Speaker entity — a plain mesh whose transform drives the panner.
+    //    audiorective owns the whole audio graph (source → EQ → spatial.panner);
+    //    bindPanner copies this entity's world transform onto that panner each
+    //    frame. The camera's audiolistener (above) drives the shared listener.
+    //    Distance/rolloff config lives on the Spatial in shared/audio/engine.ts.
     this.speaker = new pc.Entity("speaker");
     this.speaker.setPosition(-3.5, 1.0, -4.0);
-    this.speaker.addComponent("sound", {
-      positional: true,
-      distanceModel: pc.DISTANCE_INVERSE,
-      refDistance: 1.5,
-      maxDistance: 25,
-      rollOffFactor: 1.4,
-    });
     this.attachSpeakerMesh(this.speaker);
     this.app.root.addChild(this.speaker);
 
-    const sound = this.speaker.sound;
-    if (!sound) throw new Error("speaker SoundComponent failed to mount");
-
-    // PlayCanvas owns source + spatializer; the player builds one
-    // audiorective slot per track with its own EQ chain.
-    engine.player.attach(this.app, sound);
-    this.disposers.push(() => engine.player.detach());
+    this.disposers.push(bindPanner(this.app, this.speaker, engine.spatial.panner));
 
     // 7. CD player mesh (clickable popup target).
     const { cdPlayer, table, material } = this.buildCdPlayer();

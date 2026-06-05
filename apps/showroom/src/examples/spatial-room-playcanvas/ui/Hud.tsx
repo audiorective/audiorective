@@ -72,7 +72,7 @@ export function Hud() {
           letterSpacing: 0.4,
         }}
       >
-        PlayCanvas · pre-panner FX
+        PlayCanvas · anchor model
       </div>
     </>
   );

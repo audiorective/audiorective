@@ -1,7 +1,6 @@
-import { cell, createEngine, type Cell } from "@audiorective/core";
+import { cell, type Cell } from "@audiorective/core";
 import { createEngineContext } from "@audiorective/react";
-import { loadTracksJson } from "../../spatial-room/audio/tracks";
-import { PCMusicPlayer } from "./PCMusicPlayer";
+import { createSpatialMusicEngine, loadTracksInto } from "../../../shared/audio/engine";
 
 export interface UIState {
   popupOpen: boolean;
@@ -11,15 +10,12 @@ export interface UIState {
 /**
  * Engine for the PlayCanvas-flavoured Spatial Music Room.
  *
- * Cooperate-first integration: PlayCanvas's `SoundComponent` owns source +
- * spatializer + listener; audiorective owns the per-track EQ chains. Each
- * track has its own `EQ3` wired pre-panner via `createAudiorectiveSlot`;
- * switching tracks just repoints `player.activeEqIndex` — no parameter bleed.
+ * Anchor model: audiorective owns the entire audio graph (the same shared
+ * {@link createSpatialMusicEngine} the three.js demo uses). PlayCanvas only
+ * binds the speaker entity's transform onto `spatial.panner` via `bindPanner`,
+ * and the camera's `AudioListenerComponent` drives the shared `ctx.listener`.
  */
-export const engine = createEngine((ctx) => {
-  const player = new PCMusicPlayer(ctx);
-  return { player };
-});
+export const engine = createSpatialMusicEngine();
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
 
@@ -41,8 +37,4 @@ if (typeof window !== "undefined") {
   window.__audiorectiveEngine = engine;
 }
 
-void loadTracksJson().then((tracks) => {
-  for (const track of tracks) {
-    engine.player.addTrack(track);
-  }
-});
+loadTracksInto(engine);

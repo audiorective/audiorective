@@ -27,8 +27,8 @@ export const examples: readonly ExampleEntry[] = [
     id: "spatial-room-playcanvas",
     title: "Spatial Music Room (PlayCanvas)",
     description:
-      "Same room, ported to PlayCanvas. The speaker is a positional SoundComponent, the camera carries an AudioListenerComponent, and the EQ chain is spliced pre-panner via @audiorective/playcanvas — the FOH-style placement PlayCanvas's public API doesn't natively support.",
+      "Same room, same shared audio engine, bound to PlayCanvas via the anchor model. audiorective owns the whole graph (source → EQ → spatial panner); bindPanner from @audiorective/playcanvas drives the panner from the speaker entity's transform, and the camera's AudioListenerComponent drives the listener — mirroring the three.js demo.",
     path: "/spatial-room-playcanvas/",
-    tags: ["playcanvas", "spatial", "pre-panner", "music-player", "EQ"],
+    tags: ["playcanvas", "spatial", "anchor", "music-player", "EQ"],
   },
 ] as const;

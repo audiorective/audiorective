@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
 import { useValue } from "@audiorective/react";
-import { ui, useEngine } from "../audio/engine";
-import type { EQ3 } from "../../spatial-room/audio/EQ3";
+import { useEngine, ui } from "../audio/engine";
 
 function fmtTime(t: number): string {
   if (!Number.isFinite(t) || t < 0) return "0:00";
@@ -14,10 +13,12 @@ function fmtTime(t: number): string {
 export function PlayerPopup() {
   const { player } = useEngine();
   const { popupOpen } = useValue(ui);
-  const transport = useValue(player.transport);
-  const tracks = useValue(player.tracks);
-  const activeEqIndex = useValue(player.activeEqIndex);
-  const eq = player.chains[activeEqIndex]?.eq ?? null;
+  const transport = useValue(player.cells.transport);
+  const tracks = useValue(player.cells.tracks);
+  const masterVolume = useValue(player.eq.params.masterVolume);
+  const eqLow = useValue(player.eq.params.eqLow);
+  const eqMid = useValue(player.eq.params.eqMid);
+  const eqHigh = useValue(player.eq.params.eqHigh);
 
   useEffect(() => {
     if (!popupOpen) return;
@@ -42,7 +43,7 @@ export function PlayerPopup() {
   };
   const togglePlay = () => {
     if (transport.isPlaying) player.pause();
-    else player.play();
+    else void player.play();
   };
 
   const noTracks = tracks.length === 0;
@@ -97,6 +98,7 @@ export function PlayerPopup() {
           </div>
         )}
 
+        {/* Transport */}
         <div style={{ marginTop: 18, display: "flex", gap: 8, alignItems: "center" }}>
           <button onClick={() => player.prev()} disabled={tracks.length < 2} style={btnStyle("default")} aria-label="Previous">
             ⏮
@@ -109,6 +111,7 @@ export function PlayerPopup() {
           </button>
         </div>
 
+        {/* Seek */}
         <div style={{ marginTop: 18 }}>
           <input
             type="range"
@@ -126,72 +129,62 @@ export function PlayerPopup() {
           </div>
         </div>
 
-        {eq && <EqSection key={transport.currentTrackIndex} eq={eq} />}
-      </div>
-    </>
-  );
-}
+        {/* Volume */}
+        <Slider
+          label="Volume"
+          value={masterVolume}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(v) => {
+            player.eq.params.masterVolume.value = v;
+          }}
+          format={(v) => `${Math.round(v * 100)}%`}
+        />
 
-function EqSection({ eq }: { eq: EQ3 }) {
-  // Per-track EQ: param values are owned by *this track's* EQ instance.
-  // Switching tracks re-mounts this section with a different `eq` prop so
-  // parameter values never bleed across tracks.
-  const masterVolume = useValue(eq.params.masterVolume);
-  const eqLow = useValue(eq.params.eqLow);
-  const eqMid = useValue(eq.params.eqMid);
-  const eqHigh = useValue(eq.params.eqHigh);
-
-  return (
-    <>
-      <Slider
-        label="Volume"
-        value={masterVolume}
-        min={0}
-        max={1}
-        step={0.01}
-        onChange={(v) => {
-          eq.params.masterVolume.value = v;
-        }}
-        format={(v) => `${Math.round(v * 100)}%`}
-      />
-
-      <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-        <div style={{ fontSize: 11, opacity: 0.55, textTransform: "uppercase", letterSpacing: 1 }}>
-          3-band EQ <span style={{ marginLeft: 8, opacity: 0.7 }}>· pre-panner (FOH) · per-track</span>
+        {/* EQ */}
+        <div
+          style={{
+            marginTop: 18,
+            paddingTop: 14,
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 11, opacity: 0.55, textTransform: "uppercase", letterSpacing: 1 }}>3-band EQ</div>
+          <Slider
+            label="Low (250 Hz)"
+            value={eqLow}
+            min={-12}
+            max={12}
+            step={0.1}
+            onChange={(v) => {
+              player.eq.params.eqLow.value = v;
+            }}
+            format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
+          />
+          <Slider
+            label="Mid (1 kHz)"
+            value={eqMid}
+            min={-12}
+            max={12}
+            step={0.1}
+            onChange={(v) => {
+              player.eq.params.eqMid.value = v;
+            }}
+            format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
+          />
+          <Slider
+            label="High (4 kHz)"
+            value={eqHigh}
+            min={-12}
+            max={12}
+            step={0.1}
+            onChange={(v) => {
+              player.eq.params.eqHigh.value = v;
+            }}
+            format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
+          />
         </div>
-        <Slider
-          label="Low (250 Hz)"
-          value={eqLow}
-          min={-12}
-          max={12}
-          step={0.1}
-          onChange={(v) => {
-            eq.params.eqLow.value = v;
-          }}
-          format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
-        />
-        <Slider
-          label="Mid (1 kHz)"
-          value={eqMid}
-          min={-12}
-          max={12}
-          step={0.1}
-          onChange={(v) => {
-            eq.params.eqMid.value = v;
-          }}
-          format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
-        />
-        <Slider
-          label="High (4 kHz)"
-          value={eqHigh}
-          min={-12}
-          max={12}
-          step={0.1}
-          onChange={(v) => {
-            eq.params.eqHigh.value = v;
-          }}
-          format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} dB`}
-        />
       </div>
     </>
   );
