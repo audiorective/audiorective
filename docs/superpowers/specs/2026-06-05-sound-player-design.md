@@ -34,7 +34,11 @@ is the foundational layer for later `Players` collections and a `Sampler`.
 ## Goals (v1 scope)
 
 - A `SoundPlayer` (buffer source) with **voice + polyphony**.
-- `trigger()` returns a **`Voice` handle**; player-level controls act on all voices.
+- `trigger()` returns a **`Voice` handle** for polyphonic / per-voice control.
+- **Player-level transport** (`play` / `pause` / `resume` / `seek` / `stop`,
+  `currentTime`, reactive `isPlaying`) operating on a "current voice", so a song
+  play button drives the player directly — the default `polyphony: 1` case _is_ a
+  song transport.
 - Full per-voice **`pause` / `resume` / `seek`** (via recreate-at-offset — the
   standard Web Audio pattern; `AudioBufferSourceNode` is one-shot by spec).
 - Player takes a **decoded `AudioBuffer`**; a **separate loader + cache** helper
@@ -87,13 +91,23 @@ interface TriggerOptions {
   loop?: boolean; // overrides player loop
 }
 
-class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { activeVoices: Cell<number> }> {
+class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { isPlaying: Cell<boolean>; activeVoices: Cell<number> }> {
   constructor(ctx: AudioContext, opts?: SoundPlayerOptions);
 
   buffer: AudioBuffer | null; // hot-swappable; affects future triggers only
   get output(): AudioNode; // summing gain
 
-  trigger(opts?: TriggerOptions): Voice | null; // null if no buffer or dropped by steal:"none"
+  // --- transport: operates on the "current voice" (the song API) ---
+  play(opts?: TriggerOptions): Voice | null; // resume if paused, start fresh if stopped/none, no-op if already playing
+  pause(): void; // pause current voice (keeps offset)
+  resume(): void; // resume current voice
+  seek(t: number): void; // seek current voice (playing or paused)
+  stop(when?: number): void; // stop current voice and clear it (next play() starts at 0)
+  get currentTime(): number; // current voice position (getter; poll per frame)
+  get duration(): number; // current voice / buffer duration
+
+  // --- polyphonic / SFX API ---
+  trigger(opts?: TriggerOptions): Voice | null; // always spawns a new voice; becomes the current voice. null if no buffer or dropped by steal:"none"
   stopAll(when?: number): void;
 
   override destroy(): void; // stopAll + disconnect output; does NOT free the shared buffer
@@ -107,7 +121,7 @@ constructor(ctx, opts = {}) {
   const outputGain = new GainNode(ctx, { gain: opts.volume ?? 1 });
   super(ctx, ({ param, cell }) => ({
     params: { volume: param({ default: opts.volume ?? 1, bind: outputGain.gain, min: 0, max: 1 }) },
-    cells: { activeVoices: cell(0) },
+    cells: { isPlaying: cell(false), activeVoices: cell(0) },
   }));
   this._output = outputGain;
   // store buffer/loop/rate/polyphony/steal
@@ -192,12 +206,35 @@ Each voice tracks: `_startedAt` (ctx time the current source started), `_offset`
 
 `stopAll(when?)` stops every voice.
 
+### Transport / the "current voice"
+
+The player holds `_current: Voice | null` — the voice the transport methods act
+on. Both `trigger()` and `play()` set `_current` to the voice they start; a
+voice clearing itself (natural end / `stop`) nulls `_current` if it was the one.
+In the default `polyphony: 1` case there is only ever one voice, so the player
+behaves exactly like a song transport.
+
+- **play(opts?)** → if `_current` is paused: `resume()` it; else if it's playing:
+  no-op; else (none / stopped / ended): `trigger(opts)` a fresh current voice.
+- **pause / resume / seek** → delegate to `_current` (no-op if none).
+- **stop(when?)** → stop `_current` and clear it, so the next `play()` starts at 0
+  (vs `pause()`, which keeps the offset).
+- **currentTime / duration** → read from `_current` (0 / buffer duration if none).
+- **isPlaying cell** → the player flips `cells.isPlaying` in its own transport
+  methods and on the current voice's `onEnded`. Manipulating a `Voice` handle
+  directly is the advanced escape hatch and does **not** update the cell
+  (documented). For polyphonic SFX, prefer `trigger()` + the returned handle and
+  read `cells.activeVoices`; the transport methods still work but target the
+  latest voice.
+
 ## Reactive state
 
-- Player: `params.volume` (`SchedulableParam`), `cells.activeVoices: Cell<number>`.
-- `Voice.currentTime` is a **getter, not a Cell** — consumers poll it in their
-  frame loop (`app.on("update")` / `requestAnimationFrame`), avoiding per-sample
-  reactivity churn. A single-voice music UI can mirror it into a cell itself.
+- Player: `params.volume` (`SchedulableParam`), `cells.isPlaying: Cell<boolean>`
+  (drives a play/pause button), `cells.activeVoices: Cell<number>`.
+- `Voice.currentTime` / `SoundPlayer.currentTime` are **getters, not Cells** —
+  consumers poll per frame (`app.on("update")` / `requestAnimationFrame`),
+  avoiding per-sample reactivity churn. A music UI mirrors it into a cell itself
+  if it wants reactive scrubbing.
 
 ## Composition
 
@@ -214,10 +251,12 @@ The shared `AudioBuffer` is **not** owned and is never freed by the player.
 
 ## Relationship to the existing `MusicPlayer`
 
-They coexist. The showroom `MusicPlayer` (MediaElement, streaming, single
-playhead) remains for long-form music; `SoundPlayer` is the buffer/SFX/short-
-sample primitive. A future `SoundStreamPlayer` may generalize the MediaElement
-path; not in v1.
+They coexist. With player-level transport, a `SoundPlayer` (`polyphony: 1`)
+already covers a **buffer-loaded** song player (play/pause/seek/`isPlaying`). The
+showroom `MusicPlayer` (MediaElement, **streaming**, single playhead) remains for
+long-form tracks where decoding the whole file into a buffer is undesirable. A
+future `SoundStreamPlayer` may generalize the MediaElement path and let
+`MusicPlayer` become a thin wrapper; not in v1.
 
 ## Testing
 
@@ -226,7 +265,12 @@ vitest browser env with a real `AudioContext` (matching existing core tests):
 - `trigger()` increments `activeVoices` and connects a voice to `output`.
 - Polyphony cap: `steal:"oldest"` stops the oldest; `steal:"none"` returns `null`.
 - `stopAll()` → `activeVoices` returns to 0; voices disconnected.
-- `Voice.currentTime` advances ≈ wallclock × rate (with tolerance).
+- Player transport: `play()` resumes a paused current voice / starts fresh when
+  stopped / is a no-op while playing; `pause()`/`resume()`/`seek()`/`stop()`
+  delegate to the current voice; `stop()` then `play()` restarts at 0 while
+  `pause()` then `play()` continues; `cells.isPlaying` tracks state and flips
+  back on natural end.
+- `Voice.currentTime` (and `SoundPlayer.currentTime`) advances ≈ wallclock × rate (with tolerance).
 - `pause()` freezes `currentTime`; `resume()` continues from offset; `seek()` jumps.
 - `loop`: `currentTime` wraps; source `loop` is set.
 - `onEnded` fires exactly once on natural end (tiny buffer) and on programmatic
