@@ -77,13 +77,15 @@ export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { 
   pause(): void {
     if (!this._current) return;
     this._current.pause();
-    this.cells.isPlaying.value = false;
+    // Derive from the voice's real state: if the voice ignored pause (e.g. a
+    // future stop is pending), the cell must stay accurate.
+    this.cells.isPlaying.value = this._current.isPlaying;
   }
 
   resume(): void {
     if (!this._current) return;
     this._current.resume();
-    this.cells.isPlaying.value = true;
+    this.cells.isPlaying.value = this._current.isPlaying;
   }
 
   seek(t: number): void {

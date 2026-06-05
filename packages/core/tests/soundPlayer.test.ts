@@ -110,6 +110,17 @@ describe("SoundPlayer — trigger & polyphony", () => {
     expect(p.cells.isPlaying.value).toBe(false);
     p.destroy();
   });
+
+  test("a looping voice is not auto-evicted (stays active)", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 0.05), loop: true });
+    p.play();
+    expect(p.cells.activeVoices.value).toBe(1);
+    await delay(250); // many loop cycles — must not end/evict
+    expect(p.cells.activeVoices.value).toBe(1);
+    expect(p.cells.isPlaying.value).toBe(true);
+    p.stop();
+    p.destroy();
+  });
 });
 
 describe("SoundPlayer — transport", () => {
@@ -207,6 +218,18 @@ describe("SoundPlayer — transport", () => {
   test("pause() with nothing playing is a no-op", () => {
     const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2) });
     expect(() => p.pause()).not.toThrow();
+    expect(p.cells.isPlaying.value).toBe(false);
+    p.destroy();
+  });
+
+  test("pause() during a pending future stop keeps isPlaying accurate", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 5) });
+    p.play();
+    await delay(20);
+    p.stop(ctx.currentTime + 0.1);
+    p.pause(); // the voice ignores pause while a stop is scheduled
+    expect(p.cells.isPlaying.value).toBe(true);
+    await delay(400);
     expect(p.cells.isPlaying.value).toBe(false);
     p.destroy();
   });

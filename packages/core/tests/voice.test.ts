@@ -103,6 +103,20 @@ describe("Voice — playback", () => {
     expect(doneCount).toBe(1);
     expect(v.isPlaying).toBe(false);
   });
+
+  test("loop wraps currentTime and does not end naturally", async () => {
+    const dest = ctx.createGain();
+    let ended = 0;
+    const v = new Voice(ctx, makeBuffer(ctx, 0.1), dest, { loop: true }, () => {
+      ended++;
+    });
+    await delay(300); // many 0.1s loop cycles
+    expect(v.isPlaying).toBe(true);
+    expect(ended).toBe(0);
+    expect(v.currentTime).toBeGreaterThanOrEqual(0);
+    expect(v.currentTime).toBeLessThan(0.1); // wrapped within one loop length
+    v.stop();
+  });
 });
 
 describe("Voice — transport", () => {
@@ -220,6 +234,19 @@ describe("Voice — transport", () => {
     v.resume();
     expect(v.isPlaying).toBe(true);
     expect(v.currentTime).toBeGreaterThanOrEqual(before);
+    v.stop();
+  });
+
+  test("rate set while paused applies after resume", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 5), dest, {}, () => {});
+    await delay(60);
+    v.pause();
+    const at = v.currentTime;
+    v.rate = 4;
+    v.resume();
+    await delay(140);
+    expect(v.currentTime).toBeGreaterThan(at + 0.25); // ~0.14s wall * 4 ≈ 0.56s buffer
     v.stop();
   });
 });
