@@ -111,3 +111,83 @@ describe("SoundPlayer — trigger & polyphony", () => {
     p.destroy();
   });
 });
+
+describe("SoundPlayer — transport", () => {
+  let ctx: AudioContext;
+  beforeEach(async () => {
+    ctx = new AudioContext();
+    await ctx.resume();
+  });
+  afterEach(() => {
+    void ctx.close();
+  });
+
+  test("play starts the current voice and sets isPlaying", () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2) });
+    const v = p.play();
+    expect(v).not.toBeNull();
+    expect(p.cells.isPlaying.value).toBe(true);
+    expect(p.cells.activeVoices.value).toBe(1);
+    p.stop();
+    p.destroy();
+  });
+
+  test("play is a no-op while already playing (same voice, no new voice)", () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2) });
+    const v1 = p.play();
+    const v2 = p.play();
+    expect(v2).toBe(v1);
+    expect(p.cells.activeVoices.value).toBe(1);
+    p.stop();
+    p.destroy();
+  });
+
+  test("pause then play resumes the same voice and continues", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 3) });
+    const v1 = p.play();
+    await delay(120);
+    p.pause();
+    expect(p.cells.isPlaying.value).toBe(false);
+    const at = p.currentTime;
+    const v2 = p.play();
+    expect(v2).toBe(v1); // resumed, not a fresh voice
+    expect(p.cells.isPlaying.value).toBe(true);
+    await delay(120);
+    expect(p.currentTime).toBeGreaterThan(at + 0.05);
+    p.stop();
+    p.destroy();
+  });
+
+  test("stop then play starts fresh from 0", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 3) });
+    p.play();
+    await delay(120);
+    p.stop();
+    expect(p.cells.isPlaying.value).toBe(false);
+    expect(p.currentTime).toBe(0);
+    p.play();
+    expect(p.currentTime).toBeLessThan(0.08); // restarted near 0
+    p.stop();
+    p.destroy();
+  });
+
+  test("seek moves the current voice position", () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 5) });
+    p.play();
+    p.seek(3);
+    expect(p.currentTime).toBeGreaterThan(2.9);
+    expect(p.currentTime).toBeLessThan(3.3);
+    p.stop();
+    p.destroy();
+  });
+
+  test("isPlaying flips back to false when the voice ends naturally", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 0.05) });
+    p.play();
+    expect(p.cells.isPlaying.value).toBe(true);
+    await delay(200);
+    expect(p.cells.isPlaying.value).toBe(false);
+    expect(p.currentTime).toBe(0);
+    p.destroy();
+  });
+});

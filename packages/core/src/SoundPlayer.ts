@@ -63,6 +63,39 @@ export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { 
     return this._current?.duration ?? this.buffer?.duration ?? 0;
   }
 
+  /** Resume if paused, start fresh if stopped/none, no-op if already playing. */
+  play(opts: TriggerOptions = {}): Voice | null {
+    if (this._current) {
+      if (this._current.isPlaying) return this._current;
+      this._current.resume();
+      this.cells.isPlaying.value = true;
+      return this._current;
+    }
+    return this.trigger(opts);
+  }
+
+  pause(): void {
+    this._current?.pause();
+    this.cells.isPlaying.value = false;
+  }
+
+  resume(): void {
+    if (!this._current) return;
+    this._current.resume();
+    this.cells.isPlaying.value = true;
+  }
+
+  seek(t: number): void {
+    this._current?.seek(t);
+  }
+
+  stop(when?: number): void {
+    const current = this._current;
+    this._current = null;
+    this.cells.isPlaying.value = false;
+    current?.stop(when); // finish -> _evict (no-ops on _current since already cleared)
+  }
+
   trigger(opts: TriggerOptions = {}): Voice | null {
     if (!this.buffer) {
       console.warn("SoundPlayer.trigger: no buffer set");
