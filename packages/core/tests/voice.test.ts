@@ -75,4 +75,32 @@ describe("Voice — playback", () => {
     expect(endedCount).toBe(1);
     expect(v.isPlaying).toBe(false);
   });
+
+  test("currentTime holds the stop position after stop() (does not keep advancing)", async () => {
+    const dest = ctx.createGain();
+    const v = new Voice(ctx, makeBuffer(ctx, 2), dest, {}, () => {});
+    await delay(120);
+    v.stop();
+    const at = v.currentTime;
+    expect(at).toBeGreaterThan(0.05);
+    await delay(120);
+    expect(v.currentTime).toBeCloseTo(at, 2);
+  });
+
+  test("scheduled stop(when) finalizes exactly once via onended after `when`", async () => {
+    const dest = ctx.createGain();
+    let doneCount = 0;
+    const v = new Voice(ctx, makeBuffer(ctx, 5), dest, {}, () => {
+      doneCount++;
+    });
+    let ended = 0;
+    v.onEnded(() => {
+      ended++;
+    });
+    v.stop(ctx.currentTime + 0.05);
+    await delay(250);
+    expect(ended).toBe(1);
+    expect(doneCount).toBe(1);
+    expect(v.isPlaying).toBe(false);
+  });
 });

@@ -64,7 +64,8 @@ export class Voice {
       const len = this.buffer.duration;
       t = len > 0 ? t % len : 0;
     } else {
-      t = Math.min(t, this.buffer.duration);
+      const end = this.playLength != null ? Math.min(this.buffer.duration, this.offset + this.playLength) : this.buffer.duration;
+      t = Math.min(t, end);
     }
     return t;
   }
@@ -123,6 +124,7 @@ export class Voice {
 
   private finish(): void {
     if (this.ended) return;
+    this.offset = this.currentTime; // capture final position before the ended flag flips currentTime to return this.offset
     this.ended = true;
     this.paused = false;
     this.teardownCurrent();
