@@ -91,4 +91,23 @@ describe("SoundPlayer — trigger & polyphony", () => {
     p.stopAll();
     p.destroy();
   });
+
+  test("stopAll(when) in the future keeps cells consistent until the stop fires", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 5), polyphony: 2 });
+    p.trigger();
+    p.trigger();
+    expect(p.cells.activeVoices.value).toBe(2);
+
+    // Let the audio render thread tick so ctx.currentTime > 0 before scheduling a future stop.
+    await delay(20);
+    p.stopAll(ctx.currentTime + 0.08);
+    // Still audibly playing during the window — cells reflect reality, not eagerly cleared.
+    expect(p.cells.isPlaying.value).toBe(true);
+    expect(p.cells.activeVoices.value).toBe(2);
+
+    await delay(400);
+    expect(p.cells.activeVoices.value).toBe(0);
+    expect(p.cells.isPlaying.value).toBe(false);
+    p.destroy();
+  });
 });

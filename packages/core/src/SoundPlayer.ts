@@ -89,9 +89,9 @@ export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { 
   }
 
   stopAll(when?: number): void {
+    // Cell + _current updates are driven by each voice's _evict callback, so they
+    // stay accurate for future-dated stops (voices keep playing until `when`).
     for (const v of [...this._voices]) v.stop(when);
-    this._current = null;
-    this.cells.isPlaying.value = false;
   }
 
   override destroy(): void {
