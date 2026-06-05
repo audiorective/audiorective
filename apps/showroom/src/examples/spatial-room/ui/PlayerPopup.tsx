@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
 import { useValue } from "@audiorective/react";
-import { engine, useEngine } from "../audio/engine";
+import { useEngine, ui } from "../audio/engine";
 
 function fmtTime(t: number): string {
   if (!Number.isFinite(t) || t < 0) return "0:00";
@@ -11,7 +11,7 @@ function fmtTime(t: number): string {
 }
 
 export function PlayerPopup() {
-  const { player, ui } = useEngine();
+  const { player } = useEngine();
   const { popupOpen } = useValue(ui);
   const transport = useValue(player.cells.transport);
   const tracks = useValue(player.cells.tracks);
@@ -24,7 +24,7 @@ export function PlayerPopup() {
     if (!popupOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        engine.ui.update((d) => {
+        ui.update((d) => {
           d.popupOpen = false;
         });
       }
@@ -37,7 +37,7 @@ export function PlayerPopup() {
 
   const current = tracks[transport.currentTrackIndex];
   const close = () => {
-    engine.ui.update((d) => {
+    ui.update((d) => {
       d.popupOpen = false;
     });
   };

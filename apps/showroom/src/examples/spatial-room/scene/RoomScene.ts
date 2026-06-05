@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls.js";
 import { effect } from "alien-signals";
 import { attach, PannerAnchor } from "@audiorective/threejs";
-import { engine } from "../audio/engine";
+import { engine, ui } from "../audio/engine";
 
 const ROOM_W = 10;
 const ROOM_H = 3;
@@ -84,7 +84,7 @@ export class RoomScene {
     // 10. effect: hover → emissive bump
     this.disposers.push(
       effect(() => {
-        const hover = engine.ui.$().cdHover;
+        const hover = ui.$().cdHover;
         this.cdMaterial.emissiveIntensity = hover ? 0.6 : 0;
       }),
     );
@@ -169,7 +169,7 @@ export class RoomScene {
     const dom = this.renderer.domElement;
 
     const onClick = () => {
-      if (!this.controls.isLocked && !engine.ui.value.popupOpen) {
+      if (!this.controls.isLocked && !ui.value.popupOpen) {
         this.controls.lock();
       }
     };
@@ -179,7 +179,7 @@ export class RoomScene {
     const onMouseDown = (_e: MouseEvent) => {
       if (!this.controls.isLocked) return;
       if (this.raycastCdPlayer()) {
-        engine.ui.update((d) => {
+        ui.update((d) => {
           d.popupOpen = true;
         });
         this.controls.unlock();
@@ -282,13 +282,13 @@ export class RoomScene {
     if (this.hoverDirty && this.controls.isLocked) {
       this.hoverDirty = false;
       const hit = this.raycastCdPlayer();
-      if (engine.ui.value.cdHover !== hit) {
-        engine.ui.update((d) => {
+      if (ui.value.cdHover !== hit) {
+        ui.update((d) => {
           d.cdHover = hit;
         });
       }
-    } else if (!this.controls.isLocked && engine.ui.value.cdHover) {
-      engine.ui.update((d) => {
+    } else if (!this.controls.isLocked && ui.value.cdHover) {
+      ui.update((d) => {
         d.cdHover = false;
       });
     }
