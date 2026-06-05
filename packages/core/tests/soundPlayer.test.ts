@@ -190,4 +190,37 @@ describe("SoundPlayer — transport", () => {
     expect(p.currentTime).toBe(0);
     p.destroy();
   });
+
+  test("stop(when) in the future keeps cells accurate until it fires", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 5) });
+    p.play();
+    await delay(20);
+    p.stop(ctx.currentTime + 0.08);
+    expect(p.cells.isPlaying.value).toBe(true); // still audibly playing
+    expect(p.cells.activeVoices.value).toBe(1);
+    await delay(400);
+    expect(p.cells.isPlaying.value).toBe(false);
+    expect(p.cells.activeVoices.value).toBe(0);
+    p.destroy();
+  });
+
+  test("pause() with nothing playing is a no-op", () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2) });
+    expect(() => p.pause()).not.toThrow();
+    expect(p.cells.isPlaying.value).toBe(false);
+    p.destroy();
+  });
+
+  test("play() after natural end starts a fresh voice", async () => {
+    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 0.05) });
+    const v1 = p.play();
+    await delay(200);
+    expect(p.cells.isPlaying.value).toBe(false);
+    const v2 = p.play();
+    expect(v2).not.toBeNull();
+    expect(v2).not.toBe(v1);
+    expect(p.cells.isPlaying.value).toBe(true);
+    p.stop();
+    p.destroy();
+  });
 });

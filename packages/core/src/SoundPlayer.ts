@@ -75,7 +75,8 @@ export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { 
   }
 
   pause(): void {
-    this._current?.pause();
+    if (!this._current) return;
+    this._current.pause();
     this.cells.isPlaying.value = false;
   }
 
@@ -91,9 +92,15 @@ export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { 
 
   stop(when?: number): void {
     const current = this._current;
+    if (when != null && when > this.context.currentTime) {
+      // Future-dated stop: the voice is still audible until `when`, so let its
+      // _evict callback clear _current/isPlaying when the stop actually fires.
+      current?.stop(when);
+      return;
+    }
     this._current = null;
     this.cells.isPlaying.value = false;
-    current?.stop(when); // finish -> _evict (no-ops on _current since already cleared)
+    current?.stop(when); // immediate: finish -> _evict (no-ops on _current since already cleared)
   }
 
   trigger(opts: TriggerOptions = {}): Voice | null {
