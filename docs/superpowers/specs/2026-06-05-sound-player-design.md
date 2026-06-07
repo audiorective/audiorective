@@ -60,8 +60,12 @@ is the foundational layer for later `Players` collections and a `Sampler`.
 New files in `packages/core/src/`:
 
 - `SoundPlayer.ts` — `AudioProcessor` subclass, output-only (a source/instrument).
-- `Voice.ts` — per-trigger handle; owns one `BufferSource → voiceGain`. Plain
-  class (transient, not user-composed).
+- `Voice.ts` — per-trigger handle; owns one `BufferSource`. Plain class
+  (transient, not user-composed). Takes a `BaseAudioContext` (works with
+  `OfflineAudioContext` too). The per-voice `GainNode` is **lazy**: at unity
+  volume the source connects straight to the destination (no extra node on the
+  hot path — `AudioBufferSourceNode` can't be pooled, but the gain can be
+  avoided); a gain is created only when a non-unity volume is set.
 - `loadAudioBuffer.ts` — `loadAudioBuffer(ctx, url)` + `AudioBufferCache`.
 
 Exports added to `packages/core/src/index.ts`:

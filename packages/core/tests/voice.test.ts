@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { Voice } from "../src";
 
 function makeBuffer(ctx: AudioContext, seconds = 0.5): AudioBuffer {
@@ -248,5 +248,65 @@ describe("Voice — transport", () => {
     await delay(140);
     expect(v.currentTime).toBeGreaterThan(at + 0.25); // ~0.14s wall * 4 ≈ 0.56s buffer
     v.stop();
+  });
+});
+
+describe("Voice — gain node is lazy (perf)", () => {
+  test("volume 1 creates no gain node (source connects straight to destination)", () => {
+    const oac = new OfflineAudioContext(1, 256, 44100);
+    const spy = vi.spyOn(oac, "createGain");
+    const buf = oac.createBuffer(1, 256, 44100);
+    new Voice(oac, buf, oac.destination, {}, () => {});
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test("a non-unity volume option creates exactly one gain node", () => {
+    const oac = new OfflineAudioContext(1, 256, 44100);
+    const spy = vi.spyOn(oac, "createGain");
+    const buf = oac.createBuffer(1, 256, 44100);
+    new Voice(oac, buf, oac.destination, { volume: 0.5 }, () => {});
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test("the volume setter lazily creates a gain node, then reuses it", () => {
+    const oac = new OfflineAudioContext(1, 256, 44100);
+    const buf = oac.createBuffer(1, 256, 44100);
+    const v = new Voice(oac, buf, oac.destination, {}, () => {});
+    const spy = vi.spyOn(oac, "createGain");
+    v.volume = 0.5;
+    expect(spy).toHaveBeenCalledTimes(1);
+    v.volume = 0.8; // adjusts the existing gain, no new node
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  async function renderPeak(make: (oac: OfflineAudioContext, buf: AudioBuffer) => Voice): Promise<number> {
+    const oac = new OfflineAudioContext(1, 4096, 44100);
+    const buf = oac.createBuffer(1, 4096, 44100);
+    buf.getChannelData(0).fill(1); // DC = 1.0
+    make(oac, buf);
+    const rendered = await oac.startRendering();
+    const data = rendered.getChannelData(0);
+    let peak = 0;
+    for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]!));
+    return peak;
+  }
+
+  test("renders at unity when volume is 1 (no gain in path)", async () => {
+    const peak = await renderPeak((oac, buf) => new Voice(oac, buf, oac.destination, {}, () => {}));
+    expect(peak).toBeCloseTo(1, 1);
+  });
+
+  test("renders attenuated with a non-unity volume option", async () => {
+    const peak = await renderPeak((oac, buf) => new Voice(oac, buf, oac.destination, { volume: 0.5 }, () => {}));
+    expect(peak).toBeCloseTo(0.5, 1);
+  });
+
+  test("a lazily-created gain attenuates correctly", async () => {
+    const peak = await renderPeak((oac, buf) => {
+      const v = new Voice(oac, buf, oac.destination, {}, () => {});
+      v.volume = 0.25;
+      return v;
+    });
+    expect(peak).toBeCloseTo(0.25, 1);
   });
 });

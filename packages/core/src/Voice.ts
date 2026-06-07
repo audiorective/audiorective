@@ -14,15 +14,19 @@ export interface VoiceOptions {
 }
 
 /**
- * One live voice: an AudioBufferSourceNode feeding a per-voice gain, summed into
- * a destination node. AudioBufferSourceNode is one-shot by spec, so pause/seek
- * recreate the source at a computed offset. Transient — created per trigger,
- * disposed when it ends.
+ * One live voice: an AudioBufferSourceNode summed into a destination node.
+ * AudioBufferSourceNode is one-shot by spec, so pause/seek recreate the source
+ * at a computed offset. Transient — created per trigger, disposed when it ends.
+ *
+ * The per-voice GainNode is lazy: at unity volume the source connects straight
+ * to the destination (no extra node on the hot path); a gain is created only
+ * when a non-unity volume is set.
  */
 export class Voice {
-  private readonly ctx: AudioContext;
+  private readonly ctx: BaseAudioContext;
   private readonly buffer: AudioBuffer;
-  private readonly gain: GainNode;
+  private readonly destination: AudioNode;
+  private gain: GainNode | null = null;
   private readonly playLength: number | undefined;
   private readonly onDone: () => void;
 
@@ -36,17 +40,31 @@ export class Voice {
   private stopScheduled = false; // a future-dated stop(when) is pending; transport ops are frozen until it fires
   private endedCbs: Array<() => void> = [];
 
-  constructor(ctx: AudioContext, buffer: AudioBuffer, destination: AudioNode, opts: VoiceOptions, onDone: () => void) {
+  constructor(ctx: BaseAudioContext, buffer: AudioBuffer, destination: AudioNode, opts: VoiceOptions, onDone: () => void) {
     this.ctx = ctx;
     this.buffer = buffer;
+    this.destination = destination;
     this.onDone = onDone;
     this.offset = opts.offset ?? 0;
     this._rate = opts.rate ?? 1;
     this.loop = opts.loop ?? false;
     this.playLength = opts.duration;
-    this.gain = new GainNode(ctx, { gain: opts.volume ?? 1 });
-    this.gain.connect(destination);
+    if (opts.volume != null && opts.volume !== 1) {
+      this.gain = this.makeGain(opts.volume);
+    }
     this.startSource(opts.when ?? ctx.currentTime, this.offset);
+  }
+
+  /** The node the source feeds: the per-voice gain if present, else the destination directly. */
+  private get sink(): AudioNode {
+    return this.gain ?? this.destination;
+  }
+
+  private makeGain(value: number): GainNode {
+    const gain = this.ctx.createGain();
+    gain.gain.value = value;
+    gain.connect(this.destination);
+    return gain;
   }
 
   get duration(): number {
@@ -116,7 +134,19 @@ export class Voice {
   }
 
   set volume(v: number) {
-    this.gain.gain.value = v;
+    if (this.ended) return;
+    if (this.gain) {
+      this.gain.gain.value = v;
+      return;
+    }
+    if (v === 1) return; // unity — no gain node needed
+    // Splice a gain between the (current) source and the destination.
+    const gain = this.makeGain(v);
+    this.gain = gain;
+    if (this.source) {
+      this.source.disconnect();
+      this.source.connect(gain);
+    }
   }
 
   set rate(v: number) {
@@ -137,7 +167,7 @@ export class Voice {
     src.buffer = this.buffer;
     src.loop = this.loop;
     src.playbackRate.value = this._rate;
-    src.connect(this.gain);
+    src.connect(this.sink);
     src.onended = () => {
       // Ignore the onended of a source we already tore down (pause/seek/rate).
       if (src !== this.source) return;
@@ -170,7 +200,7 @@ export class Voice {
     this.ended = true;
     this.paused = false;
     this.teardownCurrent();
-    this.gain.disconnect();
+    this.gain?.disconnect();
     const cbs = this.endedCbs;
     this.endedCbs = [];
     for (const cb of cbs) cb();
