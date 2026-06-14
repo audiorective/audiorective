@@ -30,6 +30,7 @@ export class StreamPlayer extends AudioProcessor<
 > {
   readonly audio: HTMLAudioElement;
 
+  private readonly _source: MediaElementAudioSourceNode;
   private readonly _output: GainNode;
   private readonly _disposers: Array<() => void> = [];
   private readonly _endedCbs: Array<() => void> = [];
@@ -52,6 +53,7 @@ export class StreamPlayer extends AudioProcessor<
     }));
 
     this.audio = audio;
+    this._source = source;
     this._output = outputGain;
 
     const on = (type: string, fn: () => void) => {
@@ -98,6 +100,7 @@ export class StreamPlayer extends AudioProcessor<
     if (url == null) this.audio.removeAttribute("src");
     else this.audio.src = url;
     this.audio.load();
+    this.cells.isPlaying.value = false;
     this.cells.currentTime.value = 0;
     this.cells.duration.value = NaN;
   }
@@ -114,8 +117,12 @@ export class StreamPlayer extends AudioProcessor<
     if (!this.audio.src) return;
     try {
       await this.audio.play();
-    } catch {
-      // autoplay gesture pending; caller can retry
+    } catch (e) {
+      // Benign: autoplay needs a user gesture (NotAllowedError), or play() was
+      // interrupted by a src change / pause (AbortError, e.g. during track switch).
+      // Surface anything else (bad codec, network, …).
+      if (e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "AbortError")) return;
+      throw e;
     }
   }
 
@@ -144,6 +151,7 @@ export class StreamPlayer extends AudioProcessor<
     this.audio.pause();
     for (const d of this._disposers.splice(0)) d();
     this._endedCbs.length = 0;
+    this._source.disconnect();
     this._output.disconnect();
     this.audio.removeAttribute("src");
     this.audio.load();

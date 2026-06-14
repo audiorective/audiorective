@@ -147,4 +147,18 @@ describe("StreamPlayer", () => {
     const p = makePlayer(ctx, { src: wavDataUri(1) });
     expect(() => p.destroy()).not.toThrow();
   });
+
+  test("play() with no src resolves without throwing and stays stopped", async () => {
+    const p = makePlayer(ctx);
+    await expect(p.play()).resolves.toBeUndefined();
+    expect(p.cells.isPlaying.value).toBe(false);
+    p.destroy();
+  });
+
+  test("destroy() while actively playing does not throw", async () => {
+    const p = makePlayer(ctx, { src: wavDataUri(2) });
+    await once(p.audio, "loadedmetadata");
+    await p.play();
+    expect(() => p.destroy()).not.toThrow();
+  });
 });
