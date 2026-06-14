@@ -1,4 +1,4 @@
-import { AudioProcessor } from "@audiorective/core";
+import { AudioProcessor, StreamPlayer } from "@audiorective/core";
 import type { Cell } from "@audiorective/core";
 import type { Track } from "./tracks";
 import { EQ3 } from "./EQ3";
@@ -15,18 +15,19 @@ type Cells = {
   tracks: Cell<Track[]>;
 };
 
+/**
+ * Demo music player: a core StreamPlayer (streaming transport) feeding a 3-band
+ * EQ, with playlist management on top. Public API is unchanged from the original
+ * HTMLAudio-based implementation, so the demos consume it identically.
+ */
 export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
-  readonly audio: HTMLAudioElement;
+  readonly stream: StreamPlayer;
   readonly eq: EQ3;
 
   constructor(ctx: AudioContext, initialTracks: Track[]) {
-    const audio = new Audio();
-    audio.crossOrigin = "anonymous";
-    audio.preload = "metadata";
-
-    const source = ctx.createMediaElementSource(audio);
+    const stream = new StreamPlayer(ctx);
     const eq = new EQ3(ctx);
-    source.connect(eq.input);
+    stream.output.connect(eq.input);
 
     super(ctx, ({ cell }) => ({
       cells: {
@@ -40,32 +41,23 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
       },
     }));
 
-    this.audio = audio;
+    this.stream = stream;
     this.eq = eq;
 
-    audio.addEventListener("play", () => {
+    // Mirror the StreamPlayer's transport cells into the combined transport
+    // state, preserving currentTrackIndex (owned by the playlist below).
+    this.effect(() => {
+      const isPlaying = stream.cells.isPlaying.$();
+      const currentTime = stream.cells.currentTime.$();
+      const duration = stream.cells.duration.$();
       this.cells.transport.update((d) => {
-        d.isPlaying = true;
+        d.isPlaying = isPlaying;
+        d.currentTime = currentTime;
+        d.duration = duration;
       });
     });
-    audio.addEventListener("pause", () => {
-      this.cells.transport.update((d) => {
-        d.isPlaying = false;
-      });
-    });
-    audio.addEventListener("timeupdate", () => {
-      this.cells.transport.update((d) => {
-        d.currentTime = audio.currentTime;
-      });
-    });
-    audio.addEventListener("loadedmetadata", () => {
-      this.cells.transport.update((d) => {
-        d.duration = audio.duration;
-      });
-    });
-    audio.addEventListener("ended", () => {
-      this.next();
-    });
+
+    stream.onEnded(() => this.next());
 
     if (initialTracks.length > 0) this.loadTrack(0);
   }
@@ -75,23 +67,15 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
   }
 
   async play(): Promise<void> {
-    if (!this.audio.src) return;
-    try {
-      await this.audio.play();
-    } catch {
-      // user gesture pending; UI will trigger again
-    }
+    await this.stream.play();
   }
 
   pause(): void {
-    this.audio.pause();
+    this.stream.pause();
   }
 
   seek(t: number): void {
-    const d = this.audio.duration;
-    if (Number.isFinite(d)) {
-      this.audio.currentTime = Math.max(0, Math.min(d, t));
-    }
+    this.stream.seek(t);
   }
 
   loadTrack(i: number): void {
@@ -99,21 +83,12 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
     if (list.length === 0) return;
     const idx = ((i % list.length) + list.length) % list.length;
     const track = list[idx]!;
-    const wasPlaying = !this.audio.paused;
-    this.audio.pause();
-    this.audio.src = track.src;
-    this.audio.load();
+    const wasPlaying = this.cells.transport.value.isPlaying;
+    this.stream.src = track.src;
     this.cells.transport.update((d) => {
       d.currentTrackIndex = idx;
-      d.currentTime = 0;
-      d.duration = NaN;
     });
-    if (wasPlaying) {
-      const onCanPlay = () => {
-        this.audio.play().catch(() => {});
-      };
-      this.audio.addEventListener("canplay", onCanPlay, { once: true });
-    }
+    if (wasPlaying) void this.stream.play();
   }
 
   next(): void {
@@ -126,6 +101,7 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
 
   override destroy(): void {
     super.destroy();
+    this.stream.destroy();
     this.eq.destroy();
   }
 }
