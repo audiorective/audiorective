@@ -13,3 +13,5 @@ export { Voice } from "./Voice";
 export type { VoiceOptions } from "./Voice";
 export { SoundPlayer } from "./SoundPlayer";
 export type { SoundPlayerOptions, TriggerOptions } from "./SoundPlayer";
+export { StreamPlayer } from "./StreamPlayer";
+export type { StreamPlayerOptions } from "./StreamPlayer";
