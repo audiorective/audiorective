@@ -24,6 +24,9 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
   readonly stream: StreamPlayer;
   readonly eq: EQ3;
 
+  /** Source of truth for the playlist position (kept out of the transport cell's read path). */
+  private _trackIndex = 0;
+
   constructor(ctx: AudioContext, initialTracks: Track[]) {
     const stream = new StreamPlayer(ctx);
     const eq = new EQ3(ctx);
@@ -44,18 +47,10 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
     this.stream = stream;
     this.eq = eq;
 
-    // Mirror the StreamPlayer's transport cells into the combined transport
-    // state, preserving currentTrackIndex (owned by the playlist below).
-    this.effect(() => {
-      const isPlaying = stream.cells.isPlaying.$();
-      const currentTime = stream.cells.currentTime.$();
-      const duration = stream.cells.duration.$();
-      this.cells.transport.update((d) => {
-        d.isPlaying = isPlaying;
-        d.currentTime = currentTime;
-        d.duration = duration;
-      });
-    });
+    // One-way mirror: depends on the stream's transport cells and writes a fresh
+    // combined transport object. It never READS `transport`, so the effect can't
+    // self-subscribe; `currentTrackIndex` comes from the plain `_trackIndex`.
+    this.effect(() => this.syncTransport());
 
     stream.onEnded(() => this.next());
 
@@ -83,25 +78,34 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
     if (list.length === 0) return;
     const idx = ((i % list.length) + list.length) % list.length;
     const track = list[idx]!;
-    const wasPlaying = this.cells.transport.value.isPlaying;
-    this.stream.src = track.src;
-    this.cells.transport.update((d) => {
-      d.currentTrackIndex = idx;
-    });
+    const wasPlaying = !this.stream.audio.paused;
+    this._trackIndex = idx;
+    this.stream.src = track.src; // resets the stream cells -> effect re-syncs transport
+    this.syncTransport(); // push the new currentTrackIndex immediately
     if (wasPlaying) void this.stream.play();
   }
 
   next(): void {
-    this.loadTrack(this.cells.transport.value.currentTrackIndex + 1);
+    this.loadTrack(this._trackIndex + 1);
   }
 
   prev(): void {
-    this.loadTrack(this.cells.transport.value.currentTrackIndex - 1);
+    this.loadTrack(this._trackIndex - 1);
   }
 
   override destroy(): void {
     super.destroy();
     this.stream.destroy();
     this.eq.destroy();
+  }
+
+  /** Write the combined transport from the stream cells + the playlist index. */
+  private syncTransport(): void {
+    this.cells.transport.value = {
+      isPlaying: this.stream.cells.isPlaying.value,
+      currentTime: this.stream.cells.currentTime.value,
+      duration: this.stream.cells.duration.value,
+      currentTrackIndex: this._trackIndex,
+    };
   }
 }
