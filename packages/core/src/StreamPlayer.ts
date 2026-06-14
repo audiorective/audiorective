@@ -28,6 +28,12 @@ export class StreamPlayer extends AudioProcessor<
   { volume: SchedulableParam },
   { isPlaying: Cell<boolean>; currentTime: Cell<number>; duration: Cell<number> }
 > {
+  /**
+   * The underlying media element — a deliberate escape hatch for advanced needs
+   * (e.g. reading `audio.paused` for synchronous play-state, or native attrs the
+   * wrapper doesn't surface). The internal event listeners keep the reactive
+   * cells in sync even if a caller drives the element directly.
+   */
   readonly audio: HTMLAudioElement;
 
   private readonly _source: MediaElementAudioSourceNode;
@@ -140,6 +146,7 @@ export class StreamPlayer extends AudioProcessor<
   stop(): void {
     this.audio.pause();
     this.audio.currentTime = 0;
+    this.cells.isPlaying.value = false;
     this.cells.currentTime.value = 0;
   }
 
@@ -155,6 +162,7 @@ export class StreamPlayer extends AudioProcessor<
     this._output.disconnect();
     this.audio.removeAttribute("src");
     this.audio.load();
+    this._src = null;
     super.destroy();
   }
 }
