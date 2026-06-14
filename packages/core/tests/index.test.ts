@@ -671,3 +671,12 @@ describe("SoundPlayer exports", () => {
     expect(typeof mod.AudioBufferCache).toBe("function");
   });
 });
+
+describe("StreamPlayer export", () => {
+  test("exposes StreamPlayer (and SoundPlayer/Voice still present)", async () => {
+    const mod = await import("../src");
+    expect(typeof mod.StreamPlayer).toBe("function");
+    expect(typeof mod.SoundPlayer).toBe("function");
+    expect(typeof mod.Voice).toBe("function");
+  });
+});

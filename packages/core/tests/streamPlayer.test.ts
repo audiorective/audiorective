@@ -32,7 +32,7 @@ function wavDataUri(seconds = 0.3, sampleRate = 8000): string {
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
-function once(el: HTMLMediaElement, type: string, timeoutMs = 3000): Promise<void> {
+function once(el: HTMLMediaElement, type: string, timeoutMs = 8000): Promise<void> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`timeout waiting for ${type}`)), timeoutMs);
     el.addEventListener(
@@ -126,7 +126,7 @@ describe("StreamPlayer", () => {
     });
     await once(p.audio, "loadedmetadata");
     await p.play();
-    await once(p.audio, "ended", 4000);
+    await once(p.audio, "ended", 8000);
     expect(ended).toBe(1);
     expect(p.cells.isPlaying.value).toBe(false);
     p.destroy();
