@@ -31,7 +31,6 @@ export class StreamPlayer extends AudioProcessor<
   readonly audio: HTMLAudioElement;
 
   private readonly _output: GainNode;
-  private readonly _internal: GainNode;
   private readonly _disposers: Array<() => void> = [];
   private readonly _endedCbs: Array<() => void> = [];
   private _src: string | null = null;
@@ -46,12 +45,6 @@ export class StreamPlayer extends AudioProcessor<
     const source = ctx.createMediaElementSource(audio);
     const outputGain = new GainNode(ctx, { gain: opts.volume ?? 1 });
     source.connect(outputGain);
-    // Keep a silent path to ctx.destination so the audio context graph stays
-    // active and the HTMLAudioElement advances its playhead (required in
-    // headless / offline environments where nothing else is connected).
-    const _internal = new GainNode(ctx, { gain: 0 });
-    source.connect(_internal);
-    _internal.connect(ctx.destination);
 
     super(ctx, ({ param, cell }) => ({
       params: { volume: param({ default: opts.volume ?? 1, bind: outputGain.gain, min: 0, max: 1 }) },
@@ -60,7 +53,6 @@ export class StreamPlayer extends AudioProcessor<
 
     this.audio = audio;
     this._output = outputGain;
-    this._internal = _internal;
 
     const on = (type: string, fn: () => void) => {
       audio.addEventListener(type, fn);
@@ -153,7 +145,6 @@ export class StreamPlayer extends AudioProcessor<
     for (const d of this._disposers.splice(0)) d();
     this._endedCbs.length = 0;
     this._output.disconnect();
-    this._internal.disconnect();
     this.audio.removeAttribute("src");
     this.audio.load();
     super.destroy();

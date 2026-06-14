@@ -46,6 +46,12 @@ function once(el: HTMLMediaElement, type: string, timeoutMs = 3000): Promise<voi
   });
 }
 
+function makePlayer(ctx: AudioContext, opts?: ConstructorParameters<typeof StreamPlayer>[1]): StreamPlayer {
+  const p = new StreamPlayer(ctx, opts);
+  p.output.connect(ctx.destination); // real usage routes output to destination; required for the media element to progress
+  return p;
+}
+
 describe("StreamPlayer", () => {
   let ctx: AudioContext;
   beforeEach(async () => {
@@ -57,7 +63,7 @@ describe("StreamPlayer", () => {
   });
 
   test("output is an AudioNode and volume param drives it", () => {
-    const p = new StreamPlayer(ctx, { volume: 0.5 });
+    const p = makePlayer(ctx, { volume: 0.5 });
     expect(p.output).toBeInstanceOf(AudioNode);
     expect((p.output as GainNode).gain.value).toBeCloseTo(0.5);
     p.params.volume.value = 0.25;
@@ -66,7 +72,7 @@ describe("StreamPlayer", () => {
   });
 
   test("loadedmetadata populates the duration cell", async () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(0.3) });
+    const p = makePlayer(ctx, { src: wavDataUri(0.3) });
     await once(p.audio, "loadedmetadata");
     expect(p.cells.duration.value).toBeGreaterThan(0.2);
     expect(p.cells.duration.value).toBeLessThan(0.6);
@@ -74,7 +80,7 @@ describe("StreamPlayer", () => {
   });
 
   test("play sets isPlaying; pause clears it", async () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(2) });
+    const p = makePlayer(ctx, { src: wavDataUri(2) });
     await once(p.audio, "loadedmetadata");
     await p.play();
     expect(p.cells.isPlaying.value).toBe(true);
@@ -85,7 +91,7 @@ describe("StreamPlayer", () => {
   });
 
   test("seek sets currentTime and clamps to duration", async () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(2) });
+    const p = makePlayer(ctx, { src: wavDataUri(2) });
     await once(p.audio, "loadedmetadata");
     p.seek(1);
     expect(p.cells.currentTime.value).toBeCloseTo(1, 1);
@@ -95,7 +101,7 @@ describe("StreamPlayer", () => {
   });
 
   test("stop pauses and rewinds to 0", async () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(2) });
+    const p = makePlayer(ctx, { src: wavDataUri(2) });
     await once(p.audio, "loadedmetadata");
     p.seek(0.5);
     p.stop();
@@ -105,7 +111,7 @@ describe("StreamPlayer", () => {
   });
 
   test("loop sets audio.loop", () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(1), loop: true });
+    const p = makePlayer(ctx, { src: wavDataUri(1), loop: true });
     expect(p.audio.loop).toBe(true);
     p.loop = false;
     expect(p.audio.loop).toBe(false);
@@ -113,7 +119,7 @@ describe("StreamPlayer", () => {
   });
 
   test("onEnded fires once when a non-looping clip finishes", async () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(0.3) });
+    const p = makePlayer(ctx, { src: wavDataUri(0.3) });
     let ended = 0;
     p.onEnded(() => {
       ended++;
@@ -127,7 +133,7 @@ describe("StreamPlayer", () => {
   });
 
   test("setting src resets currentTime and duration", async () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(2) });
+    const p = makePlayer(ctx, { src: wavDataUri(2) });
     await once(p.audio, "loadedmetadata");
     p.seek(1);
     expect(p.cells.currentTime.value).toBeCloseTo(1, 1);
@@ -138,7 +144,7 @@ describe("StreamPlayer", () => {
   });
 
   test("destroy disconnects without throwing", () => {
-    const p = new StreamPlayer(ctx, { src: wavDataUri(1) });
+    const p = makePlayer(ctx, { src: wavDataUri(1) });
     expect(() => p.destroy()).not.toThrow();
   });
 });
