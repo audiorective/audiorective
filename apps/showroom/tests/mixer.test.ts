@@ -27,11 +27,16 @@ describe("Mixer", () => {
     expect(mixer.phonesBusGain).toBeCloseTo(0);
   });
 
-  test("headphone toggle swaps the buses", async () => {
+  test("headphone toggle swaps the buses (room + aux off, phones on)", async () => {
     mixer.params.headphone.value = true;
     await settle();
     expect(mixer.roomBusGain).toBeLessThan(0.05);
+    expect(mixer.auxBusGain).toBeLessThan(0.05); // reverb is part of "the room" — muted on headphone
     expect(mixer.phonesBusGain).toBeGreaterThan(0.95);
+  });
+
+  test("defaults route the aux (reverb send) bus on", () => {
+    expect(mixer.auxBusGain).toBeCloseTo(1);
   });
 
   test("muting a channel silences only it (no solo active)", async () => {

@@ -25,6 +25,7 @@
       "airhorn": "/sfx/airhorn.mp3",
       "applause": "/sfx/applause.mp3"
     },
-    "reverbIR": "/ir/room.wav"
+    "reverbIR": "/ir/room.wav",
+    "reverb": 0.12
   }
 }

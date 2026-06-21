@@ -82,6 +82,7 @@ export function createPaEngine() {
         }
         const ir = await decode(audio.reverbIR);
         if (ir) mixer.setReverbBuffer(ir);
+        if (typeof audio.reverb === "number") mixer.setReverbWet(audio.reverb);
       },
       /** Start the gig: transport (synth), stems, sampler bed, and metering. */
       start(): void {

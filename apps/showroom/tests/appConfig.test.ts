@@ -15,6 +15,11 @@ describe("appConfig", () => {
     expect(merged.audio.stems.drums).toBe("/x/drums.wav");
     expect(merged.audio.stems.bass).toBe(DEFAULT_CONFIG.audio.stems.bass); // untouched
     expect(merged.audio.reverbIR).toBe(DEFAULT_CONFIG.audio.reverbIR);
+    expect(merged.audio.reverb).toBe(DEFAULT_CONFIG.audio.reverb);
+  });
+
+  test("mergeConfig overrides the reverb amount when provided", () => {
+    expect(mergeConfig({ audio: { reverb: 0.4 } }).audio.reverb).toBe(0.4);
   });
 
   test("matchAction resolves single + multi-key bindings against a given map", () => {

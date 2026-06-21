@@ -38,6 +38,13 @@ describe("Channel", () => {
     ch.destroy();
   });
 
+  test("auxOut is the pre-panner tap (distinct from the post-panner roomOut)", () => {
+    const ch = new Channel(ctx, { id: "g1", label: "Guitar 1", color: "#16a34a", source: makeSource(ctx), position: { x: 0, y: 1, z: -3 } });
+    expect(ch.auxOut).toBeInstanceOf(AnalyserNode); // pre-distance send point
+    expect(ch.auxOut).not.toBe(ch.roomOut); // roomOut is post-panner (distance-attenuated)
+    ch.destroy();
+  });
+
   test("headphone pan tracks the position cell (right = positive)", () => {
     const ch = new Channel(ctx, { id: "g1", label: "Guitar 1", color: "#16a34a", source: makeSource(ctx), position: { x: 0, y: 1, z: -3 } });
     expect((ch.phonesOut as StereoPannerNode).pan.value).toBeCloseTo(0);

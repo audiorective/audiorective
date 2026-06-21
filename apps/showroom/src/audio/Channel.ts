@@ -88,6 +88,15 @@ export class Channel extends AudioProcessor<
     return this.spatial.output;
   }
 
+  /**
+   * Pre-panner reverb send (post EQ/fader/mute, before the Spatial distance stage).
+   * Distance-independent on purpose: feeding the room reverb from here keeps the wet
+   * level constant as the listener moves, so the wet/dry ratio rises with distance.
+   */
+  get auxOut(): AudioNode {
+    return this.analyser;
+  }
+
   get phonesOut(): AudioNode {
     return this._stereo;
   }

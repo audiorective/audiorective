@@ -15,10 +15,12 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
   readonly channels: Channel[];
 
   private readonly _roomBus: GainNode;
+  private readonly _auxBus: GainNode;
   private readonly _phonesBus: GainNode;
   private readonly _master: GainNode;
   private readonly _masterAnalyser: AnalyserNode;
   private readonly _convolver: ConvolverNode;
+  private readonly _wet: GainNode;
   // Typed as <ArrayBuffer> (not the default <ArrayBufferLike>) so AnalyserNode's
   // getFloatTimeDomainData accepts it under TS's strict typed-array generics.
   private readonly _buf: Float32Array<ArrayBuffer>;
@@ -37,28 +39,36 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
     this.channels = channels;
     this._master = master;
     this._roomBus = new GainNode(ctx, { gain: 1 });
+    this._auxBus = new GainNode(ctx, { gain: 1 });
     this._phonesBus = new GainNode(ctx, { gain: 0 });
     this._masterAnalyser = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0.6 });
     this._buf = new Float32Array(new ArrayBuffer(this._masterAnalyser.fftSize * Float32Array.BYTES_PER_ELEMENT));
 
-    const { convolver, wet, dry } = createReverb(ctx);
+    // The dry/direct in-room sound is the distance-attenuated room bus straight to master.
+    // The reverb is an AUX SEND fed PRE-panner (auxBus), so its level is distance-independent —
+    // moving away drops the dry while the wet holds, so the wet/dry ratio rises with distance.
+    const { convolver, wet } = createReverb(ctx, { wet: 0.12 });
     this._convolver = convolver;
-    this._roomBus.connect(dry).connect(this._master);
-    this._roomBus.connect(convolver).connect(wet).connect(this._master);
+    this._wet = wet;
+    this._roomBus.connect(this._master);
+    this._auxBus.connect(convolver).connect(wet).connect(this._master);
     this._phonesBus.connect(this._master);
     this._master.connect(this._masterAnalyser);
     this._masterAnalyser.connect(ctx.destination);
 
     for (const ch of channels) {
-      ch.roomOut.connect(this._roomBus);
+      ch.roomOut.connect(this._roomBus); // dry, post-panner (distance-attenuated)
+      ch.auxOut.connect(this._auxBus); // reverb send, pre-panner (distance-independent)
       ch.phonesOut.connect(this._phonesBus);
     }
 
-    // headphone routing (runs once at construction → in-room default)
+    // headphone routing (runs once at construction → in-room default). Headphone is fully
+    // dry: it mutes the room (dry) AND the aux (reverb), leaving only the phones bus.
     this.effect(() => {
       const phones = this.params.headphone.value;
       const now = ctx.currentTime;
       this._ramp(this._roomBus.gain, phones ? 0 : 1, now);
+      this._ramp(this._auxBus.gain, phones ? 0 : 1, now);
       this._ramp(this._phonesBus.gain, phones ? 1 : 0, now);
     });
 
@@ -84,9 +94,18 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
     return this._phonesBus.gain.value;
   }
 
+  get auxBusGain(): number {
+    return this._auxBus.gain.value;
+  }
+
   /** Swap the room reverb's impulse response (e.g. a user-provided IR from config). */
   setReverbBuffer(buffer: AudioBuffer): void {
     this._convolver.buffer = buffer;
+  }
+
+  /** Reverb send amount (wet gain, 0..1). */
+  setReverbWet(value: number): void {
+    this._wet.gain.value = Math.max(0, value);
   }
 
   startMetering(): void {
@@ -121,6 +140,7 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
     super.destroy();
     for (const c of this.channels) c.destroy();
     this._roomBus.disconnect();
+    this._auxBus.disconnect();
     this._phonesBus.disconnect();
     this._master.disconnect();
     this._masterAnalyser.disconnect();

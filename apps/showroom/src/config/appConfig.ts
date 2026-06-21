@@ -18,6 +18,8 @@ export interface AudioConfig {
   sampler: Partial<Record<"bed" | PadId, string>>;
   /** Convolver impulse response URL; omitted → synthesized IR. */
   reverbIR?: string;
+  /** Reverb send amount (wet gain, 0..1). */
+  reverb?: number;
 }
 
 export interface AppConfig {
@@ -53,6 +55,7 @@ export const DEFAULT_CONFIG: AppConfig = {
       applause: "/sfx/applause.mp3",
     },
     reverbIR: "/ir/room.wav",
+    reverb: 0.12,
   },
 };
 
@@ -65,6 +68,7 @@ export function mergeConfig(raw: unknown): AppConfig {
       stems: { ...DEFAULT_CONFIG.audio.stems, ...(r.audio?.stems ?? {}) },
       sampler: { ...DEFAULT_CONFIG.audio.sampler, ...(r.audio?.sampler ?? {}) },
       reverbIR: r.audio?.reverbIR ?? DEFAULT_CONFIG.audio.reverbIR,
+      reverb: r.audio?.reverb ?? DEFAULT_CONFIG.audio.reverb,
     },
   };
 }
