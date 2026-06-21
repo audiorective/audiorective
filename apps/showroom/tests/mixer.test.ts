@@ -35,8 +35,8 @@ describe("Mixer", () => {
     void ctx.close();
   });
 
-  test("defaults to the room path (room audible, phones silent)", () => {
-    expect(mixer.roomBusGain).toBeCloseTo(1);
+  test("defaults to the room path (room audible at +5 dB, phones silent)", () => {
+    expect(mixer.roomBusGain).toBeGreaterThan(1.5); // +5 dB ≈ 1.78
     expect(mixer.phonesBusGain).toBeCloseTo(0);
   });
 
@@ -44,12 +44,13 @@ describe("Mixer", () => {
     expect(mixer.auxBusGain).toBeCloseTo(1);
   });
 
-  test("headphone toggle swaps the buses (room + aux off, phones on)", async () => {
+  test("headphone toggle: room + aux off, phones on at -8 dB", async () => {
     mixer.params.headphone.value = true;
-    await waitFor(() => mixer.roomBusGain < 0.05 && mixer.auxBusGain < 0.05 && mixer.phonesBusGain > 0.95);
+    await waitFor(() => mixer.roomBusGain < 0.05 && mixer.auxBusGain < 0.05 && mixer.phonesBusGain > 0.3);
     expect(mixer.roomBusGain).toBeLessThan(0.05);
     expect(mixer.auxBusGain).toBeLessThan(0.05); // reverb is part of "the room" — muted on headphone
-    expect(mixer.phonesBusGain).toBeGreaterThan(0.95);
+    expect(mixer.phonesBusGain).toBeGreaterThan(0.3); // -8 dB ≈ 0.40
+    expect(mixer.phonesBusGain).toBeLessThan(0.5);
   });
 
   test("muting a channel silences only it (no solo active)", async () => {

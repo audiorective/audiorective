@@ -37,7 +37,11 @@ describe("PA engine assembly", () => {
     await engine.core.start();
 
     engine.mixer.params.headphone.value = true;
-    await new Promise((r) => setTimeout(r, 60));
-    expect(engine.mixer.phonesBusGain).toBeGreaterThan(0.95);
+    // Poll: the headphone bus ramps to -8 dB (~0.40); the audio clock can run slow under load.
+    const start = performance.now();
+    while (performance.now() - start < 2000 && !(engine.mixer.phonesBusGain > 0.3)) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(engine.mixer.phonesBusGain).toBeGreaterThan(0.3);
   });
 });

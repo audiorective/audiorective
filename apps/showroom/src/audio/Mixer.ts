@@ -5,6 +5,10 @@ import { createReverb } from "./reverb";
 import { rms } from "./meterMath";
 
 const BUS_RAMP_S = 0.02;
+// Loudness-match the two monitor paths so toggling headphone doesn't jump in level:
+// boost the room bus +5 dB, trim the headphone bus -8 dB.
+const ROOM_BUS_GAIN = 10 ** (5 / 20);
+const PHONES_BUS_GAIN = 10 ** (-8 / 20);
 
 /**
  * Sums channels into a room bus (+ convolver reverb) and a headphone bus, and the
@@ -38,7 +42,7 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
 
     this.channels = channels;
     this._master = master;
-    this._roomBus = new GainNode(ctx, { gain: 1 });
+    this._roomBus = new GainNode(ctx, { gain: ROOM_BUS_GAIN });
     this._auxBus = new GainNode(ctx, { gain: 1 });
     this._phonesBus = new GainNode(ctx, { gain: 0 });
     this._masterAnalyser = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0.6 });
@@ -67,9 +71,9 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
     this.effect(() => {
       const phones = this.params.headphone.value;
       const now = ctx.currentTime;
-      this._ramp(this._roomBus.gain, phones ? 0 : 1, now);
+      this._ramp(this._roomBus.gain, phones ? 0 : ROOM_BUS_GAIN, now);
       this._ramp(this._auxBus.gain, phones ? 0 : 1, now);
-      this._ramp(this._phonesBus.gain, phones ? 1 : 0, now);
+      this._ramp(this._phonesBus.gain, phones ? PHONES_BUS_GAIN : 0, now);
     });
 
     // solo/mute resolution across all channels

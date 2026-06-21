@@ -129,7 +129,7 @@ export class LivehouseScene {
     this.app.root.addChild(room);
 
     const floorMat = new pc.StandardMaterial();
-    floorMat.diffuse = new pc.Color(0.05, 0.05, 0.07);
+    floorMat.diffuse = new pc.Color(0.82, 0.82, 0.85);
     floorMat.update();
     const floor = new pc.Entity("floor");
     floor.addComponent("render", { type: "plane", material: floorMat });
@@ -137,22 +137,26 @@ export class LivehouseScene {
     floor.setLocalPosition(0, 0.01, 0);
     this.app.root.addChild(floor);
 
-    // Stage: a low platform at the back as a visual anchor (no audio meaning).
-    const stageMat = new pc.StandardMaterial();
-    stageMat.diffuse = new pc.Color(0.12, 0.12, 0.18);
-    stageMat.emissive = new pc.Color(0.05, 0.2, 0.16);
-    stageMat.update();
-    const stage = new pc.Entity("stage");
-    stage.addComponent("render", { type: "box", material: stageMat });
-    stage.setLocalScale(ROOM_W * 0.7, 0.4, ROOM_D * 0.25);
-    stage.setPosition(0, 0.2, -ROOM_D / 2 + ROOM_D * 0.18);
-    this.app.root.addChild(stage);
+    // Lighting: lifted ambient + a key directional + a few omni fills for depth.
+    this.app.scene.ambientLight = new pc.Color(0.5, 0.5, 0.55);
 
-    this.app.scene.ambientLight = new pc.Color(0.25, 0.25, 0.35);
     const sun = new pc.Entity("sun");
-    sun.addComponent("light", { type: "directional", color: new pc.Color(0.7, 0.7, 0.9), intensity: 1.0 });
+    sun.addComponent("light", { type: "directional", color: new pc.Color(1, 1, 0.96), intensity: 1.6 });
     sun.setEulerAngles(55, 30, 0);
     this.app.root.addChild(sun);
+
+    const fills: Array<{ pos: [number, number, number]; color: pc.Color; intensity: number }> = [
+      { pos: [0, ROOM_H - 0.4, 0], color: new pc.Color(1, 1, 1), intensity: 1.2 },
+      { pos: [-ROOM_W / 2 + 1, ROOM_H - 1, -ROOM_D / 2 + 2], color: new pc.Color(0.5, 0.7, 1), intensity: 1.0 },
+      { pos: [ROOM_W / 2 - 1, ROOM_H - 1, -ROOM_D / 2 + 2], color: new pc.Color(1, 0.6, 0.8), intensity: 1.0 },
+      { pos: [0, 1.5, ROOM_D / 2 - 2], color: new pc.Color(0.8, 0.9, 1), intensity: 0.8 },
+    ];
+    for (const f of fills) {
+      const light = new pc.Entity("fill");
+      light.addComponent("light", { type: "omni", color: f.color, intensity: f.intensity, range: 24 });
+      light.setPosition(...f.pos);
+      this.app.root.addChild(light);
+    }
   }
 
   private buildDrones(): void {
