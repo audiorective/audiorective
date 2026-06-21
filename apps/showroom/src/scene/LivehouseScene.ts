@@ -16,6 +16,7 @@ const MOVE_SPEED = 3.0;
 const DAMPING = 8.0;
 const MOUSE_SENSITIVITY = 0.0022;
 const SELECT_DIST = 8;
+const ROTOR_DPS = 900; // rotor spin (deg/s)
 
 type KeyState = { w: boolean; a: boolean; s: boolean; d: boolean };
 
@@ -25,6 +26,7 @@ type DroneEntry = {
   material: pc.StandardMaterial;
   base: pc.Vec3;
   seed: number;
+  rotors: pc.Entity[];
 };
 
 export class LivehouseScene {
@@ -160,31 +162,71 @@ export class LivehouseScene {
   }
 
   private buildDrones(): void {
-    const sphere = (color: pc.Color): { entity: pc.Entity; material: pc.StandardMaterial } => {
-      const material = new pc.StandardMaterial();
-      material.diffuse = color;
-      material.emissive = color;
-      material.emissiveIntensity = 0.4;
-      material.useMetalness = true;
-      material.metalness = 0.3;
-      material.gloss = 0.6;
-      material.update();
+    // A simple quadcopter from primitives: a glowing body hull, an X of arms, and
+    // four spinning rotor discs. Distinct from the panner's abstract dots.
+    const buildDrone = (color: pc.Color): { entity: pc.Entity; material: pc.StandardMaterial; rotors: pc.Entity[] } => {
       const entity = new pc.Entity("drone");
-      entity.addComponent("render", { type: "sphere", material });
-      entity.setLocalScale(0.6, 0.6, 0.6);
-      return { entity, material };
+
+      const bodyMat = new pc.StandardMaterial();
+      bodyMat.diffuse = color;
+      bodyMat.emissive = color;
+      bodyMat.emissiveIntensity = 0.4;
+      bodyMat.useMetalness = true;
+      bodyMat.metalness = 0.4;
+      bodyMat.gloss = 0.6;
+      bodyMat.update();
+      const body = new pc.Entity("body");
+      body.addComponent("render", { type: "box", material: bodyMat });
+      body.setLocalScale(0.3, 0.12, 0.3);
+      entity.addChild(body);
+
+      const armMat = new pc.StandardMaterial();
+      armMat.diffuse = new pc.Color(0.1, 0.1, 0.12);
+      armMat.update();
+      for (const deg of [45, -45]) {
+        const arm = new pc.Entity("arm");
+        arm.addComponent("render", { type: "box", material: armMat });
+        arm.setLocalScale(0.62, 0.04, 0.07);
+        arm.setLocalEulerAngles(0, deg, 0);
+        entity.addChild(arm);
+      }
+
+      const rotorMat = new pc.StandardMaterial();
+      rotorMat.diffuse = new pc.Color(0.75, 0.8, 0.9);
+      rotorMat.emissive = color;
+      rotorMat.emissiveIntensity = 0.15;
+      rotorMat.opacity = 0.55;
+      rotorMat.blendType = pc.BLEND_NORMAL;
+      rotorMat.update();
+      const rotors: pc.Entity[] = [];
+      const tip = 0.22;
+      for (const [x, z] of [
+        [tip, tip],
+        [tip, -tip],
+        [-tip, tip],
+        [-tip, -tip],
+      ] as Array<[number, number]>) {
+        const rotor = new pc.Entity("rotor");
+        rotor.addComponent("render", { type: "cylinder", material: rotorMat });
+        rotor.setLocalScale(0.2, 0.015, 0.2);
+        rotor.setLocalPosition(x, 0.07, z);
+        entity.addChild(rotor);
+        rotors.push(rotor);
+      }
+
+      return { entity, material: bodyMat, rotors };
     };
 
     engine.channels.forEach((channel, i) => {
       const c = new pc.Color();
       c.fromString(channel.color);
-      const { entity, material } = sphere(c);
+      const { entity, material, rotors } = buildDrone(c);
       const p = channel.cells.position.value;
       const base = new pc.Vec3(p.x, p.y, p.z);
       entity.setPosition(base);
       this.app.root.addChild(entity);
       this.disposers.push(bindPanner(this.app, entity, channel.spatial.panner));
-      this.drones.push({ channel, entity, material, base, seed: i });
+      this.drones.push({ channel, entity, material, base, seed: i, rotors });
     });
   }
 
@@ -281,10 +323,11 @@ export class LivehouseScene {
     const clamped = Math.min(0.05, dt);
     this.elapsed += clamped;
 
-    // Drone idle hover (bindPanner reads the entity transform after this).
+    // Drone idle hover (bindPanner reads the entity transform after this) + rotor spin.
     for (const d of this.drones) {
       const o = hoverOffset(this.elapsed, d.seed);
       d.entity.setPosition(d.base.x + o.x, d.base.y + o.y, d.base.z + o.z);
+      for (const r of d.rotors) r.rotateLocal(0, ROTOR_DPS * clamped, 0);
     }
 
     if (this.isLocked && !engine.ui.value.hudOpen) {
