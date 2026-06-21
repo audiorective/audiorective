@@ -3,6 +3,7 @@ import { useValue } from "@audiorective/react";
 import type { EngineState } from "@audiorective/core";
 import { EngineProvider, engine } from "../audio/engine";
 import { SceneHost } from "./SceneHost";
+import { Hud } from "./Hud";
 
 function Hint() {
   const state = useValue<EngineState>(engine.core.state);
@@ -14,6 +15,7 @@ export function App() {
   return (
     <EngineProvider>
       <SceneHost />
+      <Hud />
       <Hint />
     </EngineProvider>
   );
