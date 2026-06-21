@@ -408,6 +408,10 @@ describe("Channel", () => {
 
   test("applyMix(false) ramps the mute gain toward 0", async () => {
     const ch = new Channel(ctx, { id: "g1", label: "Guitar 1", color: "#16a34a", source: makeSource(ctx), position: { x: 0, y: 1, z: -3 } });
+    // An AudioParam ramp only advances .value when the node graph reaches the
+    // destination (headless Chromium won't render a disconnected subgraph). Mirror
+    // the repo convention in packages/core/tests/streamPlayer.test.ts.
+    ch.roomOut.connect(ctx.destination);
     ch.applyMix(false);
     await new Promise((r) => setTimeout(r, 60));
     expect(ch.muteGainValue).toBeLessThan(0.05);
