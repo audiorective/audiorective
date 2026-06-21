@@ -1,29 +1,32 @@
 import { useEffect, type CSSProperties } from "react";
 import { engine } from "../audio/engine";
-import { PAD_IDS, type PadId } from "../audio/sources/SamplerSource";
-import { matchAction } from "../config/appConfig";
+import { getConfig, matchAction, type Action } from "../config/appConfig";
 
-const PAD_BY_ACTION: Record<string, PadId> = { pad1: "boom", pad2: "riser", pad3: "airhorn", pad4: "applause" };
+const PAD_ACTIONS: Action[] = ["pad1", "pad2", "pad3", "pad4", "pad5", "pad6", "pad7", "pad8"];
 
 export function PadPanel() {
-  // Keyboard triggers (pad1..pad4) — active whenever the pad panel is mounted.
+  const fx = getConfig().audio.fx;
+
+  // Keyboard: padN action → the Nth configured FX pad.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const action = matchAction(e);
-      if (action && action in PAD_BY_ACTION) {
+      if (!action) return;
+      const idx = PAD_ACTIONS.indexOf(action);
+      if (idx >= 0 && idx < fx.length) {
         e.preventDefault();
-        engine.sampler?.trigger(PAD_BY_ACTION[action]);
+        engine.sampler?.trigger(fx[idx].id);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [fx]);
 
   return (
     <div style={grid}>
-      {PAD_IDS.map((id) => (
-        <button key={id} style={pad} onClick={() => engine.sampler?.trigger(id)}>
-          {id.toUpperCase()}
+      {fx.map((pad) => (
+        <button key={pad.id} style={padStyle} onClick={() => engine.sampler?.trigger(pad.id)}>
+          {pad.label}
         </button>
       ))}
     </div>
@@ -32,7 +35,7 @@ export function PadPanel() {
 
 const grid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  gridTemplateColumns: "repeat(4, 1fr)",
   gap: 6,
   padding: 8,
   background: "rgba(8,10,18,0.9)",
@@ -40,13 +43,13 @@ const grid: CSSProperties = {
   borderRadius: 6,
   pointerEvents: "auto",
 };
-const pad: CSSProperties = {
-  aspectRatio: "1.6",
-  minWidth: 70,
+const padStyle: CSSProperties = {
+  aspectRatio: "1.5",
+  minWidth: 64,
   background: "#a855f733",
   border: "1px solid #a855f7",
   color: "#e9d5ff",
   borderRadius: 4,
   cursor: "pointer",
-  font: "600 12px system-ui, sans-serif",
+  font: "600 11px system-ui, sans-serif",
 };

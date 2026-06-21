@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { SamplerSource, PAD_IDS } from "../src/audio/sources/SamplerSource";
+import { SamplerSource } from "../src/audio/sources/SamplerSource";
 
 function makeBuffer(ctx: AudioContext, seconds = 0.5): AudioBuffer {
   return ctx.createBuffer(1, Math.max(1, Math.ceil(ctx.sampleRate * seconds)), ctx.sampleRate);
@@ -21,29 +21,26 @@ describe("SamplerSource", () => {
     s.destroy();
   });
 
-  test("trigger with no buffer loaded returns null", () => {
+  test("trigger with no pad loaded returns null", () => {
     const s = new SamplerSource(ctx);
-    expect(s.trigger("boom")).toBeNull();
+    expect(s.trigger("vfx1")).toBeNull();
     s.destroy();
   });
 
-  test("trigger after setPadBuffer returns a Voice", () => {
+  test("setPadBuffer creates the pad on demand; trigger fires it", () => {
     const s = new SamplerSource(ctx);
-    s.setPadBuffer("boom", makeBuffer(ctx, 1));
-    expect(s.trigger("boom")).not.toBeNull();
+    s.setPadBuffer("vfx1", makeBuffer(ctx, 1));
+    expect(s.padIds).toEqual(["vfx1"]);
+    expect(s.trigger("vfx1")).not.toBeNull();
     s.destroy();
   });
 
-  test("startBed loops the bed buffer", () => {
+  test("supports an arbitrary set of pad ids", () => {
     const s = new SamplerSource(ctx);
-    s.setBedBuffer(makeBuffer(ctx, 2));
-    s.startBed();
-    expect(s.bedActiveVoices).toBe(1);
-    s.stopBed();
+    for (const id of ["vfx1", "vfx2", "vfx3"]) s.setPadBuffer(id, makeBuffer(ctx, 1));
+    expect(s.padIds).toEqual(["vfx1", "vfx2", "vfx3"]);
+    expect(s.trigger("vfx2")).not.toBeNull();
+    expect(s.trigger("nope")).toBeNull();
     s.destroy();
-  });
-
-  test("PAD_IDS has the four expected pads", () => {
-    expect(PAD_IDS).toEqual(["boom", "riser", "airhorn", "applause"]);
   });
 });

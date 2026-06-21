@@ -29,4 +29,13 @@ describe("SynthSource", () => {
     s.destroy();
     transport.destroy();
   });
+
+  test("setNotes accepts a note-name sequence without throwing", () => {
+    const transport = new MasterSequencer(ctx);
+    const s = new SynthSource(ctx, transport);
+    s.setNotes(["A1", "C2", "E2"]);
+    s.setNotes([]); // empty is ignored (keeps previous)
+    s.destroy();
+    transport.destroy();
+  });
 });

@@ -9,23 +9,29 @@
     "pad1": ["Digit1"],
     "pad2": ["Digit2"],
     "pad3": ["Digit3"],
-    "pad4": ["Digit4"]
+    "pad4": ["Digit4"],
+    "pad5": ["Digit5"],
+    "pad6": ["Digit6"],
+    "pad7": ["Digit7"],
+    "pad8": ["Digit8"]
   },
   "audio": {
     "stems": {
-      "guitar1": "/stems/guitar1.mp3",
-      "guitar2": "/stems/guitar2.mp3",
       "drums": "/stems/drums.mp3",
-      "bass": "/stems/bass.mp3"
+      "synth1": "/stems/synth1.mp3",
+      "synth2": "/stems/synth2.mp3"
     },
-    "sampler": {
-      "bed": "/sfx/bed.mp3",
-      "boom": "/sfx/boom.mp3",
-      "riser": "/sfx/riser.mp3",
-      "airhorn": "/sfx/airhorn.mp3",
-      "applause": "/sfx/applause.mp3"
-    },
-    "reverbIR": "/ir/room.wav",
+    "fx": [
+      { "id": "vfx1", "label": "VFX 1", "url": "/fx/vfx1.mp3" },
+      { "id": "vfx2", "label": "VFX 2", "url": "/fx/vfx2.mp3" },
+      { "id": "vfx3", "label": "VFX 3", "url": "/fx/vfx3.mp3" },
+      { "id": "vfx4", "label": "VFX 4", "url": "/fx/vfx4.mp3" },
+      { "id": "vfx5", "label": "VFX 5", "url": "/fx/vfx5.mp3" },
+      { "id": "vfx6", "label": "VFX 6", "url": "/fx/vfx6.mp3" },
+      { "id": "vfx7", "label": "VFX 7", "url": "/fx/vfx7.mp3" },
+      { "id": "vfx8", "label": "VFX 8", "url": "/fx/vfx8.mp3" }
+    ],
+    "bass": { "notes": ["E1", "E1", "G1", "A1"], "bpm": 120 },
     "reverb": 0.12
   }
 }

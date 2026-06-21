@@ -4,7 +4,7 @@ import { MasterSequencer } from "./MasterSequencer";
 import { Channel } from "./Channel";
 import { Mixer } from "./Mixer";
 import { SynthSource } from "./sources/SynthSource";
-import { SamplerSource, PAD_IDS } from "./sources/SamplerSource";
+import { SamplerSource } from "./sources/SamplerSource";
 import { CHANNELS } from "./sceneConfig";
 import type { SourceLike } from "./Channel";
 import type { AudioConfig } from "../config/appConfig";
@@ -22,6 +22,7 @@ export function createPaEngine() {
     const streams: StreamPlayer[] = [];
     const streamById: Record<string, StreamPlayer> = {};
     let sampler: SamplerSource | null = null;
+    let synthSource: SynthSource | null = null;
     const channels: Channel[] = [];
 
     for (const def of CHANNELS) {
@@ -33,7 +34,8 @@ export function createPaEngine() {
         streamById[def.id] = sp;
         source = sp;
       } else if (def.kind === "synth") {
-        source = new SynthSource(ctx, transport);
+        synthSource = new SynthSource(ctx, transport);
+        source = synthSource;
       } else {
         sampler = new SamplerSource(ctx);
         source = sampler;
@@ -46,6 +48,7 @@ export function createPaEngine() {
     const ui = cell<UiState>({ hudOpen: false });
 
     const capturedSampler = sampler;
+    const capturedSynth = synthSource;
     return {
       transport,
       mixer,
@@ -54,10 +57,10 @@ export function createPaEngine() {
       selectedChannelId,
       ui,
       /**
-       * Apply user-editable audio paths (from config.json): point each stream
-       * channel at its stem, decode the sampler bed + pads, and swap the reverb IR.
-       * Each asset is loaded independently and missing files are skipped (silent),
-       * never throwing.
+       * Apply user-editable audio from config.json: point each stream channel at
+       * its stem, decode the FX pads, set the bass notes/tempo, and swap the reverb
+       * IR + amount. Each asset is loaded independently and missing files are
+       * skipped (silent), never throwing.
        */
       async applyAudioConfig(audio: AudioConfig): Promise<void> {
         for (const [id, sp] of Object.entries(streamById)) {
@@ -73,29 +76,29 @@ export function createPaEngine() {
           }
         };
         if (capturedSampler) {
-          const bed = await decode(audio.sampler.bed);
-          if (bed) capturedSampler.setBedBuffer(bed);
-          for (const id of PAD_IDS) {
-            const buf = await decode(audio.sampler[id]);
-            if (buf) capturedSampler.setPadBuffer(id, buf);
+          for (const pad of audio.fx) {
+            const buf = await decode(pad.url);
+            if (buf) capturedSampler.setPadBuffer(pad.id, buf);
           }
+        }
+        if (capturedSynth && audio.bass) {
+          capturedSynth.setNotes(audio.bass.notes);
+          if (typeof audio.bass.bpm === "number") transport.params.bpm.value = audio.bass.bpm;
         }
         const ir = await decode(audio.reverbIR);
         if (ir) mixer.setReverbBuffer(ir);
         if (typeof audio.reverb === "number") mixer.setReverbWet(audio.reverb);
       },
-      /** Start the gig: transport (synth), stems, sampler bed, and metering. */
+      /** Start the gig: transport (bass), stems, and metering. */
       start(): void {
         transport.start();
         for (const s of streams) void s.play();
-        capturedSampler?.startBed();
         mixer.startMetering();
       },
       /** Stop the gig. */
       stop(): void {
         transport.stop();
         for (const s of streams) s.pause();
-        capturedSampler?.stopBed();
       },
     };
   });
