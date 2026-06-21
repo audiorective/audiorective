@@ -95,7 +95,7 @@ source.output
 
 A `Mixer` (engine-level `AudioProcessor` or controller) owns:
 
-- **Master routing.** Two summing buses: a **room bus** (channels' Spatial outputs → light **convolver reverb** → master gain) and a **headphone bus** (channels' StereoPanner outputs → master gain, dry). The global `headphone` toggle (`Param<boolean>`) crossfades/switches which bus is audible. Headphone ON = headphone bus only (no spatial, no distance, no reverb).
+- **Master routing.** Three summing buses → master: a **room bus** (channels' Spatial outputs — the dry, distance-attenuated direct sound), an **aux bus** (channels' _pre-panner_ `auxOut` taps → **convolver reverb** → wet), and a **headphone bus** (channels' StereoPanner outputs, dry). The global `headphone` toggle (`Param<boolean>`) mutes room **and** aux (the whole "room" experience) and unmutes phones; in-room it's the reverse. **Reverb is an aux send, not an insert on the room bus** — feeding it pre-panner makes the wet level distance-independent, so the wet/dry ratio rises with distance (wetter when far, drier when near) instead of tracking the dry. Headphone ON = headphone bus only (no spatial, no distance, no reverb). Reverb amount (`wet`) is configurable via `audio.reverb` / `Mixer.setReverbWet`.
 - **Headphone stereo "mixdown."** Each channel's StereoPanner `pan` is derived from the drone's horizontal position in a **fixed stage-center frame** (azimuth → −1..+1), independent of where the player walks/looks — so the monitor image is stable, the hallmark of "headphones, not the room." Computed per channel via `computed()`/`effect()` from its `position` cell.
 - **Solo/mute resolution.** A `computed`/`effect` over all channels' `muted`/`soloed`: if any channel is soloed, only soloed channels' effective gain is non-zero; otherwise muted channels are silenced. Writes each channel's effective mix gain.
 - **Metering loop.** A single RAF loop (engine-side) reads every channel's analyser (RMS/peak) and writes `channel.level` cells (~30 Hz). One loop for all channels, mirroring how `ParamSync` centralizes its RAF.
@@ -216,7 +216,7 @@ Per the architecture rule — audio behaviors must run headless:
 1. Cyber **audio-drone** theme; drones are the whole show (no human band); empty neon stage.
 2. **6 channels:** Guitar 1, Guitar 2, Drums, Bass = StreamPlayer stems; Synth = synth source; Sampler = SoundPlayer (loop + key/pad one-shots).
 3. **Unified spatial model:** one `Spatial` per channel; `position` cell = shared source of truth; PlayCanvas renders + `bindPanner`, three.js widget controls.
-4. **Headphone = full dry mix (Option A)** but with a **stereo mixdown** (per-channel `StereoPanner` from fixed-frame azimuth); bypasses HRTF, distance, and a light **master room reverb**.
+4. **Headphone = full dry mix (Option A)** but with a **stereo mixdown** (per-channel `StereoPanner` from fixed-frame azimuth); bypasses HRTF, distance, and the room reverb. **Reverb is a pre-panner aux send** (distance-independent wet) so wet/dry rises with distance; configurable amount via `audio.reverb`.
 5. **iPad HUD:** toggleable, semi-transparent; bottom-left menu → compact Cubase-style channel strip → `[EQ]`/`[Panning]` open dedicated panels; `[Mixer]` → content-width compact mixer; `🎧 Phones` + `Hide` top-right.
 6. **Meter** = per-channel `AnalyserNode` tap, centralized metering loop.
 7. **Replace** all three existing showroom demos with this single app; update README/docs accordingly.

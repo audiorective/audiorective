@@ -44,7 +44,10 @@ Structure (each section grounded in the PA simulator as the running example; kee
 6. **Build the headless audio core first.** Implement & unit-test the entire graph — channels, buses, routing, scheduling, metering — with no DOM/renderer. **Litmus:** it runs in a browser-mode unit test. Then layer renderers/UI. Reference the PA simulator's Phase 1 (audio core) vs Phase 2–3 (renderers/UI) split as the concrete embodiment.
 7. **Choose the right source per role.** `StreamPlayer` (long-form/streamed), `SoundPlayer`/`Voice` (one-shots + loops), an `AudioProcessor` synth (generated) — unified behind a source-agnostic channel strip. Note the tradeoff captured in this project: cross-source clock drift is accepted for a demo.
 8. **Integrate renderers via the binding packages.** One `AudioContext`; `attach` to share it; `bindPanner`/`PannerAnchor` to drive panners from scene transforms; keep control-only views (the three.js EQ/pan widgets) free of audio nodes (no `THREE.AudioListener`).
-9. **A short checklist** the reader can apply to their own app (one line per step above).
+9. **Worked-example pitfalls** (real bugs caught building this app — concrete > abstract):
+   - **Reverb that tracks volume instead of distance.** Feeding the reverb from the _post-panner_ (distance-attenuated) signal keeps the wet/dry ratio constant — it just gets louder up close. Fix: a _pre-panner aux send_ so the wet is distance-independent and the ratio opens up as you back away. Lesson: model the physical reality (a diffuse reverberant field is listener-position-independent), not the convenient wiring.
+   - **Headless audio tests need a path to `ctx.destination`.** An `AudioParam` ramp won't advance `.value` if its node subgraph isn't connected to the destination (the browser doesn't render a dead branch). Connect to `ctx.destination` in the test, mirroring real usage.
+10. **A short checklist** the reader can apply to their own app (one line per step above).
 
 Keep it tight and skimmable (tables, short code/pseudocode snippets pulled from the real app where they clarify). Cross-link `core.md`, `architecture.md`, `react.md`, `playcanvas.md`, `threejs.md`.
 
