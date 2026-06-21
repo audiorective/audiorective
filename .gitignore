@@ -30,3 +30,6 @@ coverage/
 
 # Turbo / cache
 .turbo/
+
+# Brainstorming companion mockups
+.superpowers/

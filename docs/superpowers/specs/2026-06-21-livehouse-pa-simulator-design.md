@@ -129,6 +129,15 @@ Toggleable (icon click or keystroke, e.g. `Tab`), semi-transparent over the live
 
 Adapted from the Sequencer's `SpatialScene`. A small orbit view: listener at center, the **selected** drone as a draggable dot (others faint, read-only, for context). Drag maps to a bounded world volume and writes `channel.position`. Pure visual three.js (`WebGLRenderer` + scene); **no audio nodes**. Reads `selectedChannelId` and positions via `effect`.
 
+### 5.4 Keybindings (configurable)
+
+All keyboard input goes through a single keymap rather than hardcoded key checks — keys are configurable; the user supplies the defaults.
+
+- **`config/keymap.ts`** maps **actions** → key(s): `{ action: KeyCode | KeyCode[] }`. Actions cover at least: movement (`forward`/`back`/`left`/`right`), `toggleHud`, `toggleHeadphone`, and the sampler pads (`pad1`…`pad4` / `boom`/`riser`/`airhorn`/`applause`). An action may bind multiple keys (e.g. `W` and `ArrowUp`).
+- **Defaults: TBD — to be provided by the user.** Until then the map holds placeholder defaults; the structure is fixed, the values are not.
+- Consumers resolve through the keymap, never literal codes: the PlayCanvas controller (movement), the HUD (`toggleHud`/`toggleHeadphone`), and the sampler pads (trigger). A small `matchAction(event, keymap)` helper does the lookup so every consumer reads keys the same way.
+- The keymap is plain config (no audio meaning) — it is **not** engine state. It can be imported directly, or swapped at runtime later if we ever add a settings UI (out of scope now).
+
 ## 6. Module layout
 
 The showroom becomes a single-page app (drop the MPA picker + per-demo entries).
@@ -139,6 +148,8 @@ apps/showroom/
   vite.config.ts                  # SPA (remove MPA rollup inputs)
   src/
     main.tsx
+    config/
+      keymap.ts                   # central action→key map + defaults (see §5.4)
     audio/
       engine.ts                   # createEngine: Mixer + 6 Channels + shared cells; EngineProvider/useEngine
       Mixer.ts                    # master buses, headphone routing, solo/mute, metering loop, reverb
@@ -206,6 +217,7 @@ Per the architecture rule — audio behaviors must run headless:
 6. **Meter** = per-channel `AnalyserNode` tap, centralized metering loop.
 7. **Replace** all three existing showroom demos with this single app; update README/docs accordingly.
 8. Renderers: **PlayCanvas** = world, **React** = HUD, **three.js** = EQ + panning controllers; one shared `AudioContext`; no audio state in any UI layer.
+9. **Keybindings configurable** via a central `config/keymap.ts` (action→key); no hardcoded keys. Defaults to be provided by the user.
 
 ```
 
