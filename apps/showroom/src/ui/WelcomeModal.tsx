@@ -36,7 +36,15 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
     <div style={backdrop} onClick={onClose}>
       <div style={card} onClick={(e) => e.stopPropagation()}>
         <h2 style={title}>🎚️ You're tonight's PA tech</h2>
-        <p style={sub}>Mix the band of audio drones from your iPad. Here's how it works:</p>
+        <p style={sub}>Mix the band of audio drones from your iPad.</p>
+
+        <div style={about}>
+          A showroom for <b>audiorective</b>, a toolkit for building web audio apps. One reactive audio engine drives three renderers at once —{" "}
+          <b>React</b> (this HUD), <b>three.js</b> (the EQ &amp; 3D pan widgets), and <b>PlayCanvas</b> (the 3D venue) — all sharing one{" "}
+          <code style={code}>AudioContext</code>, with no duplicated state.
+        </div>
+
+        <p style={{ ...sub, margin: "0 0 14px" }}>Here's how it works:</p>
 
         <div style={row}>
           <div style={head}>Walk &amp; look</div>
@@ -98,7 +106,18 @@ const card: CSSProperties = {
   boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
 };
 const title: CSSProperties = { margin: "0 0 4px", fontSize: 20, color: "#e6f6ff" };
-const sub: CSSProperties = { margin: "0 0 16px", color: "#9ab", fontSize: 13 };
+const sub: CSSProperties = { margin: "0 0 12px", color: "#9ab", fontSize: 13 };
+const about: CSSProperties = {
+  margin: "0 0 16px",
+  padding: "10px 12px",
+  background: "#0e1626",
+  border: "1px solid #22d3ee33",
+  borderRadius: 6,
+  color: "#aac",
+  fontSize: 12.5,
+  lineHeight: 1.55,
+};
+const code: CSSProperties = { background: "#1a1d2b", border: "1px solid #3a3f55", borderRadius: 3, padding: "0 4px", fontSize: 11, color: "#cde" };
 const row: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "84px 1fr",
