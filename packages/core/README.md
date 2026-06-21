@@ -134,6 +134,76 @@ class Mixer extends AudioProcessor<{
 }
 ```
 
+## SoundPlayer
+
+Buffer-backed polyphonic player. `trigger()` spawns a voice; voices overlap up to the `polyphony` cap. Best for SFX, one-shots, percussion, and short loops.
+
+```typescript
+import { SoundPlayer, AudioBufferCache } from "@audiorective/core";
+
+const cache = new AudioBufferCache(ctx);
+const player = new SoundPlayer(ctx, { polyphony: 4 });
+player.output.connect(ctx.destination);
+
+player.buffer = await cache.load("/sounds/kick.wav");
+
+const voice = player.trigger({ volume: 0.8 });
+voice.onEnded(() => console.log("done"));
+
+// polyphony 1 + steal "oldest" → restart on retrigger (default pad behaviour)
+// polyphony 1 + steal "none"   → ignore while playing
+// polyphony N                  → bounded overlap
+
+player.stopAll();
+player.destroy();
+```
+
+`trigger()` returns a `Voice` handle for per-voice control (`voice.stop()`, `voice.pause()`, `voice.resume()`, `voice.seek()`, `voice.volume =`, `voice.rate =`). It returns `null` when no buffer is set or `steal: "none"` drops the voice.
+
+## loadAudioBuffer / AudioBufferCache
+
+Fetch, decode, and cache `AudioBuffer`s for `SoundPlayer`.
+
+```typescript
+import { loadAudioBuffer, AudioBufferCache } from "@audiorective/core";
+
+// one-shot
+const buffer = await loadAudioBuffer(ctx, "/sounds/snare.wav");
+
+// cached — dedupes concurrent loads, evicts on failure
+const cache = new AudioBufferCache(ctx);
+const buf = await cache.load("/sounds/snare.wav"); // second call returns same instance
+cache.clear();
+```
+
+## StreamPlayer
+
+Streaming track player backed by `HTMLAudioElement`. Single playhead; use for music and long-form audio where full decode into `AudioBuffer` would be prohibitive.
+
+```typescript
+import { StreamPlayer } from "@audiorective/core";
+
+const player = new StreamPlayer(ctx, { src: "/music/track.mp3", volume: 0.8 });
+player.output.connect(ctx.destination);
+
+await player.play();
+player.pause();
+player.seek(30); // jump to 30 s
+player.stop(); // pause + rewind
+
+player.src = "/music/other.mp3"; // swap track at any time
+
+// reactive cells for UI binding
+player.cells.isPlaying; // Cell<boolean>
+player.cells.currentTime; // Cell<number>
+player.cells.duration; // Cell<number> — NaN until metadata loads
+
+player.onEnded(() => console.log("track ended"));
+player.destroy();
+```
+
+`play()` silently swallows autoplay-gesture errors and `AbortError`s — it's safe to call unconditionally. Gate on `player.cells.isPlaying` to react to actual state.
+
 ## AudioEngine & createEngine
 
 Lifecycle management for the audio context and processor graph.

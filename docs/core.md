@@ -324,6 +324,196 @@ Position/orientation are plain `AudioParam`s on `spatial.panner`. Drive them dir
 
 ---
 
+## Sound Playback
+
+Two primitives cover audio playback. Choose based on the nature of your source:
+
+|               | `SoundPlayer`                                      | `StreamPlayer`                                       |
+| ------------- | -------------------------------------------------- | ---------------------------------------------------- |
+| **Metaphor**  | Drum pad                                           | Transport / track                                    |
+| **Source**    | `AudioBuffer` (fully decoded in memory)            | `HTMLAudioElement` (streams; no full decode)         |
+| **Voices**    | Polyphonic — `trigger()` spawns overlapping voices | Single playhead — play / pause / seek / stop         |
+| **Good for**  | SFX, one-shots, loops, percussion                  | Music, podcasts, long-form, scrubbing                |
+| **API entry** | `player.trigger()`                                 | `player.play()` / `player.pause()` / `player.seek()` |
+
+Both are output-only `AudioProcessor`s. Compose them by routing `player.output` through `Spatial`, an EQ, or directly to `ctx.destination`.
+
+### `loadAudioBuffer` / `AudioBufferCache`
+
+Before a `SoundPlayer` can play anything it needs an `AudioBuffer`. Two helpers handle fetching and decoding:
+
+```typescript
+import { loadAudioBuffer, AudioBufferCache } from "@audiorective/core";
+
+// one-shot fetch + decode
+const buffer = await loadAudioBuffer(ctx, "/sounds/snare.wav");
+
+// cached — dedupes concurrent loads, evicts on failure
+const cache = new AudioBufferCache(ctx);
+const [kick, snare] = await Promise.all([cache.load("/sounds/kick.wav"), cache.load("/sounds/snare.wav")]);
+cache.clear(); // drop all cached entries
+```
+
+`AudioBufferCache.load()` is safe to call multiple times with the same URL — concurrent callers share the in-flight request and receive the same resolved `AudioBuffer`.
+
+### SoundPlayer
+
+Buffer-backed polyphonic player. Each `trigger()` call spawns a voice; voices overlap according to the `polyphony` cap and `steal` policy. No transport or playhead — pure fire-and-forget (or fire-and-control via the returned `Voice` handle).
+
+```typescript
+import { SoundPlayer, AudioBufferCache } from "@audiorective/core";
+
+const cache = new AudioBufferCache(ctx);
+const player = new SoundPlayer(ctx, { polyphony: 4, loop: false });
+player.output.connect(ctx.destination);
+
+player.buffer = await cache.load("/sounds/kick.wav");
+
+// fire a voice
+const voice = player.trigger();
+
+// per-voice control
+const voice2 = player.trigger({ volume: 0.5, rate: 1.2 });
+voice2.stop();
+
+// silence everything
+player.stopAll();
+player.destroy();
+```
+
+**Constructor options** (`SoundPlayerOptions`):
+
+| Option         | Type                  | Default    | Description                                    |
+| -------------- | --------------------- | ---------- | ---------------------------------------------- |
+| `buffer`       | `AudioBuffer \| null` | `null`     | Initial buffer (hot-swappable via `.buffer =`) |
+| `loop`         | `boolean`             | `false`    | Loop voices by default                         |
+| `playbackRate` | `number`              | `1`        | Default playback rate                          |
+| `volume`       | `number`              | `1`        | Output gain 0–1                                |
+| `polyphony`    | `number`              | `1`        | Maximum simultaneous voices                    |
+| `steal`        | `"oldest" \| "none"`  | `"oldest"` | What happens when `polyphony` is exceeded      |
+
+**Polyphony / steal matrix:**
+
+| `polyphony` | `steal`    | Behaviour                                                         |
+| ----------- | ---------- | ----------------------------------------------------------------- |
+| `1`         | `"oldest"` | Each `trigger()` restarts — classic one-shot pad                  |
+| `1`         | `"none"`   | First voice plays to completion; retriggering is silently dropped |
+| `N`         | `"oldest"` | Up to N overlapping voices; oldest stolen when cap hit            |
+| `N`         | `"none"`   | Up to N overlapping voices; excess triggers dropped               |
+
+**Public surface:**
+
+```typescript
+player.buffer: AudioBuffer | null      // hot-swap at any time
+player.output: AudioNode               // summing gain; connect → Spatial / destination
+player.params.volume: SchedulableParam // output gain 0..1
+player.cells.activeVoices: Cell<number>// reactive voice count
+
+player.trigger(opts?: TriggerOptions): Voice | null
+// Returns null when no buffer is set, or steal:"none" drops the voice.
+player.stopAll(when?: number): void
+player.destroy(): void
+```
+
+**`TriggerOptions`** (all optional):
+
+```typescript
+interface TriggerOptions {
+  offset?: number; // start position in seconds (default 0)
+  duration?: number; // max play time; omit to play to end / loop
+  when?: number; // AudioContext time to start (default: now)
+  rate?: number; // playback rate override
+  volume?: number; // per-voice gain override
+  loop?: boolean; // per-voice loop override
+}
+```
+
+### Voice
+
+`trigger()` returns a `Voice` — a per-voice handle for real-time control. You never construct `Voice` directly.
+
+```typescript
+const voice = player.trigger({ volume: 0.8 });
+
+voice.stop(); // stop now (or schedule: voice.stop(ctx.currentTime + 2))
+voice.pause();
+voice.resume();
+voice.seek(1.5); // jump to 1.5 s
+voice.currentTime; // current position (loop-aware)
+voice.duration; // buffer duration in seconds
+voice.isPlaying; // boolean
+voice.volume = 0.5; // live gain change
+voice.rate = 0.75; // live rate change
+voice.onEnded(() => console.log("done")); // fires once on natural end or stop()
+```
+
+### StreamPlayer
+
+Streaming track player backed by `HTMLAudioElement`. Suitable for music and long-form audio where fully decoding into an `AudioBuffer` would be prohibitive. Has a single playhead; use `SoundPlayer` when you need polyphony.
+
+```typescript
+import { StreamPlayer } from "@audiorective/core";
+
+const player = new StreamPlayer(ctx, { src: "/music/track.mp3", volume: 0.8 });
+player.output.connect(ctx.destination);
+
+await player.play(); // also resumes after pause
+player.pause();
+player.seek(30); // jump to 30 s
+player.stop(); // pause + rewind to 0
+
+player.src = "/music/other.mp3"; // swap track; resets currentTime / duration
+
+player.onEnded(() => console.log("track finished")); // natural end only
+
+player.destroy();
+```
+
+**Constructor options** (`StreamPlayerOptions`):
+
+| Option         | Type                         | Default       | Description                         |
+| -------------- | ---------------------------- | ------------- | ----------------------------------- |
+| `src`          | `string`                     | —             | Initial source URL                  |
+| `loop`         | `boolean`                    | `false`       | Loop playback                       |
+| `volume`       | `number`                     | `1`           | Output gain 0–1                     |
+| `playbackRate` | `number`                     | `1`           | Playback rate                       |
+| `crossOrigin`  | `string \| null`             | `"anonymous"` | CORS attribute on the audio element |
+| `preload`      | `"none"\|"metadata"\|"auto"` | `"metadata"`  | `<audio>` preload hint              |
+
+**Public surface:**
+
+```typescript
+player.audio: HTMLAudioElement         // escape hatch for direct DOM access
+player.output: AudioNode               // MediaElementSource → connect here
+player.src: string | null              // getter/setter; setter loads + resets state
+player.params.volume: SchedulableParam
+player.cells.isPlaying: Cell<boolean>
+player.cells.currentTime: Cell<number>
+player.cells.duration: Cell<number>    // NaN until loadedmetadata fires
+
+// setters
+player.loop = true;
+player.playbackRate = 1.5;
+
+player.play(): Promise<void>   // swallows autoplay-gesture + AbortError
+player.pause(): void
+player.seek(t: number): void
+player.stop(): void            // pause + seek(0)
+player.onEnded(cb: () => void): void
+player.destroy(): void
+```
+
+**`play()` swallows two error classes silently:** autoplay-gesture errors (browser blocked playback before a user gesture) and `AbortError` (the element was replaced or unloaded mid-play). Surface-level calls remain fire-and-forget for the common case; gate on `player.cells.isPlaying` to react to actual state.
+
+```typescript
+// React example — bind transport cells to UI
+const isPlaying = useValue(player.cells.isPlaying);
+const currentTime = useValue(player.cells.currentTime);
+const duration = useValue(player.cells.duration);
+```
+
+---
+
 ## Usage Examples
 
 ### Basic Processor with AudioParam Binding
@@ -589,13 +779,30 @@ signals/src/
 ```typescript
 // Classes
 export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell, Spatial };
+export { SoundPlayer, StreamPlayer, Voice };
+export { AudioBufferCache };
 
 // Factories
 export { createEngine, cell };
+export { loadAudioBuffer };
 
 // Constants
 export { DEFAULT_SYNC_INTERVAL_MS };
 
 // Types
-export type { ParamBind, ParamOptions, EngineState, Readable, SignalAccessor, ComputedAccessor, BuildHelpers, BuildResult, SpatialOptions };
+export type {
+  ParamBind,
+  ParamOptions,
+  EngineState,
+  Readable,
+  SignalAccessor,
+  ComputedAccessor,
+  BuildHelpers,
+  BuildResult,
+  SpatialOptions,
+  SoundPlayerOptions,
+  TriggerOptions,
+  VoiceOptions,
+  StreamPlayerOptions,
+};
 ```
