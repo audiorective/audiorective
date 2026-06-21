@@ -1254,12 +1254,12 @@ Change the MasterSequencer import to:
 import { MasterSequencer } from "../src/audio/MasterSequencer";
 ```
 
-- [ ] **Step 5: Run the audio suite + typecheck**
+- [ ] **Step 5: Run the moved-module tests only (do NOT full-typecheck yet)**
 
 Run: `pnpm --filter @audiorective/showroom test -- --run synthSource engine`
 Expected: PASS.
-Run: `pnpm --filter @audiorective/showroom typecheck`
-Expected: no errors. (`examples/` still imports its own copies elsewhere — that whole tree is deleted next task.)
+
+> ⚠️ Do **not** run `pnpm typecheck` here. Moving `StepSynth`/`MasterSequencer` out of `examples/` breaks the still-present old sequencer demo's imports, so a full typecheck will fail **until Task 11 deletes `examples/`**. The targeted tests above don't touch `examples/`, so they're the right gate for this step. The full typecheck runs (clean) in Task 11 Step 3, after the deletion.
 
 - [ ] **Step 6: Commit**
 
@@ -1319,8 +1319,10 @@ Replace the three-bullet "Examples" list (Step Sequencer / Spatial Music Room / 
 
 - [ ] **Step 6: Commit**
 
+> Do **NOT** `git add -A` — the user may be concurrently adding audio assets under `apps/showroom/public/`, and a blanket add would sweep those binaries into this commit. The deletions are already staged by the `git rm` calls in Step 1; stage only the modified files explicitly.
+
 ```bash
-git add -A apps/showroom README.md
+git add apps/showroom/vite.config.ts README.md
 git commit -m "feat(showroom): replace the three demos with the Livehouse PA Simulator"
 ```
 
