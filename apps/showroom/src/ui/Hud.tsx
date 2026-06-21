@@ -2,35 +2,31 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useValue } from "@audiorective/react";
 import { engine } from "../audio/engine";
 import { matchAction } from "../config/appConfig";
-import { ChannelMenu } from "./ChannelMenu";
-import { ChannelStrip } from "./ChannelStrip";
 import { EqPanel } from "./EqPanel";
 import { PanningPanel } from "./PanningPanel";
 import { MixerPanel } from "./MixerPanel";
 import { PadPanel } from "./PadPanel";
-
-type View = { kind: "none" } | { kind: "channel"; id: string } | { kind: "eq"; id: string } | { kind: "panning"; id: string } | { kind: "mixer" };
+import { DraggablePanel } from "./DraggablePanel";
 
 export function Hud() {
-  const [open, setOpen] = useState(false);
-  const [view, setView] = useState<View>({ kind: "none" });
+  const [eqOpen, setEqOpen] = useState(false);
+  const [panOpen, setPanOpen] = useState(false);
   const headphone = useValue(engine.mixer.params.headphone);
+  const selectedId = useValue(engine.selectedChannelId);
+  const selectedLabel = engine.channels.find((c) => c.id === selectedId)?.label ?? "";
 
-  // Mirror HUD visibility into shared engine state (scene reads it for pointer-lock).
+  // A floating panel being open means the player is mixing, not walking — let the
+  // scene release pointer-lock so the cursor can drive the panels.
   useEffect(() => {
+    const open = eqOpen || panOpen;
     engine.ui.update((d) => {
       d.hudOpen = open;
     });
-  }, [open]);
+  }, [eqOpen, panOpen]);
 
-  // Global keys: toggle HUD, toggle headphone.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const action = matchAction(e);
-      if (action === "toggleHud") {
-        e.preventDefault();
-        setOpen((o) => !o);
-      } else if (action === "toggleHeadphone") {
+      if (matchAction(e) === "toggleHeadphone") {
         e.preventDefault();
         engine.mixer.params.headphone.value = !engine.mixer.params.headphone.value;
       }
@@ -39,15 +35,9 @@ export function Hud() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const selectChannel = (id: string) => {
-    engine.selectedChannelId.value = id;
-    setView({ kind: "channel", id });
-    setOpen(true);
-  };
-
   return (
     <>
-      {/* Always-visible top-right cluster */}
+      {/* Top-right: global headphone monitor toggle. */}
       <div style={cluster}>
         <button
           style={{ ...chip, ...(headphone ? { background: "rgba(234,179,8,0.3)", color: "#fff" } : {}) }}
@@ -55,77 +45,46 @@ export function Hud() {
         >
           🎧 Phones
         </button>
-        <button style={chip} onClick={() => setOpen((o) => !o)}>
-          {open ? "✕ Hide" : "☰ Mix"}
-        </button>
       </div>
 
-      {open && (
-        <>
-          {/* Bottom-left menu */}
-          <div style={menuSlot}>
-            <ChannelMenu
-              activeView={view.kind === "channel" ? { kind: "channel", id: view.id } : view.kind === "mixer" ? { kind: "mixer" } : { kind: "none" }}
-              onSelectChannel={selectChannel}
-              onOpenMixer={() => setView({ kind: "mixer" })}
-            />
-          </div>
+      {/* Always-on mixer (bottom). */}
+      <MixerPanel onOpenEq={() => setEqOpen(true)} onOpenPan={() => setPanOpen(true)} />
 
-          {/* Active panel */}
-          {view.kind === "channel" && (
-            <div style={stripSlot}>
-              <ChannelStrip
-                channel={engine.channels.find((c) => c.id === view.id)!}
-                onOpenEq={() => setView({ kind: "eq", id: view.id })}
-                onOpenPanning={() => setView({ kind: "panning", id: view.id })}
-              />
-            </div>
-          )}
-          {view.kind === "eq" && (
-            <div style={bigPanel}>
-              <PanelHeader title="EQ" onBack={() => setView({ kind: "channel", id: view.id })} />
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <EqPanel />
-              </div>
-            </div>
-          )}
-          {view.kind === "panning" && (
-            <div style={bigPanel}>
-              <PanelHeader title="Panning" onBack={() => setView({ kind: "channel", id: view.id })} />
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <PanningPanel />
-              </div>
-            </div>
-          )}
-          {view.kind === "mixer" && (
-            <div style={mixerSlot}>
-              <MixerPanel />
-            </div>
-          )}
+      {/* Sampler pads (always available). */}
+      <div style={padSlot}>
+        <PadPanel />
+      </div>
 
-          {/* Sampler pads (always available while HUD is open) */}
-          <div style={padSlot}>
-            <PadPanel />
-          </div>
-        </>
+      {eqOpen && (
+        <DraggablePanel
+          id="eq"
+          title={`EQ · ${selectedLabel}`}
+          onClose={() => setEqOpen(false)}
+          defaultPos={{ x: 80, y: 90 }}
+          width={380}
+          height={260}
+        >
+          <EqPanel />
+        </DraggablePanel>
+      )}
+      {panOpen && (
+        <DraggablePanel id="pan" title="Panning (3D)" onClose={() => setPanOpen(false)} defaultPos={{ x: 480, y: 90 }} width={420} height={340}>
+          <PanningPanel />
+        </DraggablePanel>
       )}
     </>
   );
 }
 
-function PanelHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-      <span style={{ color: "#22d3ee", fontSize: 12 }}>{title}</span>
-      <button style={chip} onClick={onBack}>
-        ◀ Back
-      </button>
-    </div>
-  );
-}
-
-const base: CSSProperties = { position: "fixed", fontFamily: "system-ui, sans-serif", pointerEvents: "none" };
-const cluster: CSSProperties = { ...base, top: 12, right: 12, display: "flex", gap: 6, pointerEvents: "auto" };
+const cluster: CSSProperties = {
+  position: "fixed",
+  top: 12,
+  right: 12,
+  display: "flex",
+  gap: 6,
+  pointerEvents: "auto",
+  fontFamily: "system-ui, sans-serif",
+};
 const chip: CSSProperties = {
   background: "rgba(8,10,18,0.82)",
   border: "1px solid #22d3ee44",
@@ -135,22 +94,4 @@ const chip: CSSProperties = {
   fontSize: 12,
   cursor: "pointer",
 };
-const menuSlot: CSSProperties = { ...base, left: 12, bottom: 12, pointerEvents: "auto" };
-const stripSlot: CSSProperties = { ...base, left: 130, bottom: 12, pointerEvents: "auto" };
-const bigPanel: CSSProperties = {
-  ...base,
-  left: "50%",
-  top: "50%",
-  transform: "translate(-50%,-50%)",
-  width: "min(60vw, 560px)",
-  height: "min(50vh, 360px)",
-  background: "rgba(8,10,18,0.9)",
-  border: "1px solid #22d3ee66",
-  borderRadius: 8,
-  padding: 10,
-  display: "flex",
-  flexDirection: "column",
-  pointerEvents: "auto",
-};
-const mixerSlot: CSSProperties = { ...base, left: 130, bottom: 12, pointerEvents: "auto" };
-const padSlot: CSSProperties = { ...base, right: 12, bottom: 12, pointerEvents: "auto" };
+const padSlot: CSSProperties = { position: "fixed", right: 12, bottom: 12, pointerEvents: "auto", fontFamily: "system-ui, sans-serif" };

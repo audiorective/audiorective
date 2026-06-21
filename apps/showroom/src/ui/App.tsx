@@ -7,7 +7,7 @@ import { Hud } from "./Hud";
 
 function Hint() {
   const state = useValue<EngineState>(engine.core.state);
-  const text = state !== "running" ? "Click to enter the livehouse (enables audio)" : "WASD to move · click a drone to select it";
+  const text = state !== "running" ? "Click to enter the livehouse (enables audio)" : "Click scene to walk (WASD + mouse) · Esc to mix";
   return <div style={hintStyle}>{text}</div>;
 }
 
@@ -23,7 +23,7 @@ export function App() {
 
 const hintStyle: CSSProperties = {
   position: "fixed",
-  bottom: 24,
+  top: 14,
   left: "50%",
   transform: "translateX(-50%)",
   padding: "8px 14px",

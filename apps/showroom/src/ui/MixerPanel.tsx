@@ -5,61 +5,131 @@ import type { Channel } from "../audio/Channel";
 import { Fader } from "./Fader";
 import { Meter } from "./Meter";
 
-function MiniStrip({ channel }: { channel: Channel }) {
+interface Props {
+  onOpenEq: (channelId: string) => void;
+  onOpenPan: () => void;
+}
+
+function ChannelColumn({ channel, selected, onOpenEq }: { channel: Channel; selected: boolean; onOpenEq: (id: string) => void }) {
   const muted = useValue(channel.params.muted);
   const soloed = useValue(channel.params.soloed);
   return (
-    <div style={col}>
-      <div style={{ display: "flex", gap: 4, height: 80 }}>
-        <Fader param={channel.params.volume} height={80} />
-        <Meter level={channel.cells.level} height={80} />
+    <div style={{ ...col, ...(selected ? { background: "#ffffff10", borderColor: channel.color } : {}) }}>
+      <button style={{ ...nameTag, background: channel.color }} onClick={() => (engine.selectedChannelId.value = channel.id)}>
+        {channel.label}
+      </button>
+      <button
+        style={eqBtn}
+        onClick={() => {
+          engine.selectedChannelId.value = channel.id;
+          onOpenEq(channel.id);
+        }}
+      >
+        EQ
+      </button>
+      <div style={{ display: "flex", gap: 4, height: 78 }}>
+        <Fader param={channel.params.volume} height={78} />
+        <Meter level={channel.cells.level} height={78} />
       </div>
-      <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
-        <button style={{ ...mini, ...(muted ? { background: "#dc2626", color: "#fff" } : {}) }} onClick={() => (channel.params.muted.value = !muted)}>
+      <div style={{ display: "flex", gap: 2, marginTop: 3, width: "100%" }}>
+        <button style={{ ...ms, ...(muted ? { background: "#dc2626", color: "#fff" } : {}) }} onClick={() => (channel.params.muted.value = !muted)}>
           M
         </button>
         <button
-          style={{ ...mini, ...(soloed ? { background: "#eab308", color: "#180c02" } : {}) }}
+          style={{ ...ms, ...(soloed ? { background: "#eab308", color: "#180c02" } : {}) }}
           onClick={() => (channel.params.soloed.value = !soloed)}
         >
           S
         </button>
       </div>
-      <div style={{ ...tag, background: channel.color }}>{channel.label.slice(0, 4)}</div>
     </div>
   );
 }
 
-export function MixerPanel() {
+export function MixerPanel({ onOpenEq, onOpenPan }: Props) {
+  const selectedId = useValue(engine.selectedChannelId);
   const masterVol = useValue(engine.mixer.params.masterVolume);
   return (
-    <div style={panel}>
+    <div style={bar}>
       {engine.channels.map((c) => (
-        <MiniStrip key={c.id} channel={c} />
+        <ChannelColumn key={c.id} channel={c} selected={c.id === selectedId} onOpenEq={onOpenEq} />
       ))}
-      <div style={{ ...col, borderLeft: "1px solid #ffffff22", paddingLeft: 6 }}>
-        <div style={{ display: "flex", gap: 4, height: 80 }}>
-          <Fader param={engine.mixer.params.masterVolume} height={80} />
-          <Meter level={engine.mixer.cells.masterLevel} height={80} />
+
+      {/* Common section: one Pan button (opens the panning panel for the selected drone) + master. */}
+      <div style={{ ...col, borderLeft: "1px solid #ffffff22", paddingLeft: 8, width: 56 }}>
+        <button style={panBtn} onClick={onOpenPan}>
+          ⊹ Pan
+        </button>
+        <div style={{ display: "flex", gap: 4, height: 78, marginTop: 2 }}>
+          <Fader param={engine.mixer.params.masterVolume} height={78} />
+          <Meter level={engine.mixer.cells.masterLevel} height={78} />
         </div>
-        <div style={{ ...tag, border: "1px solid #eab30855", color: "#eab308", marginTop: 18 }}>MST {Math.round(masterVol * 100)}</div>
+        <div style={{ ...nameTag, border: "1px solid #eab30855", color: "#eab308", background: "transparent", marginTop: 3 }}>
+          MST {Math.round(masterVol * 100)}
+        </div>
       </div>
     </div>
   );
 }
 
-const panel: CSSProperties = {
+const bar: CSSProperties = {
+  position: "fixed",
+  left: "50%",
+  bottom: 12,
+  transform: "translateX(-50%)",
   display: "inline-flex",
   gap: 6,
   padding: 8,
   background: "rgba(8,10,18,0.92)",
   border: "1px solid #22d3ee55",
-  borderRadius: 6,
+  borderRadius: 8,
   pointerEvents: "auto",
   fontFamily: "system-ui, sans-serif",
 };
-const col: CSSProperties = { width: 34, display: "flex", flexDirection: "column", alignItems: "center", fontSize: 9, color: "#9be" };
-const mini: CSSProperties = {
+const col: CSSProperties = {
+  width: 48,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 3,
+  fontSize: 9,
+  color: "#9be",
+  border: "1px solid transparent",
+  borderRadius: 4,
+  padding: "3px 2px",
+};
+const nameTag: CSSProperties = {
+  width: "100%",
+  textAlign: "center",
+  borderRadius: 2,
+  color: "#06140a",
+  fontSize: 9,
+  fontWeight: 600,
+  border: "none",
+  cursor: "pointer",
+  padding: "2px 0",
+};
+const eqBtn: CSSProperties = {
+  width: "100%",
+  background: "#0c0c16",
+  border: "1px solid #22d3ee55",
+  color: "#22d3ee",
+  borderRadius: 2,
+  fontSize: 9,
+  cursor: "pointer",
+  padding: "2px 0",
+};
+const panBtn: CSSProperties = {
+  width: "100%",
+  background: "#1a1230",
+  border: "1px solid #a855f7",
+  color: "#c084fc",
+  borderRadius: 3,
+  fontSize: 10,
+  cursor: "pointer",
+  padding: "4px 0",
+};
+const ms: CSSProperties = {
   flex: 1,
   fontSize: 9,
   background: "#1a1a2e",
@@ -68,4 +138,3 @@ const mini: CSSProperties = {
   borderRadius: 2,
   cursor: "pointer",
 };
-const tag: CSSProperties = { marginTop: 3, width: "100%", textAlign: "center", borderRadius: 2, color: "#06140a", fontSize: 9 };
