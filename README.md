@@ -35,11 +35,7 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 ## Examples
 
-[apps/showroom](./apps/showroom) — a gallery of demos built with `@audiorective/core`, `@audiorective/react`, `@audiorective/threejs`, and `@audiorective/playcanvas`:
-
-- **Step Sequencer** — five-track step sequencer with melodic synths, kick, snare, and hihat, plus spatial panning in a three.js scene.
-- **Spatial Music Room** — first-person 3D room with a CD player and a positional speaker; turn the camera to hear the panning shift, with transport and 3-band EQ on the player.
-- **Spatial Music Room (PlayCanvas)** — same room, ported to PlayCanvas. The audiorective EQ chain is spliced **pre-panner** onto the `SoundSlot` via `@audiorective/playcanvas` — the FOH-desk placement PlayCanvas's public `setExternalNodes` API doesn't natively support.
+[apps/showroom](./apps/showroom) — **Livehouse PA Simulator**, one app built with `@audiorective/core`, `@audiorective/react`, `@audiorective/playcanvas`, and three.js: you're the PA tech in a cyber livehouse. Six audio drones (StreamPlayer stems, a synth, and a SoundPlayer sampler) fly in a PlayCanvas world; walk around to hear the spatial mix shift, mix each channel (EQ / volume / solo / mute / 3D pan) from a React iPad HUD, fire the sampler pads, and hit Headphone to monitor a dry stereo mixdown. Demonstrates the full stack: one `AudioContext`, three renderers, zero duplicated audio state.
 
 ## Agent Skill
 
