@@ -6,9 +6,9 @@ import { rms } from "./meterMath";
 
 const BUS_RAMP_S = 0.02;
 // Loudness-match the two monitor paths so toggling headphone doesn't jump in level:
-// boost the room bus +5 dB, trim the headphone bus -8 dB.
+// boost the room bus +5 dB, trim the headphone bus -9.5 dB.
 const ROOM_BUS_GAIN = 10 ** (5 / 20);
-const PHONES_BUS_GAIN = 10 ** (-8 / 20);
+const PHONES_BUS_GAIN = 10 ** (-9.5 / 20);
 
 /**
  * Sums channels into a room bus (+ convolver reverb) and a headphone bus, and the
