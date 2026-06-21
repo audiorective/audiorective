@@ -119,7 +119,7 @@ export class LivehouseScene {
 
   private buildRoom(): void {
     const wallMat = new pc.StandardMaterial();
-    wallMat.diffuse = new pc.Color(0.08, 0.08, 0.12);
+    wallMat.diffuse = new pc.Color(0.5, 0.5, 0.53);
     wallMat.cull = pc.CULLFACE_FRONT;
     wallMat.update();
     const room = new pc.Entity("room");
@@ -129,7 +129,7 @@ export class LivehouseScene {
     this.app.root.addChild(room);
 
     const floorMat = new pc.StandardMaterial();
-    floorMat.diffuse = new pc.Color(0.82, 0.82, 0.85);
+    floorMat.diffuse = new pc.Color(0.55, 0.55, 0.58);
     floorMat.update();
     const floor = new pc.Entity("floor");
     floor.addComponent("render", { type: "plane", material: floorMat });
