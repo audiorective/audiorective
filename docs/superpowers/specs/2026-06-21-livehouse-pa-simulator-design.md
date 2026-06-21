@@ -131,7 +131,7 @@ Toggleable (icon click or keystroke, e.g. `Tab`), semi-transparent over the live
 
 ### 5.3 three.js — `PanningScene` (the 3D pan widget)
 
-Adapted from the Sequencer's `SpatialScene`. A small orbit view: listener at center, the **selected** drone as a draggable dot (others faint, read-only, for context). Drag maps to a bounded world volume and writes `channel.position`. Pure visual three.js (`WebGLRenderer` + scene); **no audio nodes**. Reads `selectedChannelId` and positions via `effect`.
+A **3D perspective** view of the room volume: listener at center, each drone a dot with a vertical stem to its floor shadow (so height reads clearly). Drag a drone's **floor shadow** → x/z (pan + depth); drag its **dot** → y (height). Grabbing any drone also selects it. Pure visual three.js (`WebGLRenderer` + scene); **no audio nodes**. Reads `selectedChannelId` + positions via `effect`, writes `channel.position` on drag. Hosted in a draggable, position-persisting floating panel (see 5.2).
 
 ### 5.4 Keybindings (configurable)
 
@@ -217,7 +217,7 @@ Per the architecture rule — audio behaviors must run headless:
 2. **6 channels:** Guitar 1, Guitar 2, Drums, Bass = StreamPlayer stems; Synth = synth source; Sampler = SoundPlayer (loop + key/pad one-shots).
 3. **Unified spatial model:** one `Spatial` per channel; `position` cell = shared source of truth; PlayCanvas renders + `bindPanner`, three.js widget controls.
 4. **Headphone = full dry mix (Option A)** but with a **stereo mixdown** (per-channel `StereoPanner` from fixed-frame azimuth); bypasses HRTF, distance, and the room reverb. **Reverb is a pre-panner aux send** (distance-independent wet) so wet/dry rises with distance; configurable amount via `audio.reverb`.
-5. **iPad HUD:** toggleable, semi-transparent; bottom-left menu → compact Cubase-style channel strip → `[EQ]`/`[Panning]` open dedicated panels; `[Mixer]` → content-width compact mixer; `🎧 Phones` + `Hide` top-right.
+5. **iPad HUD:** an **always-on bottom mixer** (per channel: name/select, EQ button, fader, meter, M/S) + a common section (one **Pan** button, master). **EQ** and **Panning** are **draggable floating panels** whose positions persist to localStorage; the per-channel EQ buttons + the single common Pan button both act on the selected channel. **Panning is 3D** (drag floor shadow → x/z, dot → height). `🎧 Phones` top-right. Walk via pointer-lock (click scene); **Esc to mix**. No side menu / no global hide toggle. _(Supersedes the original menu→strip→panel flow.)_
 6. **Meter** = per-channel `AnalyserNode` tap, centralized metering loop.
 7. **Replace** all three existing showroom demos with this single app; update README/docs accordingly.
 8. Renderers: **PlayCanvas** = world, **React** = HUD, **three.js** = EQ + panning controllers; one shared `AudioContext`; no audio state in any UI layer.
