@@ -111,7 +111,9 @@ A `Mixer` (engine-level `AudioProcessor` or controller) owns:
 
 ### 5.1 PlayCanvas — `LivehouseScene` (the world)
 
-First-person controller (WASD + pointer-lock mouse-look), reused/adapted from `PCRoomScene`. Builds the neon venue + empty stage. For each channel: a glowing drone entity (channel color), idle hover, position driven by `channel.position`, panner driven by `bindPanner`. Highlights the `selectedChannelId` drone (emissive bump). Releases pointer-lock when `ui.hudOpen` is true (reads the shared cell), so the mouse drives the HUD instead of the camera.
+First-person controller (WASD + pointer-lock mouse-look), reused/adapted from `PCRoomScene`. Builds the venue + empty stage. For each channel: a drone entity (channel color), idle hover, position driven by `channel.position`, panner driven by `bindPanner`. Highlights the `selectedChannelId` drone (emissive bump). Releases pointer-lock when `ui.hudOpen` is true (reads the shared cell), so the mouse drives the HUD instead of the camera.
+
+**Keep the 3D deliberately minimal.** This is a showcase of the audio + cross-framework state model, **not** of 3D engine power. Use built-in primitives only (boxes/spheres/planes, à la the existing demos), flat materials with a little emissive glow, basic lights. No imported models, no custom shaders, no post-processing, no texture work. Visual effort goes only as far as making drones/selection legible.
 
 ### 5.2 React — the iPad HUD
 
@@ -178,15 +180,15 @@ apps/showroom/
 
 **Removed:** `src/App.tsx` (picker), `src/examples/**`, the `sequencer/`, `spatial-room/`, `spatial-room-playcanvas/` html entry folders, `src/shared/audio/MusicPlayer.ts` (StreamPlayer is used directly). Reused/migrated: `EQ3`, the sequencer synth instruments, `SpatialScene` → `PanningScene`, `PCRoomScene` → `LivehouseScene`, `tracks` loader.
 
-## 7. Asset dependencies (risk)
+## 7. Audio assets (provided by the user)
 
-New assets must be sourced/produced before the audio is real:
+The user supplies all audio. The app loads them via the asset manifest (`tracks.ts` extended); code references stable paths/keys and degrades gracefully if a file is missing (silent channel, no crash). Expected set:
 
-- **4 instrument stems** (Guitar 1, Guitar 2, Drums, Bass) — same tempo/key, ideally loopable. _Fallback if unavailable:_ render stems from synths (keeps StreamPlayer demoed by streaming the rendered files), or temporarily reduce streamed channels.
-- **Sampler one-shots** (`boom`, `riser`, `airhorn`, `applause`) + a **looping bed**.
-- **One room impulse response** for the reverb (or a synthesized IR).
+- **4 instrument stems** (Guitar 1, Guitar 2, Drums, Bass) for the streamed channels.
+- **Sampler** assets: a **looping bed** + one-shots (`boom`, `riser`, `airhorn`, `applause`).
+- **One room impulse response** for the reverb (if omitted, fall back to a synthesized IR so the headphone contrast still works).
 
-This is the main external dependency; everything else is code.
+No asset sourcing on our side — just the manifest, loaders, and graceful-missing handling.
 
 ## 8. Testing strategy
 
@@ -218,6 +220,8 @@ Per the architecture rule — audio behaviors must run headless:
 7. **Replace** all three existing showroom demos with this single app; update README/docs accordingly.
 8. Renderers: **PlayCanvas** = world, **React** = HUD, **three.js** = EQ + panning controllers; one shared `AudioContext`; no audio state in any UI layer.
 9. **Keybindings configurable** via a central `config/keymap.ts` (action→key); no hardcoded keys. Defaults to be provided by the user.
+10. **Minimal 3D** — primitives + flat/emissive materials only; not a 3D-engine showcase. Visual effort limited to legibility.
+11. **Audio assets provided by the user**; our work is the manifest/loaders + graceful handling of a missing file.
 
 ```
 
