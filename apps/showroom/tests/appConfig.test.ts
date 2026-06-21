@@ -22,12 +22,11 @@ describe("appConfig", () => {
     expect(mergeConfig({ audio: { reverb: 0.4 } }).audio.reverb).toBe(0.4);
   });
 
-  test("mergeConfig replaces the fx pad list and merges bass", () => {
+  test("mergeConfig replaces the fx pad list when provided", () => {
     const fx = [{ id: "x", label: "X", url: "/x.mp3" }];
-    const merged = mergeConfig({ audio: { fx, bass: { notes: ["C2"] } } });
+    const merged = mergeConfig({ audio: { fx } });
     expect(merged.audio.fx).toEqual(fx);
-    expect(merged.audio.bass.notes).toEqual(["C2"]);
-    expect(merged.audio.bass.bpm).toBe(DEFAULT_CONFIG.audio.bass.bpm); // merged, not dropped
+    expect(merged.audio.stems).toEqual(DEFAULT_CONFIG.audio.stems); // untouched
   });
 
   test("matchAction resolves single + multi-key bindings against a given map", () => {

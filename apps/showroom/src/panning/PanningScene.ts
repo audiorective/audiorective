@@ -45,11 +45,6 @@ export class PanningScene {
     this.scene.add(dir);
     this.scene.add(new THREE.GridHelper(Math.max(HALF_W, HALF_D) * 2, 16, 0x224455, 0x152033));
 
-    // Listener marker at the room centre (the PA's reference point).
-    const listener = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshBasicMaterial({ color: 0xeab308 }));
-    listener.position.set(0, 0.22, 0);
-    this.scene.add(listener);
-
     for (const channel of engine.channels) {
       const color = new THREE.Color(channel.color);
       const dot = new THREE.Mesh(this.dotGeo, new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.4 }));

@@ -18,8 +18,10 @@
   "audio": {
     "stems": {
       "drums": "/stems/drums.mp3",
+      "bass": "/stems/bass.mp3",
       "synth1": "/stems/synth1.mp3",
-      "synth2": "/stems/synth2.mp3"
+      "synth2": "/stems/synth2.mp3",
+      "vox": "/stems/vox.mp3"
     },
     "fx": [
       { "id": "vfx1", "label": "VFX 1", "url": "/fx/vfx1.mp3" },
@@ -31,7 +33,6 @@
       { "id": "vfx7", "label": "VFX 7", "url": "/fx/vfx7.mp3" },
       { "id": "vfx8", "label": "VFX 8", "url": "/fx/vfx8.mp3" }
     ],
-    "bass": { "notes": ["E1", "E1", "G1", "A1"], "bpm": 120 },
     "reverb": 0.12
   }
 }

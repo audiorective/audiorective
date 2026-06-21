@@ -1,9 +1,7 @@
 import { createEngine, cell, StreamPlayer, loadAudioBuffer } from "@audiorective/core";
 import { createEngineContext } from "@audiorective/react";
-import { MasterSequencer } from "./MasterSequencer";
 import { Channel } from "./Channel";
 import { Mixer } from "./Mixer";
-import { SynthSource } from "./sources/SynthSource";
 import { SamplerSource } from "./sources/SamplerSource";
 import { CHANNELS } from "./sceneConfig";
 import type { SourceLike } from "./Channel";
@@ -18,11 +16,9 @@ export interface UiState {
 /** Build the whole PA-simulator audio engine. */
 export function createPaEngine() {
   return createEngine((ctx) => {
-    const transport = new MasterSequencer(ctx);
     const streams: StreamPlayer[] = [];
     const streamById: Record<string, StreamPlayer> = {};
     let sampler: SamplerSource | null = null;
-    let synthSource: SynthSource | null = null;
     const channels: Channel[] = [];
 
     for (const def of CHANNELS) {
@@ -33,9 +29,6 @@ export function createPaEngine() {
         streams.push(sp);
         streamById[def.id] = sp;
         source = sp;
-      } else if (def.kind === "synth") {
-        synthSource = new SynthSource(ctx, transport);
-        source = synthSource;
       } else {
         sampler = new SamplerSource(ctx);
         source = sampler;
@@ -48,9 +41,7 @@ export function createPaEngine() {
     const ui = cell<UiState>({ hudOpen: false });
 
     const capturedSampler = sampler;
-    const capturedSynth = synthSource;
     return {
-      transport,
       mixer,
       channels,
       sampler,
@@ -58,9 +49,8 @@ export function createPaEngine() {
       ui,
       /**
        * Apply user-editable audio from config.json: point each stream channel at
-       * its stem, decode the FX pads, set the bass notes/tempo, and swap the reverb
-       * IR + amount. Each asset is loaded independently and missing files are
-       * skipped (silent), never throwing.
+       * its stem, decode the FX pads, and swap the reverb IR + amount. Each asset is
+       * loaded independently and missing files are skipped (silent), never throwing.
        */
       async applyAudioConfig(audio: AudioConfig): Promise<void> {
         for (const [id, sp] of Object.entries(streamById)) {
@@ -81,23 +71,17 @@ export function createPaEngine() {
             if (buf) capturedSampler.setPadBuffer(pad.id, buf);
           }
         }
-        if (capturedSynth && audio.bass) {
-          capturedSynth.setNotes(audio.bass.notes);
-          if (typeof audio.bass.bpm === "number") transport.params.bpm.value = audio.bass.bpm;
-        }
         const ir = await decode(audio.reverbIR);
         if (ir) mixer.setReverbBuffer(ir);
         if (typeof audio.reverb === "number") mixer.setReverbWet(audio.reverb);
       },
-      /** Start the gig: transport (bass), stems, and metering. */
+      /** Start the gig: play all stems + metering. */
       start(): void {
-        transport.start();
         for (const s of streams) void s.play();
         mixer.startMetering();
       },
       /** Stop the gig. */
       stop(): void {
-        transport.stop();
         for (const s of streams) s.pause();
       },
     };

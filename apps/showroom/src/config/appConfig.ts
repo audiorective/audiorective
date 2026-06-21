@@ -30,20 +30,11 @@ export interface FxPad {
   url: string;
 }
 
-export interface BassConfig {
-  /** Note names, e.g. ["A1","A1","E2","G1"]; one plays every other transport step. */
-  notes: string[];
-  /** Transport tempo for the bass pattern. */
-  bpm?: number;
-}
-
 export interface AudioConfig {
   /** channelId → stem URL (the `kind: "stream"` channels). */
   stems: Record<string, string>;
   /** FX sampler pads (one-shots). */
   fx: FxPad[];
-  /** Bass-synth note sequence. */
-  bass: BassConfig;
   /** Convolver impulse response URL; omitted → synthesized IR. */
   reverbIR?: string;
   /** Reverb send amount (wet gain, 0..1). */
@@ -75,8 +66,10 @@ export const DEFAULT_CONFIG: AppConfig = {
   audio: {
     stems: {
       drums: "/stems/drums.mp3",
+      bass: "/stems/bass.mp3",
       synth1: "/stems/synth1.mp3",
       synth2: "/stems/synth2.mp3",
+      vox: "/stems/vox.mp3",
     },
     fx: [
       { id: "vfx1", label: "VFX 1", url: "/fx/vfx1.mp3" },
@@ -88,7 +81,6 @@ export const DEFAULT_CONFIG: AppConfig = {
       { id: "vfx7", label: "VFX 7", url: "/fx/vfx7.mp3" },
       { id: "vfx8", label: "VFX 8", url: "/fx/vfx8.mp3" },
     ],
-    bass: { notes: ["E1", "E1", "G1", "A1"], bpm: 120 },
     reverb: 0.12,
   },
 };
@@ -101,7 +93,6 @@ export function mergeConfig(raw: unknown): AppConfig {
     audio: {
       stems: { ...DEFAULT_CONFIG.audio.stems, ...(r.audio?.stems ?? {}) },
       fx: r.audio?.fx ?? DEFAULT_CONFIG.audio.fx,
-      bass: { ...DEFAULT_CONFIG.audio.bass, ...(r.audio?.bass ?? {}) },
       reverbIR: r.audio?.reverbIR ?? DEFAULT_CONFIG.audio.reverbIR,
       reverb: r.audio?.reverb ?? DEFAULT_CONFIG.audio.reverb,
     },
