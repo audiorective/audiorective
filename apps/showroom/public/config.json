@@ -1,0 +1,30 @@
+{
+  "keybindings": {
+    "forward": ["KeyW", "ArrowUp"],
+    "back": ["KeyS", "ArrowDown"],
+    "left": ["KeyA", "ArrowLeft"],
+    "right": ["KeyD", "ArrowRight"],
+    "toggleHud": ["Tab"],
+    "toggleHeadphone": ["KeyH"],
+    "pad1": ["Digit1"],
+    "pad2": ["Digit2"],
+    "pad3": ["Digit3"],
+    "pad4": ["Digit4"]
+  },
+  "audio": {
+    "stems": {
+      "guitar1": "/stems/guitar1.mp3",
+      "guitar2": "/stems/guitar2.mp3",
+      "drums": "/stems/drums.mp3",
+      "bass": "/stems/bass.mp3"
+    },
+    "sampler": {
+      "bed": "/sfx/bed.mp3",
+      "boom": "/sfx/boom.mp3",
+      "riser": "/sfx/riser.mp3",
+      "airhorn": "/sfx/airhorn.mp3",
+      "applause": "/sfx/applause.mp3"
+    },
+    "reverbIR": "/ir/room.wav"
+  }
+}

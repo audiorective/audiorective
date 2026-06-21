@@ -18,6 +18,7 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
   private readonly _phonesBus: GainNode;
   private readonly _master: GainNode;
   private readonly _masterAnalyser: AnalyserNode;
+  private readonly _convolver: ConvolverNode;
   // Typed as <ArrayBuffer> (not the default <ArrayBufferLike>) so AnalyserNode's
   // getFloatTimeDomainData accepts it under TS's strict typed-array generics.
   private readonly _buf: Float32Array<ArrayBuffer>;
@@ -41,6 +42,7 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
     this._buf = new Float32Array(new ArrayBuffer(this._masterAnalyser.fftSize * Float32Array.BYTES_PER_ELEMENT));
 
     const { convolver, wet, dry } = createReverb(ctx);
+    this._convolver = convolver;
     this._roomBus.connect(dry).connect(this._master);
     this._roomBus.connect(convolver).connect(wet).connect(this._master);
     this._phonesBus.connect(this._master);
@@ -80,6 +82,11 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
 
   get phonesBusGain(): number {
     return this._phonesBus.gain.value;
+  }
+
+  /** Swap the room reverb's impulse response (e.g. a user-provided IR from config). */
+  setReverbBuffer(buffer: AudioBuffer): void {
+    this._convolver.buffer = buffer;
   }
 
   startMetering(): void {

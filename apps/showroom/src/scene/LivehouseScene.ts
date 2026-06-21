@@ -5,6 +5,7 @@ import { engine } from "../audio/engine";
 import type { Channel } from "../audio/Channel";
 import { hoverOffset } from "./hover";
 import { clampToRoom } from "./roomMath";
+import { matchAction } from "../config/appConfig";
 
 const ROOM_W = 14;
 const ROOM_H = 5;
@@ -216,14 +217,24 @@ export class LivehouseScene {
     document.addEventListener("mousemove", onMouseMove);
     this.disposers.push(() => document.removeEventListener("mousemove", onMouseMove));
 
-    const setKey = (code: string, down: boolean) => {
-      if (code === "KeyW" || code === "ArrowUp") this.keys.w = down;
-      else if (code === "KeyA" || code === "ArrowLeft") this.keys.a = down;
-      else if (code === "KeyS" || code === "ArrowDown") this.keys.s = down;
-      else if (code === "KeyD" || code === "ArrowRight") this.keys.d = down;
+    const setKey = (e: KeyboardEvent, down: boolean) => {
+      switch (matchAction(e)) {
+        case "forward":
+          this.keys.w = down;
+          break;
+        case "back":
+          this.keys.s = down;
+          break;
+        case "left":
+          this.keys.a = down;
+          break;
+        case "right":
+          this.keys.d = down;
+          break;
+      }
     };
-    const onKeyDown = (e: KeyboardEvent) => setKey(e.code, true);
-    const onKeyUp = (e: KeyboardEvent) => setKey(e.code, false);
+    const onKeyDown = (e: KeyboardEvent) => setKey(e, true);
+    const onKeyUp = (e: KeyboardEvent) => setKey(e, false);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     this.disposers.push(() => window.removeEventListener("keydown", onKeyDown));

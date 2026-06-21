@@ -15,9 +15,11 @@ describe("sceneConfig", () => {
     expect(kinds.filter((k) => k === "stream")).toHaveLength(4);
   });
 
-  test("every stream channel declares a src path", () => {
+  test("every channel has a position", () => {
     for (const c of CHANNELS) {
-      if (c.kind === "stream") expect(typeof c.src).toBe("string");
+      expect(typeof c.position.x).toBe("number");
+      expect(typeof c.position.y).toBe("number");
+      expect(typeof c.position.z).toBe("number");
     }
   });
 });
