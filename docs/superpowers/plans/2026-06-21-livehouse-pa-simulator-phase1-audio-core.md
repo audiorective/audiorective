@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, `@audiorective/core` (`AudioProcessor`, `Param`, `SchedulableParam`, `Cell`, `Spatial`, `StreamPlayer`, `SoundPlayer`, `createEngine`), `@audiorective/react` (`createEngineContext`), Vitest **browser mode** (Playwright/Chromium, real `AudioContext`).
 
-This is **Phase 1 of 3**. Phase 2 (PlayCanvas world + spatial wiring) and Phase 3 (React HUD + three.js EQ/panning widgets + keymap + old-demo cleanup) are separate plans authored after this lands. Spec: `docs/superpowers/specs/2026-06-21-livehouse-pa-simulator-design.md`.
+This is **Phase 1 of 4**. Phase 2 (PlayCanvas world + spatial wiring), Phase 3 (React HUD + three.js EQ/panning widgets + keymap + old-demo cleanup), and Phase 4 (the "Designing Audio Apps" skill guide, written with `superpowers:writing-skills`, using this app as the worked example — spec §11) are separate plans authored after this lands. Spec: `docs/superpowers/specs/2026-06-21-livehouse-pa-simulator-design.md`.
 
 ---
 

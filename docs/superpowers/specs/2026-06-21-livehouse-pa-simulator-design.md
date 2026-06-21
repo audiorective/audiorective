@@ -18,6 +18,8 @@ The drone metaphor deliberately replaces the literal mixing-desk analogy: a real
 
 This app **merges all three current demos**: the Sequencer's synth instruments + spatial-per-track model, the Spatial Music Room's walkable first-person world + StreamPlayer + EQ, and the PlayCanvas renderer port.
 
+**Two deliverables.** This task produces (1) the app itself, and (2) a **skill enhancement** — a new "Designing Audio Apps" guide in the audiorective skill that teaches the _methodology_ this very project followed (collaborative design → gap-finding → plan → headless audio core first). The app is the worked example the guide points at. See §11.
+
 ## 2. Why this app (showcase goals)
 
 The merged app exercises the full audiorective surface in one cohesive scene:
@@ -222,7 +224,21 @@ Per the architecture rule — audio behaviors must run headless:
 9. **Keybindings configurable** via a central `config/keymap.ts` (action→key); no hardcoded keys. Defaults to be provided by the user.
 10. **Minimal 3D** — primitives + flat/emissive materials only; not a 3D-engine showcase. Visual effort limited to legibility.
 11. **Audio assets provided by the user**; our work is the manifest/loaders + graceful handling of a missing file.
+12. **Second deliverable:** a "Designing Audio Apps" guide added to the audiorective skill, using this app as the worked example (see §11).
 
-```
+## 11. Skill enhancement — "Designing Audio Apps" guide (deliverable)
 
-```
+A new reference that teaches skill users _how to design a whole audio app_ (not just call the API). It captures the methodology this project followed, generalized, with this app as the running example.
+
+**Where it lives.** `docs/designing-audio-apps.md`, symlinked into `skills/audiorective/references/designing-audio-apps.md` (the existing references are symlinks to `docs/*.md`), plus a pointer row in `skills/audiorective/SKILL.md` "What to read next" (e.g. _"Designing a whole audio app (not just one processor) → `references/designing-audio-apps.md`"_). The bundled/published skill is versioned, so this also implies a skill version bump when released.
+
+**The methodology to teach (the arc of this thread):**
+
+1. **Design collaboratively, find the gaps first.** Before code, pin down UX/features and interrogate the metaphor until the audio model is _honest_. Worked example: a literal mixing console sums to stereo, so a "3D pan" knob there is fake — switching the metaphor to **audio drones** made 3D spatialization literally true. Lesson: when the UI metaphor and the audio reality disagree, change the metaphor, not the audio.
+2. **Map every feature to a primitive.** Turn the feature list into a coverage table (feature → `StreamPlayer`/`SoundPlayer`/`Spatial`/`Param`/`Cell`/…). Gaps and over-reach surface immediately. (Mirror of §2.)
+3. **Decide state ownership up front.** The engine owns all audio state _and_ any view state shared across renderers (`Cell`/`Param`); UIs only observe and mutate. With multiple renderers (PlayCanvas + React + three.js), the engine is the single meeting point — no back-channels, no duplicated state. (Reinforces `architecture.md`; this app is the multi-renderer worked example.)
+4. **Build the headless audio core first.** Implement and unit-test the entire audio graph — channels, buses, routing, scheduling, metering — with **no DOM and no renderer** (litmus: it runs in a browser-mode unit test). Only then layer renderers and UI on top. This is exactly the Phase 1 / Phase 2-3 split of the implementation plan.
+5. **Choose the right source per role.** `StreamPlayer` for long-form/streamed parts, `SoundPlayer`/`Voice` for one-shots and loops, an `AudioProcessor` synth for generated parts — unified behind a source-agnostic channel strip. Note the tradeoffs (e.g. cross-source clock drift).
+6. **Integrate renderers via the binding packages.** One `AudioContext`; `attach` to share it; `bindPanner`/`PannerAnchor` to drive panners from scene transforms; keep control-only views (the three.js widget) free of audio nodes.
+
+**Authoring.** Written with the `superpowers:writing-skills` skill. Sequenced **last** (after the headless core exists), so the guide can point at real, tested code as its worked example. It is its own phase/plan in the implementation arc.
