@@ -7,10 +7,20 @@ import { PanningPanel } from "./PanningPanel";
 import { MixerPanel } from "./MixerPanel";
 import { PadPanel } from "./PadPanel";
 import { DraggablePanel } from "./DraggablePanel";
+import { WelcomeModal } from "./WelcomeModal";
+
+const WELCOME_SEEN_KEY = "pa-welcome-seen";
 
 export function Hud() {
   const [eqOpen, setEqOpen] = useState(false);
   const [panOpen, setPanOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(() => {
+    try {
+      return localStorage.getItem(WELCOME_SEEN_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
   const headphone = useValue(engine.mixer.params.headphone);
   const selectedId = useValue(engine.selectedChannelId);
   const selectedLabel = engine.channels.find((c) => c.id === selectedId)?.label ?? "";
@@ -35,10 +45,22 @@ export function Hud() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const closeHelp = () => {
+    setHelpOpen(false);
+    try {
+      localStorage.setItem(WELCOME_SEEN_KEY, "1");
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <>
-      {/* Top-right: global headphone monitor toggle. */}
+      {/* Top-right: help + global headphone monitor toggle. */}
       <div style={cluster}>
+        <button style={chip} onClick={() => setHelpOpen(true)} title="How to play">
+          ? Help
+        </button>
         <button
           style={{ ...chip, ...(headphone ? { background: "rgba(234,179,8,0.3)", color: "#fff" } : {}) }}
           onClick={() => (engine.mixer.params.headphone.value = !headphone)}
@@ -46,6 +68,8 @@ export function Hud() {
           🎧 Phones
         </button>
       </div>
+
+      {helpOpen && <WelcomeModal onClose={closeHelp} />}
 
       {/* Always-on mixer (bottom). */}
       <MixerPanel onOpenEq={() => setEqOpen(true)} onOpenPan={() => setPanOpen(true)} />
