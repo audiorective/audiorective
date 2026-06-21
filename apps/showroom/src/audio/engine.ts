@@ -1,6 +1,6 @@
 import { createEngine, cell, StreamPlayer, loadAudioBuffer } from "@audiorective/core";
 import { createEngineContext } from "@audiorective/react";
-import { MasterSequencer } from "../examples/sequencer/audio/MasterSequencer";
+import { MasterSequencer } from "./MasterSequencer";
 import { Channel } from "./Channel";
 import { Mixer } from "./Mixer";
 import { SynthSource } from "./sources/SynthSource";

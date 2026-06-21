@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { MasterSequencer } from "../src/examples/sequencer/audio/MasterSequencer";
+import { MasterSequencer } from "../src/audio/MasterSequencer";
 import { SynthSource } from "../src/audio/sources/SynthSource";
 
 describe("SynthSource", () => {

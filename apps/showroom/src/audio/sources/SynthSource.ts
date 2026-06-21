@@ -1,5 +1,5 @@
-import { StepSynth } from "../../examples/sequencer/audio/instruments/StepSynth";
-import type { MasterSequencer } from "../../examples/sequencer/audio/MasterSequencer";
+import { StepSynth } from "../instruments/StepSynth";
+import type { MasterSequencer } from "../MasterSequencer";
 
 // Semitone offsets of a simple looping arpeggio over a base note.
 const ARP = [0, 7, 12, 7];
