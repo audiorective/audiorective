@@ -40,7 +40,9 @@ All under `apps/showroom/`.
 
 ---
 
-## Task 1: `keymap` + `matchAction`
+## Task 1: `keymap` + `matchAction` — ALREADY DONE (skip)
+
+> **Superseded.** Implemented ahead of Phase 3 as part of the editable-config work: keybindings live in `apps/showroom/public/config.json`; the typed loader + `matchAction` live in `apps/showroom/src/config/appConfig.ts` (tested in `tests/appConfig.test.ts`). Phase 3 consumers (PadPanel Task 7, Hud Task 9) import `matchAction` from `../config/appConfig`. **Skip the steps below** — kept only for reference; do NOT create `config/keymap.ts`.
 
 **Files:**
 
@@ -857,7 +859,7 @@ git commit -m "feat(showroom): content-width compact MixerPanel"
 import { useEffect, type CSSProperties } from "react";
 import { engine } from "../audio/engine";
 import { PAD_IDS, type PadId } from "../audio/sources/SamplerSource";
-import { matchAction } from "../config/keymap";
+import { matchAction } from "../config/appConfig";
 
 const PAD_BY_ACTION: Record<string, PadId> = { pad1: "boom", pad2: "riser", pad3: "airhorn", pad4: "applause" };
 
@@ -1021,7 +1023,7 @@ git commit -m "feat(showroom): ChannelMenu (drone list + Mixer entry)"
 import { useEffect, useState, type CSSProperties } from "react";
 import { useValue } from "@audiorective/react";
 import { engine } from "../audio/engine";
-import { matchAction } from "../config/keymap";
+import { matchAction } from "../config/appConfig";
 import { ChannelMenu } from "./ChannelMenu";
 import { ChannelStrip } from "./ChannelStrip";
 import { EqPanel } from "./EqPanel";

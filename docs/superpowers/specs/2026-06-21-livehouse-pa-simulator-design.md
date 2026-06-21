@@ -221,7 +221,7 @@ Per the architecture rule — audio behaviors must run headless:
 6. **Meter** = per-channel `AnalyserNode` tap, centralized metering loop.
 7. **Replace** all three existing showroom demos with this single app; update README/docs accordingly.
 8. Renderers: **PlayCanvas** = world, **React** = HUD, **three.js** = EQ + panning controllers; one shared `AudioContext`; no audio state in any UI layer.
-9. **Keybindings configurable** via a central `config/keymap.ts` (action→key); no hardcoded keys. Defaults to be provided by the user.
+9. **Keybindings + audio paths configurable** via a single editable `apps/showroom/public/config.json` (`{ keybindings, audio }`), loaded at boot by `config/appConfig.ts` with typed defaults + graceful fallback. `matchAction` resolves all keyboard input; `engine.applyAudioConfig` points stems / decodes sampler bed+pads / swaps the reverb IR. Edit the file + refresh — no rebuild. (Supersedes the earlier `config/keymap.ts` and the hardcoded stem paths in `sceneConfig.ts`.)
 10. **Minimal 3D** — primitives + flat/emissive materials only; not a 3D-engine showcase. Visual effort limited to legibility.
 11. **Audio assets provided by the user**; our work is the manifest/loaders + graceful handling of a missing file.
 12. **Second deliverable:** a "Designing Audio Apps" guide added to the audiorective skill, using this app as the worked example (see §11).
