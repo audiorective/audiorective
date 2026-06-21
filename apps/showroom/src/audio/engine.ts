@@ -3,8 +3,7 @@ import { createEngineContext } from "@audiorective/react";
 import { Channel } from "./Channel";
 import { Mixer } from "./Mixer";
 import { SamplerSource } from "./sources/SamplerSource";
-import { CHANNELS } from "./sceneConfig";
-import type { SourceLike } from "./Channel";
+import { CHANNELS, FX_TARGET_CHANNEL } from "./sceneConfig";
 import type { AudioConfig } from "../config/appConfig";
 
 const SPATIAL_OPTS = { distanceModel: "inverse" as const, refDistance: 1.5, maxDistance: 25, rolloffFactor: 1.4 };
@@ -18,29 +17,27 @@ export function createPaEngine() {
   return createEngine((ctx) => {
     const streams: StreamPlayer[] = [];
     const streamById: Record<string, StreamPlayer> = {};
-    let sampler: SamplerSource | null = null;
     const channels: Channel[] = [];
 
     for (const def of CHANNELS) {
-      let source: SourceLike;
-      if (def.kind === "stream") {
-        // src is set later from config.json via applyAudioConfig().
-        const sp = new StreamPlayer(ctx, { loop: true });
-        streams.push(sp);
-        streamById[def.id] = sp;
-        source = sp;
-      } else {
-        sampler = new SamplerSource(ctx);
-        source = sampler;
-      }
-      channels.push(new Channel(ctx, { id: def.id, label: def.label, color: def.color, source, position: def.position, spatial: SPATIAL_OPTS }));
+      // src is set later from config.json via applyAudioConfig().
+      const sp = new StreamPlayer(ctx, { loop: true });
+      streams.push(sp);
+      streamById[def.id] = sp;
+      channels.push(new Channel(ctx, { id: def.id, label: def.label, color: def.color, source: sp, position: def.position, spatial: SPATIAL_OPTS }));
     }
+
+    // The FX sampler isn't its own channel — its pads are Vox content triggered by
+    // hand. Route its output into the Vox channel's input so it shares Vox's EQ,
+    // fader, spatial position, and panning.
+    const sampler = new SamplerSource(ctx);
+    const fxTarget = channels.find((c) => c.id === FX_TARGET_CHANNEL);
+    if (fxTarget) sampler.output.connect(fxTarget.eq.input);
 
     const mixer = new Mixer(ctx, channels);
     const selectedChannelId = cell<string>(channels[0].id);
     const ui = cell<UiState>({ hudOpen: false });
 
-    const capturedSampler = sampler;
     return {
       mixer,
       channels,
@@ -65,11 +62,9 @@ export function createPaEngine() {
             return null;
           }
         };
-        if (capturedSampler) {
-          for (const pad of audio.fx) {
-            const buf = await decode(pad.url);
-            if (buf) capturedSampler.setPadBuffer(pad.id, buf);
-          }
+        for (const pad of audio.fx) {
+          const buf = await decode(pad.url);
+          if (buf) sampler.setPadBuffer(pad.id, buf);
         }
         const ir = await decode(audio.reverbIR);
         if (ir) mixer.setReverbBuffer(ir);

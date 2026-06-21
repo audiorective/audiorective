@@ -8,16 +8,26 @@ describe("PA engine assembly", () => {
     teardown = null;
   });
 
-  test("builds six channels, a mixer, and shared state", async () => {
+  test("builds five channels + sampler, a mixer, and shared state", async () => {
     const engine = createPaEngine();
     teardown = () => engine.core.destroy();
     await engine.core.start();
 
-    expect(engine.channels).toHaveLength(6);
+    expect(engine.channels).toHaveLength(5);
     expect(engine.mixer.channels).toBe(engine.channels);
     expect(engine.selectedChannelId.value).toBe(engine.channels[0].id);
     expect(engine.ui.value.hudOpen).toBe(false);
     expect(engine.sampler).not.toBeNull();
+  });
+
+  test("the FX sampler feeds a real channel (shares Vox's chain), not its own", async () => {
+    const engine = createPaEngine();
+    teardown = () => engine.core.destroy();
+    await engine.core.start();
+
+    // FX is not a channel; the sampler exists and triggers are no-ops without buffers (no throw).
+    expect(engine.channels.some((c) => c.id === "fx")).toBe(false);
+    expect(() => engine.sampler.trigger("vfx1")).not.toThrow();
   });
 
   test("start() and stop() run without throwing", async () => {

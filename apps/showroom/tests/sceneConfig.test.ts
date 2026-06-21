@@ -1,17 +1,11 @@
 import { describe, test, expect } from "vitest";
-import { CHANNELS } from "../src/audio/sceneConfig";
+import { CHANNELS, FX_TARGET_CHANNEL } from "../src/audio/sceneConfig";
 
 describe("sceneConfig", () => {
-  test("declares six channels with unique ids", () => {
-    expect(CHANNELS).toHaveLength(6);
+  test("declares five stream channels with unique ids", () => {
+    expect(CHANNELS).toHaveLength(5);
     const ids = CHANNELS.map((c) => c.id);
-    expect(new Set(ids).size).toBe(6);
-  });
-
-  test("source kinds: one sampler, five streams", () => {
-    const kinds = CHANNELS.map((c) => c.kind);
-    expect(kinds.filter((k) => k === "sampler")).toHaveLength(1);
-    expect(kinds.filter((k) => k === "stream")).toHaveLength(5);
+    expect(new Set(ids).size).toBe(5);
   });
 
   test("every channel has a position", () => {
@@ -20,5 +14,9 @@ describe("sceneConfig", () => {
       expect(typeof c.position.y).toBe("number");
       expect(typeof c.position.z).toBe("number");
     }
+  });
+
+  test("the FX target is an existing channel", () => {
+    expect(CHANNELS.some((c) => c.id === FX_TARGET_CHANNEL)).toBe(true);
   });
 });

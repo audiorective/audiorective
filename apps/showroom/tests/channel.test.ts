@@ -5,6 +5,15 @@ function makeSource(ctx: AudioContext) {
   return { output: new GainNode(ctx) };
 }
 
+/** Poll until a predicate holds (or timeout) — the audio clock can run slow under load. */
+async function waitFor(predicate: () => boolean, timeout = 3000, step = 25): Promise<void> {
+  const start = performance.now();
+  while (performance.now() - start < timeout) {
+    if (predicate()) return;
+    await new Promise((r) => setTimeout(r, step));
+  }
+}
+
 describe("Channel", () => {
   let ctx: AudioContext;
   beforeEach(async () => {
@@ -60,10 +69,10 @@ describe("Channel", () => {
     // the repo convention in packages/core/tests/streamPlayer.test.ts.
     ch.roomOut.connect(ctx.destination);
     ch.applyMix(false);
-    await new Promise((r) => setTimeout(r, 60));
+    await waitFor(() => ch.muteGainValue < 0.05);
     expect(ch.muteGainValue).toBeLessThan(0.05);
     ch.applyMix(true);
-    await new Promise((r) => setTimeout(r, 60));
+    await waitFor(() => ch.muteGainValue > 0.95);
     expect(ch.muteGainValue).toBeGreaterThan(0.95);
     ch.destroy();
   });
