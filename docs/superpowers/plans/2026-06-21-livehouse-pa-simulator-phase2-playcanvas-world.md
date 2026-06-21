@@ -41,7 +41,7 @@ All under `apps/showroom/`. Reuses the existing `PCRoomScene` as the structural 
 
 ```ts
 import { describe, test, expect } from "vitest";
-import { hoverOffset } from "../src/audio/../scene/hover";
+import { hoverOffset } from "../src/scene/hover";
 
 describe("hoverOffset", () => {
   test("is deterministic for the same (t, seed)", () => {
