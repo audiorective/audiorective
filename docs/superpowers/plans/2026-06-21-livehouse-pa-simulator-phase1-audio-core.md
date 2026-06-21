@@ -688,7 +688,9 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
   private readonly _phonesBus: GainNode;
   private readonly _master: GainNode;
   private readonly _masterAnalyser: AnalyserNode;
-  private readonly _buf: Float32Array;
+  // Backed by an explicit ArrayBuffer so it types as Float32Array<ArrayBuffer>, which
+  // AnalyserNode.getFloatTimeDomainData requires under strict typed-array generics.
+  private readonly _buf: Float32Array<ArrayBuffer>;
   private _rafId: number | null = null;
 
   constructor(ctx: AudioContext, channels: Channel[]) {
@@ -706,7 +708,7 @@ export class Mixer extends AudioProcessor<{ headphone: Param<boolean>; masterVol
     this._roomBus = new GainNode(ctx, { gain: 1 });
     this._phonesBus = new GainNode(ctx, { gain: 0 });
     this._masterAnalyser = new AnalyserNode(ctx, { fftSize: 1024, smoothingTimeConstant: 0.6 });
-    this._buf = new Float32Array(this._masterAnalyser.fftSize);
+    this._buf = new Float32Array(new ArrayBuffer(this._masterAnalyser.fftSize * Float32Array.BYTES_PER_ELEMENT));
 
     const { convolver, wet, dry } = createReverb(ctx);
     this._roomBus.connect(dry).connect(this._master);
