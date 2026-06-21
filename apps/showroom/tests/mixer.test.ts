@@ -5,7 +5,20 @@ import { Mixer } from "../src/audio/Mixer";
 function makeChannel(ctx: AudioContext, id: string, x = 0) {
   return new Channel(ctx, { id, label: id, color: "#fff", source: { output: new GainNode(ctx) }, position: { x, y: 1, z: -3 } });
 }
-const settle = () => new Promise((r) => setTimeout(r, 60));
+
+/**
+ * Poll until a predicate holds (or timeout). Bus/mute changes are short AudioParam
+ * ramps; under CPU load the headless WebAudio clock advances much slower than
+ * wall-clock, so a fixed sleep is flaky. Polling waits for the ramp to actually
+ * resolve regardless of how starved the audio thread is.
+ */
+async function waitFor(predicate: () => boolean, timeout = 3000, step = 25): Promise<void> {
+  const start = performance.now();
+  while (performance.now() - start < timeout) {
+    if (predicate()) return;
+    await new Promise((r) => setTimeout(r, step));
+  }
+}
 
 describe("Mixer", () => {
   let ctx: AudioContext;
@@ -27,28 +40,28 @@ describe("Mixer", () => {
     expect(mixer.phonesBusGain).toBeCloseTo(0);
   });
 
+  test("defaults route the aux (reverb send) bus on", () => {
+    expect(mixer.auxBusGain).toBeCloseTo(1);
+  });
+
   test("headphone toggle swaps the buses (room + aux off, phones on)", async () => {
     mixer.params.headphone.value = true;
-    await settle();
+    await waitFor(() => mixer.roomBusGain < 0.05 && mixer.auxBusGain < 0.05 && mixer.phonesBusGain > 0.95);
     expect(mixer.roomBusGain).toBeLessThan(0.05);
     expect(mixer.auxBusGain).toBeLessThan(0.05); // reverb is part of "the room" — muted on headphone
     expect(mixer.phonesBusGain).toBeGreaterThan(0.95);
   });
 
-  test("defaults route the aux (reverb send) bus on", () => {
-    expect(mixer.auxBusGain).toBeCloseTo(1);
-  });
-
   test("muting a channel silences only it (no solo active)", async () => {
     channels[0].params.muted.value = true;
-    await settle();
+    await waitFor(() => channels[0].muteGainValue < 0.05 && channels[1].muteGainValue > 0.95);
     expect(channels[0].muteGainValue).toBeLessThan(0.05);
     expect(channels[1].muteGainValue).toBeGreaterThan(0.95);
   });
 
   test("soloing a channel silences the others", async () => {
     channels[1].params.soloed.value = true;
-    await settle();
+    await waitFor(() => channels[0].muteGainValue < 0.05 && channels[1].muteGainValue > 0.95);
     expect(channels[0].muteGainValue).toBeLessThan(0.05);
     expect(channels[1].muteGainValue).toBeGreaterThan(0.95);
   });
@@ -56,7 +69,7 @@ describe("Mixer", () => {
   test("solo overrides mute for the soloed channel", async () => {
     channels[1].params.soloed.value = true;
     channels[1].params.muted.value = true;
-    await settle();
+    await waitFor(() => channels[1].muteGainValue > 0.95);
     expect(channels[1].muteGainValue).toBeGreaterThan(0.95);
   });
 
