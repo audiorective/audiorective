@@ -1,4 +1,4 @@
-import { AudioProcessor } from "@audiorective/core";
+import { AudioProcessor, StreamPlayer } from "@audiorective/core";
 import type { Cell } from "@audiorective/core";
 import type { Track } from "./tracks";
 import { EQ3 } from "./EQ3";
@@ -15,18 +15,22 @@ type Cells = {
   tracks: Cell<Track[]>;
 };
 
+/**
+ * Demo music player: a core StreamPlayer (streaming transport) feeding a 3-band
+ * EQ, with playlist management on top. Public API is unchanged from the original
+ * HTMLAudio-based implementation, so the demos consume it identically.
+ */
 export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
-  readonly audio: HTMLAudioElement;
+  readonly stream: StreamPlayer;
   readonly eq: EQ3;
 
-  constructor(ctx: AudioContext, initialTracks: Track[]) {
-    const audio = new Audio();
-    audio.crossOrigin = "anonymous";
-    audio.preload = "metadata";
+  /** Source of truth for the playlist position (kept out of the transport cell's read path). */
+  private _trackIndex = 0;
 
-    const source = ctx.createMediaElementSource(audio);
+  constructor(ctx: AudioContext, initialTracks: Track[]) {
+    const stream = new StreamPlayer(ctx);
     const eq = new EQ3(ctx);
-    source.connect(eq.input);
+    stream.output.connect(eq.input);
 
     super(ctx, ({ cell }) => ({
       cells: {
@@ -40,32 +44,15 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
       },
     }));
 
-    this.audio = audio;
+    this.stream = stream;
     this.eq = eq;
 
-    audio.addEventListener("play", () => {
-      this.cells.transport.update((d) => {
-        d.isPlaying = true;
-      });
-    });
-    audio.addEventListener("pause", () => {
-      this.cells.transport.update((d) => {
-        d.isPlaying = false;
-      });
-    });
-    audio.addEventListener("timeupdate", () => {
-      this.cells.transport.update((d) => {
-        d.currentTime = audio.currentTime;
-      });
-    });
-    audio.addEventListener("loadedmetadata", () => {
-      this.cells.transport.update((d) => {
-        d.duration = audio.duration;
-      });
-    });
-    audio.addEventListener("ended", () => {
-      this.next();
-    });
+    // One-way mirror: depends on the stream's transport cells and writes a fresh
+    // combined transport object. It never READS `transport`, so the effect can't
+    // self-subscribe; `currentTrackIndex` comes from the plain `_trackIndex`.
+    this.effect(() => this.syncTransport());
+
+    stream.onEnded(() => this.next());
 
     if (initialTracks.length > 0) this.loadTrack(0);
   }
@@ -75,23 +62,15 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
   }
 
   async play(): Promise<void> {
-    if (!this.audio.src) return;
-    try {
-      await this.audio.play();
-    } catch {
-      // user gesture pending; UI will trigger again
-    }
+    await this.stream.play();
   }
 
   pause(): void {
-    this.audio.pause();
+    this.stream.pause();
   }
 
   seek(t: number): void {
-    const d = this.audio.duration;
-    if (Number.isFinite(d)) {
-      this.audio.currentTime = Math.max(0, Math.min(d, t));
-    }
+    this.stream.seek(t);
   }
 
   loadTrack(i: number): void {
@@ -99,33 +78,34 @@ export class MusicPlayer extends AudioProcessor<Record<string, never>, Cells> {
     if (list.length === 0) return;
     const idx = ((i % list.length) + list.length) % list.length;
     const track = list[idx]!;
-    const wasPlaying = !this.audio.paused;
-    this.audio.pause();
-    this.audio.src = track.src;
-    this.audio.load();
-    this.cells.transport.update((d) => {
-      d.currentTrackIndex = idx;
-      d.currentTime = 0;
-      d.duration = NaN;
-    });
-    if (wasPlaying) {
-      const onCanPlay = () => {
-        this.audio.play().catch(() => {});
-      };
-      this.audio.addEventListener("canplay", onCanPlay, { once: true });
-    }
+    const wasPlaying = !this.stream.audio.paused;
+    this._trackIndex = idx;
+    this.stream.src = track.src; // resets the stream cells -> effect re-syncs transport
+    this.syncTransport(); // push the new currentTrackIndex immediately
+    if (wasPlaying) void this.stream.play();
   }
 
   next(): void {
-    this.loadTrack(this.cells.transport.value.currentTrackIndex + 1);
+    this.loadTrack(this._trackIndex + 1);
   }
 
   prev(): void {
-    this.loadTrack(this.cells.transport.value.currentTrackIndex - 1);
+    this.loadTrack(this._trackIndex - 1);
   }
 
   override destroy(): void {
     super.destroy();
+    this.stream.destroy();
     this.eq.destroy();
+  }
+
+  /** Write the combined transport from the stream cells + the playlist index. */
+  private syncTransport(): void {
+    this.cells.transport.value = {
+      isPlaying: this.stream.cells.isPlaying.value,
+      currentTime: this.stream.cells.currentTime.value,
+      duration: this.stream.cells.duration.value,
+      currentTrackIndex: this._trackIndex,
+    };
   }
 }

@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     browser: {
       enabled: true,
+      headless: true,
       provider: playwright({
         launchOptions: {
           args: ["--autoplay-policy=no-user-gesture-required"],

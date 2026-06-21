@@ -10,6 +10,10 @@ Modular toolkit for web audio development. Independent, composable packages that
 2. **Imperative graph management** — `.connect()`/`.disconnect()` is error-prone and impossible to tear down cleanly.
 3. **No reactive audio state** — Changing an AudioParam doesn't notify your React component. No more parallel state systems.
 
+## Playback Primitives
+
+`@audiorective/core` ships two ready-to-use players: **`SoundPlayer`** (buffer-backed, polyphonic pad — fire `trigger()` for SFX and one-shots) and **`StreamPlayer`** (streaming track with a single play/pause/seek transport — for music and long-form audio). Both are output-only `AudioProcessor`s; route `player.output` through `Spatial` or directly to `ctx.destination`.
+
 ## Key Design Decisions
 
 - **alien-signals 3.x callable API** — signals are callable functions (`signal()` to read, `signal(value)` to write), not objects with `.get()`/`.set()`. `SignalAccessor<T>` and `ComputedAccessor<T>` are defined in `types.ts`.

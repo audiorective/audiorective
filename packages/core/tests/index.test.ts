@@ -661,3 +661,22 @@ describe("AudioProcessor", () => {
     p.destroy();
   });
 });
+
+describe("SoundPlayer exports", () => {
+  test("exposes SoundPlayer, Voice, loadAudioBuffer, AudioBufferCache", async () => {
+    const mod = await import("../src");
+    expect(typeof mod.SoundPlayer).toBe("function");
+    expect(typeof mod.Voice).toBe("function");
+    expect(typeof mod.loadAudioBuffer).toBe("function");
+    expect(typeof mod.AudioBufferCache).toBe("function");
+  });
+});
+
+describe("StreamPlayer export", () => {
+  test("exposes StreamPlayer (and SoundPlayer/Voice still present)", async () => {
+    const mod = await import("../src");
+    expect(typeof mod.StreamPlayer).toBe("function");
+    expect(typeof mod.SoundPlayer).toBe("function");
+    expect(typeof mod.Voice).toBe("function");
+  });
+});
