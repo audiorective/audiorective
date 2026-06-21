@@ -36,6 +36,7 @@ Then load only what your task actually needs:
 
 | If you're doing…                                                                | Also read                                      |
 | ------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Designing a whole audio app (multiple sources, multiple UIs, spatial)           | `references/designing-audio-apps.md`           |
 | Playing a sample / SFX (SoundPlayer) or streaming a track (StreamPlayer)        | `references/core.md`                           |
 | Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                   |
 | React UI bound to an engine                                                     | `references/react.md`                          |
