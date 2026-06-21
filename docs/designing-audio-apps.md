@@ -42,10 +42,6 @@ In a spatial app, split every signal by its relationship to listener distance, a
 
 A reverb fed _post-panner_ tracks the dry and never opens up as you move — a subtle, common bug. Send effects that represent a space belong before distance attenuation; only the dry path attenuates.
 
-### 6. Keep the metaphor honest
-
-If the UI metaphor implies something the audio can't actually do, change the metaphor — not the audio. (A "3D pan" knob on a console that sums to stereo is dishonest; sources you can physically move in space are not.)
-
 ## Common pitfalls
 
 - **Headless audio tests need a path to `ctx.destination`.** An `AudioParam` ramp won't advance `.value` unless its node subgraph reaches the destination (the browser won't render a dead branch). Connect to `ctx.destination` in the test, mirroring real usage.
@@ -59,13 +55,12 @@ If the UI metaphor implies something the audio can't actually do, change the met
 - [ ] Every feature maps to a primitive; each source fits its role behind a source-agnostic channel.
 - [ ] One `AudioContext`; renderers integrated via `attach` / `bindPanner` / `PannerAnchor`; control-only views are audio-free.
 - [ ] Spatial sends (reverb) are pre-panner; only the dry path attenuates with distance.
-- [ ] The UI metaphor matches what the audio can actually do.
 
 ## Worked example: Livehouse PA Simulator
 
 `apps/showroom` — you're the PA tech in a cyber venue; each mixer channel is a drone emitting one instrument, flown in 3D; a React iPad HUD mixes EQ/volume/solo/pan; a headphone toggle monitors dry. Three renderers (PlayCanvas world, React HUD, three.js control widgets) over one engine.
 
-How the principles show up: drone positions, selection, and HUD state are engine `Cell`s observed by all three renderers (P1). The whole engine — `Channel`, `Mixer`, sources, routing, metering — was built and tested headless before any renderer (P2). Five stems use `StreamPlayer`, the FX pads use `SoundPlayer`, all behind one source-agnostic `Channel` (P3). `attach` + `bindPanner` wire PlayCanvas to the panners; the three.js EQ/pan widgets are control-only (P4). Reverb is a per-channel pre-panner aux send into a shared convolver, so it stays distance-independent (P5). And the "drone" metaphor exists precisely because a literal console couldn't honor 3D panning (P6).
+How the principles show up: drone positions, selection, and HUD state are engine `Cell`s observed by all three renderers (P1). The whole engine — `Channel`, `Mixer`, sources, routing, metering — was built and tested headless before any renderer (P2). Five stems use `StreamPlayer`, the FX pads use `SoundPlayer`, all behind one source-agnostic `Channel` (P3). `attach` + `bindPanner` wire PlayCanvas to the panners; the three.js EQ/pan widgets are control-only (P4). Reverb is a per-channel pre-panner aux send into a shared convolver, so it stays distance-independent (P5).
 
 ## See also
 
