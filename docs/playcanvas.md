@@ -19,7 +19,7 @@ Today the package ships `attach` (engine ↔ app setup) and `bindPanner` (entity
 }
 ```
 
-The **tested** version set lives in `packages/playcanvas/compat.json`. CI runs the package's tests against every version in `compat.tested`; a separate scheduled workflow flags PlayCanvas releases newer than `compat.latestKnown`. Update both fields together when promoting a new upstream version.
+The package binds almost entirely against PlayCanvas's stable public API (`Entity` transforms, the app `update` event), so it tracks the `peerDependencies` range without a pinned version matrix. Per-PR CI exercises it against the lockfile-pinned version.
 
 ## Package structure
 
