@@ -117,3 +117,11 @@ All processors extend `AudioProcessor<P, C>` with explicit registry generics:
 - `core`: depends on `alien-signals`
 - `react`: depends on `core`, peer-depends on `react`
 - `threejs`: depends on `core`, peer-depends on `three`
+
+## Releasing
+
+- All packages version together via `pnpm release` (`bumpp -r --all`).
+- When a release adds, changes, or removes a public API, add an entry to
+  `CHANGELOG.md` under the new version. The skill ships this file (symlinked at
+  `skills/audiorective/references/changelog.md`) so agents can detect when an
+  installed package predates a documented API.

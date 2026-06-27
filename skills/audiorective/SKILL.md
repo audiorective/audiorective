@@ -45,6 +45,25 @@ Then load only what your task actually needs:
 | Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                   |
 | Understanding rationale ("why does this exist?")                                | `references/overview.md`                       |
 
+## Version mismatches
+
+This skill and the `@audiorective/*` npm packages install through different
+channels (plugin/skills CLI vs. npm), so they can drift — a project may have an
+older package than the APIs documented here.
+
+If you hit an **API surprise** — `X is not a function`, an `undefined` import, a
+missing export, or a type/compile error on an API this skill documents — suspect
+the installed package predates the docs. Then:
+
+1. Read `references/changelog.md` to find which version introduced (or changed)
+   the API.
+2. Check the installed version — `node_modules/@audiorective/core/package.json`
+   (the resolved version), falling back to the dependency range in the project's
+   `package.json`.
+3. If the API postdates the installed version, tell the user to upgrade the npm
+   package (e.g. `npm i @audiorective/core@latest`) before continuing — don't
+   work around it by hand-rolling the missing API.
+
 ## The one rule that always applies
 
 **Audio operations live as methods on `AudioProcessor` subclasses.** UI components call these methods — they never orchestrate audio logic themselves.
