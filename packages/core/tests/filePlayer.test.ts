@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { StreamPlayer } from "../src";
+import { FilePlayer } from "../src";
 
 /** Build a valid silent WAV data URI so a real <audio> element can load + play it. */
 function wavDataUri(seconds = 0.3, sampleRate = 8000): string {
@@ -46,13 +46,13 @@ function once(el: HTMLMediaElement, type: string, timeoutMs = 8000): Promise<voi
   });
 }
 
-function makePlayer(ctx: AudioContext, opts?: ConstructorParameters<typeof StreamPlayer>[1]): StreamPlayer {
-  const p = new StreamPlayer(ctx, opts);
+function makePlayer(ctx: AudioContext, opts?: ConstructorParameters<typeof FilePlayer>[1]): FilePlayer {
+  const p = new FilePlayer(ctx, opts);
   p.output.connect(ctx.destination); // real usage routes output to destination; required for the media element to progress
   return p;
 }
 
-describe("StreamPlayer", () => {
+describe("FilePlayer", () => {
   let ctx: AudioContext;
   beforeEach(async () => {
     ctx = new AudioContext();

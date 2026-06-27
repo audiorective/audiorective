@@ -141,6 +141,7 @@ Numeric parameter with Web Audio scheduling methods. All scheduling methods retu
 class SchedulableParam extends Param<number> {
   read(): number; // read directly from AudioParam (realtime)
   syncFromAudio(): void; // pull AudioParam value into signal
+  rebind(audioParam: AudioParam, opts?: { reassert?: boolean }): void; // re-point at a new AudioParam
 
   setValueAtTime(value: number, startTime: number): this;
   linearRampToValueAtTime(value: number, endTime: number): this;
@@ -154,6 +155,8 @@ class SchedulableParam extends Param<number> {
 ```
 
 **`read()` vs `.value`:** `.value` returns the signal's last-synced value (updated by `ParamSync` at ~10Hz). `read()` returns the live `AudioParam.value` directly — more accurate during active automations, but doesn't trigger reactive updates.
+
+**`rebind()`:** re-points the param at a different `AudioParam`, keeping the same `SchedulableParam` instance (and its reactive `.value`/`$` surface). For sources whose node is recreated on each restart — an `AudioBufferSourceNode` is one-shot, so each `start()` makes a fresh `playbackRate`. `ParamSync` is keyed on the param, not the AudioParam, so `read()`/`syncFromAudio()` follow automatically with no re-registration; automation queued on the old (dead) node is gone, which is the desired semantics. `reassert` (default `true`) mirrors the current value onto the new param. Used internally by `BufferPlayer`.
 
 ### Automation Gotchas
 
@@ -326,21 +329,23 @@ Position/orientation are plain `AudioParam`s on `spatial.panner`. Drive them dir
 
 ## Sound Playback
 
-Two primitives cover audio playback. Choose based on the nature of your source:
+Three primitives cover audio playback. They split on two axes — **source** (in-memory `AudioBuffer` vs streamed file) and **voice model** (polyphonic vs single playhead). For a how-to-choose walkthrough see `choosing-playback.md`.
 
-|               | `SoundPlayer`                                      | `StreamPlayer`                                       |
-| ------------- | -------------------------------------------------- | ---------------------------------------------------- |
-| **Metaphor**  | Drum pad                                           | Transport / track                                    |
-| **Source**    | `AudioBuffer` (fully decoded in memory)            | `HTMLAudioElement` (streams; no full decode)         |
-| **Voices**    | Polyphonic — `trigger()` spawns overlapping voices | Single playhead — play / pause / seek / stop         |
-| **Good for**  | SFX, one-shots, loops, percussion                  | Music, podcasts, long-form, scrubbing                |
-| **API entry** | `player.trigger()`                                 | `player.play()` / `player.pause()` / `player.seek()` |
+|               | `Sampler`                         | `BufferPlayer`                                | `FilePlayer`                                         |
+| ------------- | --------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
+| **Metaphor**  | Drum pad / sampler                | Deck / tape loop                              | Transport / track                                    |
+| **Source**    | `AudioBuffer` (in memory)         | `AudioBuffer` (in memory)                     | `HTMLAudioElement` (streams; no decode)              |
+| **Voices**    | Polyphonic — `trigger()` overlaps | Single persistent playhead                    | Single playhead                                      |
+| **Clock**     | sample-accurate (ctx)             | sample-accurate (ctx)                         | media clock                                          |
+| **Transport** | none (fire-and-forget voices)     | `start`/`stop`/loop, **schedulable `rate`**   | `play`/`pause`/`seek`/`stop`                         |
+| **Good for**  | SFX, one-shots, hits              | beat-locked loops/stems, DJ pitch/tempo moves | music, long-form, scrubbing                          |
+| **API entry** | `player.trigger()`                | `player.start()` / `player.stop()`            | `player.play()` / `player.pause()` / `player.seek()` |
 
-Both are output-only `AudioProcessor`s. Compose them by routing `player.output` through `Spatial`, an EQ, or directly to `ctx.destination`.
+All three are output-only `AudioProcessor`s. Compose them by routing `player.output` through `Spatial`, an EQ, or directly to `ctx.destination`.
 
 ### `loadAudioBuffer` / `AudioBufferCache`
 
-Before a `SoundPlayer` can play anything it needs an `AudioBuffer`. Two helpers handle fetching and decoding:
+Before a `Sampler` can play anything it needs an `AudioBuffer`. Two helpers handle fetching and decoding:
 
 ```typescript
 import { loadAudioBuffer, AudioBufferCache } from "@audiorective/core";
@@ -356,15 +361,15 @@ cache.clear(); // drop all cached entries
 
 `AudioBufferCache.load()` is safe to call multiple times with the same URL — concurrent callers share the in-flight request and receive the same resolved `AudioBuffer`.
 
-### SoundPlayer
+### Sampler
 
 Buffer-backed polyphonic player. Each `trigger()` call spawns a voice; voices overlap according to the `polyphony` cap and `steal` policy. No transport or playhead — pure fire-and-forget (or fire-and-control via the returned `Voice` handle).
 
 ```typescript
-import { SoundPlayer, AudioBufferCache } from "@audiorective/core";
+import { Sampler, AudioBufferCache } from "@audiorective/core";
 
 const cache = new AudioBufferCache(ctx);
-const player = new SoundPlayer(ctx, { polyphony: 4, loop: false });
+const player = new Sampler(ctx, { polyphony: 4, loop: false });
 player.output.connect(ctx.destination);
 
 player.buffer = await cache.load("/sounds/kick.wav");
@@ -381,7 +386,7 @@ player.stopAll();
 player.destroy();
 ```
 
-**Constructor options** (`SoundPlayerOptions`):
+**Constructor options** (`SamplerOptions`):
 
 | Option         | Type                  | Default    | Description                                    |
 | -------------- | --------------------- | ---------- | ---------------------------------------------- |
@@ -447,14 +452,71 @@ voice.rate = 0.75; // live rate change
 voice.onEnded(() => console.log("done")); // fires once on natural end or stop()
 ```
 
-### StreamPlayer
+### BufferPlayer
 
-Streaming track player backed by `HTMLAudioElement`. Suitable for music and long-form audio where fully decoding into an `AudioBuffer` would be prohibitive. Has a single playhead; use `SoundPlayer` when you need polyphony.
+Buffer-backed **single-playhead transport** — the "deck". One persistent source you `start()`, `stop()`, and loop on the sample-accurate AudioContext clock. Where `Sampler` fires throwaway voices, `BufferPlayer` keeps its source alive for the whole play session, so its **`rate` is a real schedulable `AudioParam`** — ramp it for tempo/pitch moves (vinyl spin-down, tempo-match). Use it for beat-locked loops and stems; use `Sampler` for SFX, `FilePlayer` for streamed long-form.
 
 ```typescript
-import { StreamPlayer } from "@audiorective/core";
+import { BufferPlayer, AudioBufferCache } from "@audiorective/core";
 
-const player = new StreamPlayer(ctx, { src: "/music/track.mp3", volume: 0.8 });
+const cache = new AudioBufferCache(ctx);
+const deck = new BufferPlayer(ctx, { loop: true, loopEnd: 3.69 }); // loopEnd = musical length, guards opus decode tail
+deck.output.connect(ctx.destination);
+deck.buffer = await cache.load("/loops/break.opus");
+
+deck.start(ctx.currentTime + 0.1); // sample-accurate, phase-locked to a shared t0
+deck.params.volume.linearRampToValueAtTime(0, ctx.currentTime + 2);
+
+// DJ spin-down — schedule on the live source's playbackRate
+const at = ctx.currentTime;
+deck.params.rate
+  .cancelScheduledValues(at)
+  .setValueAtTime(deck.params.rate.read(), at)
+  .exponentialRampToValueAtTime(0.04, at + 1.3);
+```
+
+**Constructor options** (`BufferPlayerOptions`):
+
+| Option         | Type                  | Default | Description                                                                              |
+| -------------- | --------------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `buffer`       | `AudioBuffer \| null` | `null`  | Initial buffer (hot-swappable via `.buffer =`, applies next `start()`)                   |
+| `loop`         | `boolean`             | `false` | Loop the buffer                                                                          |
+| `loopStart`    | `number`              | `0`     | Loop start (seconds)                                                                     |
+| `loopEnd`      | `number`              | `0`     | Loop end (seconds); `0` → buffer end. Set it for musical-loop length / decode-tail guard |
+| `playbackRate` | `number`              | `1`     | Starting rate; also the rate a restart re-anchors to                                     |
+| `volume`       | `number`              | `1`     | Output gain 0–1                                                                          |
+
+**Public surface:**
+
+```typescript
+player.buffer: AudioBuffer | null      // hot-swap; takes effect on next start()
+player.output: AudioNode               // output gain; connect → Spatial / EQ / destination
+player.params.volume: SchedulableParam // output gain 0..1
+player.params.rate: SchedulableParam   // playback rate — schedulable (the point of this primitive)
+player.cells.isPlaying: Cell<boolean>
+
+player.start(when?: number, offset?: number): void  // sample-accurate; no-op while playing or with no buffer
+player.stop(when?: number): void                     // immediate, or future-dated (plays until `when`)
+player.loop = true; player.loopStart = 0; player.loopEnd = 3.69;  // setters write through to the live source
+player.destroy(): void
+```
+
+**Why `rate` is schedulable but the others aren't special.** An `AudioBufferSourceNode` is one-shot — `stop()` permanently kills it, so each `start()` builds a fresh node with a fresh `playbackRate`. `BufferPlayer` keeps `params.rate` a **stable reference** (so `useValue(player.rate)` gives a live pitch readout) and re-points it at the new node's `playbackRate` via [`SchedulableParam.rebind`](#schedulableparam) on every `start()`. Consequences:
+
+- Scheduled rate automation belongs to the **current play session**. `stop()` ends it; the next `start()` re-anchors to the base rate (no stale spin-down carries over).
+- `params.volume` binds once to the persistent output gain — it never rebinds, and fades just work across starts.
+- `read()` returns the live `playbackRate` during an automation; `.value` returns the last `ParamSync`-sampled value (~10 Hz).
+
+A phase-locked multi-stem "instrument" (e.g. a beat made of layered loops) is **N `BufferPlayer`s** sharing one `start(t0)` and ramped together — the library primitive stays one buffer; the layering is composition.
+
+### FilePlayer
+
+Streaming track player backed by `HTMLAudioElement`. Suitable for music and long-form audio where fully decoding into an `AudioBuffer` would be prohibitive. Has a single playhead; use `Sampler` when you need polyphony.
+
+```typescript
+import { FilePlayer } from "@audiorective/core";
+
+const player = new FilePlayer(ctx, { src: "/music/track.mp3", volume: 0.8 });
 player.output.connect(ctx.destination);
 
 await player.play(); // also resumes after pause
@@ -469,7 +531,7 @@ player.onEnded(() => console.log("track finished")); // natural end only
 player.destroy();
 ```
 
-**Constructor options** (`StreamPlayerOptions`):
+**Constructor options** (`FilePlayerOptions`):
 
 | Option         | Type                         | Default       | Description                         |
 | -------------- | ---------------------------- | ------------- | ----------------------------------- |
@@ -779,7 +841,7 @@ signals/src/
 ```typescript
 // Classes
 export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell, Spatial };
-export { SoundPlayer, StreamPlayer, Voice };
+export { Sampler, BufferPlayer, FilePlayer, Voice };
 export { AudioBufferCache };
 
 // Factories
@@ -800,9 +862,10 @@ export type {
   BuildHelpers,
   BuildResult,
   SpatialOptions,
-  SoundPlayerOptions,
+  SamplerOptions,
   TriggerOptions,
+  BufferPlayerOptions,
   VoiceOptions,
-  StreamPlayerOptions,
+  FilePlayerOptions,
 };
 ```

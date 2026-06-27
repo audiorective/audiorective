@@ -3,7 +3,7 @@ import type { SchedulableParam } from "./SchedulableParam";
 import type { Cell } from "./Cell";
 import { Voice, type VoiceOptions } from "./Voice";
 
-export interface SoundPlayerOptions {
+export interface SamplerOptions {
   /** Decoded sample. Settable later via `.buffer`. */
   buffer?: AudioBuffer;
   /** Default loop for new voices. Default false. */
@@ -24,12 +24,12 @@ export type TriggerOptions = VoiceOptions;
  * Buffer-backed, polyphonic sound source — the "drum pad". You hit it: each
  * `trigger()` fires a new Voice (up to `polyphony`, then `steal` applies), and
  * voices sum into the player output. No transport/playhead — for SFX,
- * one-shots, and loops. For a single moving playhead (music), use StreamPlayer.
+ * one-shots, and loops. For a single playhead, use BufferPlayer (in-memory) or FilePlayer (streamed).
  *
  * Per-voice control (stop/pause/seek) lives on the returned `Voice`. Spatial/EQ
  * compose externally via `player.output -> ...`.
  */
-export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { activeVoices: Cell<number> }> {
+export class Sampler extends AudioProcessor<{ volume: SchedulableParam }, { activeVoices: Cell<number> }> {
   buffer: AudioBuffer | null;
 
   private readonly _output: GainNode;
@@ -39,7 +39,7 @@ export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { 
   private readonly _steal: "oldest" | "none";
   private _voices: Voice[] = [];
 
-  constructor(ctx: AudioContext, opts: SoundPlayerOptions = {}) {
+  constructor(ctx: AudioContext, opts: SamplerOptions = {}) {
     const outputGain = new GainNode(ctx, { gain: opts.volume ?? 1 });
     super(ctx, ({ param, cell }) => ({
       params: { volume: param({ default: opts.volume ?? 1, bind: outputGain.gain, min: 0, max: 1 }) },
@@ -60,7 +60,7 @@ export class SoundPlayer extends AudioProcessor<{ volume: SchedulableParam }, { 
   /** Fire a new voice. Returns the Voice, or null if no buffer / dropped by steal:"none". */
   trigger(opts: TriggerOptions = {}): Voice | null {
     if (!this.buffer) {
-      console.warn("SoundPlayer.trigger: no buffer set");
+      console.warn("Sampler.trigger: no buffer set");
       return null;
     }
     if (this._voices.length >= this._polyphony) {
