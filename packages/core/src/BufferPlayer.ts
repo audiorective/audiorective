@@ -121,7 +121,15 @@ export class BufferPlayer extends AudioProcessor<{ volume: SchedulableParam; rat
 
   set loop(v: boolean) {
     this._loop = v;
-    if (this._source) this._source.loop = v;
+    if (this._source) {
+      this._source.loop = v;
+      // Toggling loop on mid-play must (re)apply the stored loop window — a source
+      // started non-looping carries the node defaults (0/0 = full buffer), not ours.
+      if (v) {
+        this._source.loopStart = this._loopStart;
+        this._source.loopEnd = this._loopEnd || this.buffer?.duration || 0;
+      }
+    }
   }
   set loopStart(v: number) {
     this._loopStart = v;

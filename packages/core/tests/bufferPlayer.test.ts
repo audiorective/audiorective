@@ -104,6 +104,16 @@ describe("BufferPlayer", () => {
     once.destroy();
   });
 
+  test("toggling loop on mid-play keeps a non-looping source playing", async () => {
+    const p = new BufferPlayer(ctx, { buffer: makeBuffer(ctx, 0.05) }); // started non-looping
+    p.start();
+    p.loop = true; // toggle on before it ends — must apply the loop window, not the 0/0 default
+    await delay(200);
+    expect(p.cells.isPlaying.value).toBe(true); // still looping past the buffer length
+    p.stop();
+    p.destroy();
+  });
+
   test("destroy() does not throw", () => {
     const p = new BufferPlayer(ctx, { buffer: makeBuffer(ctx, 1) });
     p.start();
