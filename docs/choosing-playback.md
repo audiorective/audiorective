@@ -11,7 +11,7 @@ Every choice comes down to two independent questions:
 1. **Source** — is the audio an in-memory `AudioBuffer` (you decoded it up front) or a streamed file (an `HTMLAudioElement` pulls it progressively, no full decode)?
 2. **Voice model** — do you fire **many overlapping** copies (polyphonic), or drive **one moving playhead** (single)?
 
-That yields the lineup. The only "missing" cell — single playhead over a _streamed_ source — is `FilePlayer`; polyphonic streaming is nonsensical (you don't overlap a live download).
+That yields the lineup. Three of the four combinations are real primitives; the only empty cell is **polyphonic over a streamed source** — overlapping a live download is nonsensical.
 
 |                     | In-memory `AudioBuffer` | Streamed file (`HTMLAudioElement`) |
 | ------------------- | ----------------------- | ---------------------------------- |
