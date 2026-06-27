@@ -90,13 +90,19 @@ async function main(): Promise<void> {
     puck.position.set(x, y);
   };
 
-  puck.on("pointerdown", () => {
-    dragging = true;
-    dragOccurred = false;
-    puck.cursor = "grabbing";
-  });
   app.stage.eventMode = "static";
   app.stage.hitArea = app.screen;
+  // Reset on the STAGE pointerdown so it fires at the start of every gesture —
+  // puck presses (events bubble child→parent) and bare-stage taps alike.
+  // Resetting only in puck's handler would leave the flag stale after a drag,
+  // suppressing later empty-stage taps.
+  app.stage.on("pointerdown", () => {
+    dragOccurred = false;
+  });
+  puck.on("pointerdown", () => {
+    dragging = true;
+    puck.cursor = "grabbing";
+  });
   app.stage.on("pointermove", (e) => {
     if (!dragging) return;
     dragOccurred = true;
