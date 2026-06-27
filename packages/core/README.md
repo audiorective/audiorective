@@ -134,15 +134,15 @@ class Mixer extends AudioProcessor<{
 }
 ```
 
-## SoundPlayer
+## Sampler
 
 Buffer-backed polyphonic player. `trigger()` spawns a voice; voices overlap up to the `polyphony` cap. Best for SFX, one-shots, percussion, and short loops.
 
 ```typescript
-import { SoundPlayer, AudioBufferCache } from "@audiorective/core";
+import { Sampler, AudioBufferCache } from "@audiorective/core";
 
 const cache = new AudioBufferCache(ctx);
-const player = new SoundPlayer(ctx, { polyphony: 4 });
+const player = new Sampler(ctx, { polyphony: 4 });
 player.output.connect(ctx.destination);
 
 player.buffer = await cache.load("/sounds/kick.wav");
@@ -162,7 +162,7 @@ player.destroy();
 
 ## loadAudioBuffer / AudioBufferCache
 
-Fetch, decode, and cache `AudioBuffer`s for `SoundPlayer`.
+Fetch, decode, and cache `AudioBuffer`s for `Sampler`.
 
 ```typescript
 import { loadAudioBuffer, AudioBufferCache } from "@audiorective/core";
@@ -176,14 +176,33 @@ const buf = await cache.load("/sounds/snare.wav"); // second call returns same i
 cache.clear();
 ```
 
-## StreamPlayer
+## BufferPlayer
+
+Buffer-backed single-playhead transport — the "deck". One persistent source you `start()`/`stop()`/loop on the sample-accurate ctx clock, with a **schedulable `params.rate`** (the source stays alive for the play session, so you can ramp it for spin-down / tempo-match). Use for beat-locked loops and stems; `Sampler` for SFX, `FilePlayer` for streamed long-form. See `choosing-playback` in the skill for the full decision.
+
+```typescript
+import { BufferPlayer, AudioBufferCache } from "@audiorective/core";
+
+const deck = new BufferPlayer(ctx, { loop: true, loopEnd: 3.69 });
+deck.output.connect(ctx.destination);
+deck.buffer = await new AudioBufferCache(ctx).load("/loops/break.opus");
+deck.start(ctx.currentTime + 0.1); // sample-accurate
+
+const at = ctx.currentTime; // vinyl spin-down on the live source
+deck.params.rate
+  .cancelScheduledValues(at)
+  .setValueAtTime(deck.params.rate.read(), at)
+  .exponentialRampToValueAtTime(0.04, at + 1.3);
+```
+
+## FilePlayer
 
 Streaming track player backed by `HTMLAudioElement`. Single playhead; use for music and long-form audio where full decode into `AudioBuffer` would be prohibitive.
 
 ```typescript
-import { StreamPlayer } from "@audiorective/core";
+import { FilePlayer } from "@audiorective/core";
 
-const player = new StreamPlayer(ctx, { src: "/music/track.mp3", volume: 0.8 });
+const player = new FilePlayer(ctx, { src: "/music/track.mp3", volume: 0.8 });
 player.output.connect(ctx.destination);
 
 await player.play();

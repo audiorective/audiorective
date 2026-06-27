@@ -22,11 +22,12 @@ Implement and unit-test the entire audio graph — channels, buses, routing, sch
 
 Turn the feature list into a feature→primitive table before coding — gaps and over-reach surface immediately. Match each source to its role:
 
-- `StreamPlayer` — long-form / streamed parts (stems, backing tracks).
-- `SoundPlayer` / `Voice` — one-shots and short loops (SFX, hits, pads).
+- `FilePlayer` — long-form / streamed parts (music, backing tracks, podcasts).
+- `BufferPlayer` — beat-locked loops & stems that need sample-accurate `start()` and a schedulable rate (in-memory deck).
+- `Sampler` / `Voice` — one-shots and short loops (SFX, hits, pads).
 - An `AudioProcessor` synth — generated parts.
 
-Unify them behind a **source-agnostic channel strip** — a `Channel` that accepts anything exposing `{ output }` — so EQ / fader / meter / spatial / routing are identical regardless of source. Tradeoff: `StreamPlayer` runs on the media clock, so it won't sample-lock to ctx-clocked sources (fine for independent stems, not for tight multi-source sync).
+Unify them behind a **source-agnostic channel strip** — a `Channel` that accepts anything exposing `{ output }` — so EQ / fader / meter / spatial / routing are identical regardless of source. Tradeoff on the clock: `FilePlayer` runs on the media clock, so it won't sample-lock to ctx-clocked sources (fine for independent stems, not for tight multi-source sync); reach for `BufferPlayer` when several sources must stay phase-locked. See `choosing-playback.md` for the full decision.
 
 ### 4. Integrate renderers via the binding packages
 
@@ -60,7 +61,7 @@ A reverb fed _post-panner_ tracks the dry and never opens up as you move — a s
 
 `apps/showroom` — you're the PA tech in a cyber venue; each mixer channel is a drone emitting one instrument, flown in 3D; a React iPad HUD mixes EQ/volume/solo/pan; a headphone toggle monitors dry. Three renderers (PlayCanvas world, React HUD, three.js control widgets) over one engine.
 
-How the principles show up: drone positions, selection, and HUD state are engine `Cell`s observed by all three renderers (P1). The whole engine — `Channel`, `Mixer`, sources, routing, metering — was built and tested headless before any renderer (P2). Five stems use `StreamPlayer`, the FX pads use `SoundPlayer`, all behind one source-agnostic `Channel` (P3). `attach` + `bindPanner` wire PlayCanvas to the panners; the three.js EQ/pan widgets are control-only (P4). Reverb is a per-channel pre-panner aux send into a shared convolver, so it stays distance-independent (P5).
+How the principles show up: drone positions, selection, and HUD state are engine `Cell`s observed by all three renderers (P1). The whole engine — `Channel`, `Mixer`, sources, routing, metering — was built and tested headless before any renderer (P2). Five stems use `FilePlayer`, the FX pads use `Sampler`, all behind one source-agnostic `Channel` (P3). `attach` + `bindPanner` wire PlayCanvas to the panners; the three.js EQ/pan widgets are control-only (P4). Reverb is a per-channel pre-panner aux send into a shared convolver, so it stays distance-independent (P5).
 
 ## See also
 

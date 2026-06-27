@@ -13,7 +13,9 @@ export interface SchedulableParamOptions extends ParamOptions<number> {
  */
 
 export class SchedulableParam extends Param<number> {
-  private readonly _audioParam: AudioParam;
+  // Not readonly: rebind() re-points this for sources whose node is recreated
+  // (an AudioBufferSourceNode is one-shot, so each start() makes a fresh playbackRate).
+  private _audioParam: AudioParam;
   private readonly _audioContext: BaseAudioContext;
 
   override get value(): number {
@@ -34,6 +36,24 @@ export class SchedulableParam extends Param<number> {
 
     // actively sync default value to audioParam
     this.value = options.default;
+  }
+
+  /**
+   * Re-point this param at a different AudioParam. For sources whose node is
+   * recreated on each (re)start — the new node carries a fresh AudioParam with
+   * no scheduling history. ParamSync is keyed on `this`, not the AudioParam, so
+   * read()/syncFromAudio() follow the new target with no re-registration, and
+   * any automation queued on the old (now-dead) param is gone with its node.
+   *
+   * `reassert` (default true) mirrors the current value onto the new param,
+   * matching the constructor's `this.value = default`. Pass false to keep
+   * whatever value the new param already holds.
+   */
+  rebind(audioParam: AudioParam, opts?: { reassert?: boolean }): void {
+    this._audioParam = audioParam;
+    if (opts?.reassert ?? true) {
+      this._audioParam.value = this.value;
+    }
   }
 
   /**

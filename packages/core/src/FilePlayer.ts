@@ -2,7 +2,7 @@ import { AudioProcessor } from "./AudioProcessor";
 import type { SchedulableParam } from "./SchedulableParam";
 import type { Cell } from "./Cell";
 
-export interface StreamPlayerOptions {
+export interface FilePlayerOptions {
   /** Stream URL. Settable later via `.src`. */
   src?: string;
   /** Loop the stream (sets audio.loop). Default false. */
@@ -21,10 +21,10 @@ export interface StreamPlayerOptions {
  * Streaming sound source — the "track". You operate it: play/pause/seek/stop
  * over a single moving playhead, with reactive isPlaying/currentTime/duration.
  * Backed by an HTMLAudioElement (streams; no full decode) — for music and
- * long-form audio. For polyphonic SFX, use SoundPlayer. Spatial/EQ compose
+ * long-form audio. For polyphonic SFX use Sampler; for an in-memory single playhead, BufferPlayer. Spatial/EQ compose
  * externally via `player.output -> ...`.
  */
-export class StreamPlayer extends AudioProcessor<
+export class FilePlayer extends AudioProcessor<
   { volume: SchedulableParam },
   { isPlaying: Cell<boolean>; currentTime: Cell<number>; duration: Cell<number> }
 > {
@@ -42,7 +42,7 @@ export class StreamPlayer extends AudioProcessor<
   private readonly _endedCbs: Array<() => void> = [];
   private _src: string | null = null;
 
-  constructor(ctx: AudioContext, opts: StreamPlayerOptions = {}) {
+  constructor(ctx: AudioContext, opts: FilePlayerOptions = {}) {
     const audio = new Audio();
     audio.crossOrigin = opts.crossOrigin === undefined ? "anonymous" : opts.crossOrigin;
     audio.preload = opts.preload ?? "metadata";

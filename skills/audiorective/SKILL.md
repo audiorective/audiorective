@@ -21,12 +21,12 @@ Web Audio's imperative API with UI frameworks.
 
 ## Packages
 
-| Package                    | Purpose                                                                                                                | Reference                  |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`, `SoundPlayer`, `StreamPlayer`. Required by everything. | `references/core.md`       |
-| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                            | `references/react.md`      |
-| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                                    | `references/threejs.md`    |
-| `@audiorective/playcanvas` | PlayCanvas scene bindings (`attach`, `bindPanner`).                                                                    | `references/playcanvas.md` |
+| Package                    | Purpose                                                                                                                          | Reference                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`, `Sampler`, `BufferPlayer`, `FilePlayer`. Required by everything. | `references/core.md`       |
+| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                                      | `references/react.md`      |
+| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                                              | `references/threejs.md`    |
+| `@audiorective/playcanvas` | PlayCanvas scene bindings (`attach`, `bindPanner`).                                                                              | `references/playcanvas.md` |
 
 ## What to read next
 
@@ -37,7 +37,8 @@ Then load only what your task actually needs:
 | If you're doing…                                                                | Also read                                      |
 | ------------------------------------------------------------------------------- | ---------------------------------------------- |
 | Designing a whole audio app (multiple sources, multiple UIs, spatial)           | `references/designing-audio-apps.md`           |
-| Playing a sample / SFX (SoundPlayer) or streaming a track (StreamPlayer)        | `references/core.md`                           |
+| Choosing a playback primitive (Sampler vs BufferPlayer vs FilePlayer)           | `references/choosing-playback.md`              |
+| Playing a sample / SFX, a beat-locked loop, or streaming a track                | `references/core.md`                           |
 | Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                   |
 | React UI bound to an engine                                                     | `references/react.md`                          |
 | 3D scene with spatial audio (three.js)                                          | `references/threejs.md` + `architecture.md`    |

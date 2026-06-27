@@ -12,7 +12,7 @@ Modular toolkit for web audio development. Independent, composable packages that
 
 ## Playback Primitives
 
-`@audiorective/core` ships two ready-to-use players: **`SoundPlayer`** (buffer-backed, polyphonic pad — fire `trigger()` for SFX and one-shots) and **`StreamPlayer`** (streaming track with a single play/pause/seek transport — for music and long-form audio). Both are output-only `AudioProcessor`s; route `player.output` through `Spatial` or directly to `ctx.destination`.
+`@audiorective/core` ships three ready-to-use players: **`Sampler`** (buffer-backed, polyphonic pad — fire `trigger()` for SFX and one-shots), **`BufferPlayer`** (buffer-backed single playhead with `start`/`stop`/loop and a schedulable rate — for beat-locked loops and stems), and **`FilePlayer`** (streaming track with a single play/pause/seek transport — for music and long-form audio). All are output-only `AudioProcessor`s; route `player.output` through `Spatial` or directly to `ctx.destination`. See `choosing-playback.md` to pick between them.
 
 ## Key Design Decisions
 

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { SoundPlayer } from "../src";
+import { Sampler } from "../src";
 
 function makeBuffer(ctx: AudioContext, seconds = 0.5): AudioBuffer {
   return ctx.createBuffer(1, Math.max(1, Math.ceil(ctx.sampleRate * seconds)), ctx.sampleRate);
@@ -8,7 +8,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-describe("SoundPlayer — trigger & polyphony", () => {
+describe("Sampler — trigger & polyphony", () => {
   let ctx: AudioContext;
   beforeEach(async () => {
     ctx = new AudioContext();
@@ -19,7 +19,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("output is an AudioNode and volume param drives it", () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx), volume: 0.5 });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx), volume: 0.5 });
     expect(p.output).toBeInstanceOf(AudioNode);
     expect((p.output as GainNode).gain.value).toBeCloseTo(0.5);
     p.params.volume.value = 0.25;
@@ -28,14 +28,14 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("trigger with no buffer returns null", () => {
-    const p = new SoundPlayer(ctx);
+    const p = new Sampler(ctx);
     expect(p.trigger()).toBeNull();
     expect(p.cells.activeVoices.value).toBe(0);
     p.destroy();
   });
 
   test("trigger spawns a voice and increments activeVoices", () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2) });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 2) });
     const v = p.trigger();
     expect(v).not.toBeNull();
     expect(p.cells.activeVoices.value).toBe(1);
@@ -45,7 +45,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("polyphony 1 + steal 'oldest' restarts (count stays 1)", () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2), polyphony: 1, steal: "oldest" });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 2), polyphony: 1, steal: "oldest" });
     p.trigger();
     p.trigger();
     expect(p.cells.activeVoices.value).toBe(1);
@@ -54,7 +54,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("polyphony 1 + steal 'none' drops the retrigger", () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2), polyphony: 1, steal: "none" });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 2), polyphony: 1, steal: "none" });
     expect(p.trigger()).not.toBeNull();
     expect(p.trigger()).toBeNull();
     expect(p.cells.activeVoices.value).toBe(1);
@@ -63,7 +63,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("polyphony N overlaps up to N concurrent voices", () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 2), polyphony: 3 });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 2), polyphony: 3 });
     p.trigger();
     p.trigger();
     p.trigger();
@@ -75,7 +75,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("a voice that ends naturally is evicted from the pool", async () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 0.05), polyphony: 4 });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 0.05), polyphony: 4 });
     p.trigger();
     expect(p.cells.activeVoices.value).toBe(1);
     await delay(200);
@@ -84,7 +84,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("buffer is hot-swappable for future triggers", () => {
-    const p = new SoundPlayer(ctx);
+    const p = new Sampler(ctx);
     expect(p.trigger()).toBeNull();
     p.buffer = makeBuffer(ctx, 1);
     expect(p.trigger()).not.toBeNull();
@@ -93,7 +93,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("stopAll(when) in the future evicts only after it fires", async () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 5), polyphony: 2 });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 5), polyphony: 2 });
     p.trigger();
     p.trigger();
     expect(p.cells.activeVoices.value).toBe(2);
@@ -106,7 +106,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("a looping voice is not auto-evicted (stays active)", async () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 0.05), loop: true });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 0.05), loop: true });
     p.trigger();
     expect(p.cells.activeVoices.value).toBe(1);
     await delay(250);
@@ -116,7 +116,7 @@ describe("SoundPlayer — trigger & polyphony", () => {
   });
 
   test("the pad has no transport API (trigger-only)", () => {
-    const p = new SoundPlayer(ctx, { buffer: makeBuffer(ctx, 1) });
+    const p = new Sampler(ctx, { buffer: makeBuffer(ctx, 1) });
     const api = p as unknown as Record<string, unknown>;
     expect(api.play).toBeUndefined();
     expect(api.pause).toBeUndefined();

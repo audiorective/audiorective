@@ -1,15 +1,15 @@
-import { SoundPlayer } from "@audiorective/core";
+import { Sampler } from "@audiorective/core";
 import type { Voice } from "@audiorective/core";
 
 /**
- * The FX channel's source: a set of one-shot pads (one polyphonic SoundPlayer per
+ * The FX channel's source: a set of one-shot pads (one polyphonic Sampler per
  * pad id) summed into a single output gain. Pads are created on demand as buffers
  * are loaded, so the pad set is driven entirely by config (no fixed list here).
  */
 export class SamplerSource {
   readonly output: GainNode;
   private readonly ctx: AudioContext;
-  private readonly _pads = new Map<string, SoundPlayer>();
+  private readonly _pads = new Map<string, Sampler>();
 
   constructor(ctx: AudioContext) {
     this.ctx = ctx;
@@ -20,7 +20,7 @@ export class SamplerSource {
   setPadBuffer(id: string, buffer: AudioBuffer): void {
     let sp = this._pads.get(id);
     if (!sp) {
-      sp = new SoundPlayer(this.ctx, { polyphony: 4, steal: "oldest" });
+      sp = new Sampler(this.ctx, { polyphony: 4, steal: "oldest" });
       sp.output.connect(this.output);
       this._pads.set(id, sp);
     }

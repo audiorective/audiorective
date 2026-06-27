@@ -1,4 +1,4 @@
-import { createEngine, cell, StreamPlayer, loadAudioBuffer } from "@audiorective/core";
+import { createEngine, cell, FilePlayer, loadAudioBuffer } from "@audiorective/core";
 import { createEngineContext } from "@audiorective/react";
 import { Channel } from "./Channel";
 import { Mixer } from "./Mixer";
@@ -15,13 +15,13 @@ export interface UiState {
 /** Build the whole PA-simulator audio engine. */
 export function createPaEngine() {
   return createEngine((ctx) => {
-    const streams: StreamPlayer[] = [];
-    const streamById: Record<string, StreamPlayer> = {};
+    const streams: FilePlayer[] = [];
+    const streamById: Record<string, FilePlayer> = {};
     const channels: Channel[] = [];
 
     for (const def of CHANNELS) {
       // src is set later from config.json via applyAudioConfig().
-      const sp = new StreamPlayer(ctx, { loop: true });
+      const sp = new FilePlayer(ctx, { loop: true });
       streams.push(sp);
       streamById[def.id] = sp;
       channels.push(new Channel(ctx, { id: def.id, label: def.label, color: def.color, source: sp, position: def.position, spatial: SPATIAL_OPTS }));

@@ -10,7 +10,7 @@ export async function loadAudioBuffer(ctx: AudioContext, url: string): Promise<A
 
 /**
  * Caches decoded AudioBuffers by URL and dedupes concurrent loads. One decoded
- * buffer can feed many SoundPlayers/voices. Lifetime is explicit — call clear()
+ * buffer can feed many Samplers/voices. Lifetime is explicit — call clear()
  * to release.
  */
 export class AudioBufferCache {

@@ -3,7 +3,7 @@ import type { Param, SchedulableParam, Cell, SpatialOptions } from "@audiorectiv
 import { EQ3 } from "../shared/audio/EQ3";
 import { azimuthToPan, type Vec3 } from "./spatialMath";
 
-/** Anything that produces audio: StreamPlayer, SoundPlayer-backed source, synth, etc. */
+/** Anything that produces audio: FilePlayer, Sampler/BufferPlayer-backed source, synth, etc. */
 export interface SourceLike {
   readonly output: AudioNode | undefined;
   destroy?: () => void;
