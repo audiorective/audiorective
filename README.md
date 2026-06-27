@@ -37,7 +37,7 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 [apps/showroom](./apps/showroom) — **Livehouse PA Simulator**, one app built with `@audiorective/core`, `@audiorective/react`, `@audiorective/playcanvas`, and three.js: you're the PA tech in a cyber livehouse. Six audio drones (FilePlayer stems, a synth, and a Sampler for the pads) fly in a PlayCanvas world; walk around to hear the spatial mix shift, mix each channel (EQ / volume / solo / mute / 3D pan) from a React iPad HUD, fire the sampler pads, and hit Headphone to monitor a dry stereo mixdown. Demonstrates the full stack: one `AudioContext`, three renderers, zero duplicated audio state.
 
-[apps/pixi-visualizer](./apps/pixi-visualizer) — a minimal **PixiJS** spectrum visualizer built with only `@audiorective/core`, `alien-signals`, and `pixi.js`. Shows that a 2D canvas renderer needs no binding package: the core `Analyser` feeds per-frame spectrum bars, an `effect()` drives a signal-reactive glow, and pointer drags write params directly. See [docs/pixijs.md](./docs/pixijs.md).
+[apps/pixi-visualizer](./apps/pixi-visualizer) — a minimal **PixiJS** spectrum visualizer built with only `@audiorective/core`, `alien-signals`, and `pixi.js`. Shows that a 2D canvas renderer needs no binding package: the core `Analyser` feeds per-frame spectrum bars, an `effect()` drives a signal-reactive glow, and pointer drags write params directly (with the UI-owned `level` kept separate from the ramped `gate` envelope). See [docs/pixijs.md](./docs/pixijs.md).
 
 ## Agent Skill
 

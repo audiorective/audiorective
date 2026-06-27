@@ -13,7 +13,8 @@ layer:
 - **reacts** to `volume` with an `alien-signals` `effect()` that scales a glow
   (signal-driven data);
 - **controls** the synth by writing `param.value` from pointer drags
-  (x → cutoff, y → volume).
+  (x → cutoff, y → level), where `level` (UI-owned) is a different param from the
+  `gate` envelope `setActive()` ramps — so neither write fights the other.
 
 ```sh
 pnpm --filter @audiorective/pixi-visualizer dev

@@ -51,8 +51,8 @@ async function main(): Promise<void> {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Audio → visual (signal-driven): the puck glow follows volume. This IS
-  // reactive (volume is a Param), so a plain alien-signals effect mutates the
+  // Audio → visual (signal-driven): the puck glow follows level. This IS
+  // reactive (level is a Param), so a plain alien-signals effect mutates the
   // display object directly — no ticker, no useValue, no Pixi adapter.
   // ─────────────────────────────────────────────────────────────────────────
   const puck = new Container();
@@ -63,19 +63,22 @@ async function main(): Promise<void> {
 
   disposers.push(
     effect(() => {
-      const v = synth.params.volume.$();
+      const v = synth.params.level.$();
       glow.scale.set(0.6 + v * 0.9);
       glow.alpha = 0.35 + v * 0.6;
     }),
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Visual → audio: drag the puck. x → cutoff, y → volume. Plain pointer
-  // handlers writing `.value` — direct mutation, no dispatch.
+  // Visual → audio: drag the puck. x → cutoff, y → level. Plain pointer handlers
+  // writing `.value` — direct mutation, no dispatch. Note `level` (UI-owned) is a
+  // different param from `gate` (the ramped envelope), so this continuous write
+  // never fights setActive()'s ramp — see the Gotcha in docs/pixijs.md.
   // ─────────────────────────────────────────────────────────────────────────
   puck.eventMode = "static";
   puck.cursor = "grab";
   let dragging = false;
+  let dragOccurred = false; // distinguishes a drag from a tap (pointerup precedes pointertap)
 
   const writeFromPointer = (x: number, y: number): void => {
     const w = app.screen.width;
@@ -83,18 +86,21 @@ async function main(): Promise<void> {
     const nx = Math.max(0, Math.min(1, x / w));
     const ny = Math.max(0, Math.min(1, y / h));
     synth.params.cutoff.value = MIN_CUTOFF + nx * (MAX_CUTOFF - MIN_CUTOFF);
-    synth.params.volume.value = 1 - ny; // top = loud
+    synth.params.level.value = 1 - ny; // top = loud
     puck.position.set(x, y);
   };
 
   puck.on("pointerdown", () => {
     dragging = true;
+    dragOccurred = false;
     puck.cursor = "grabbing";
   });
   app.stage.eventMode = "static";
   app.stage.hitArea = app.screen;
   app.stage.on("pointermove", (e) => {
-    if (dragging) writeFromPointer(e.global.x, e.global.y);
+    if (!dragging) return;
+    dragOccurred = true;
+    writeFromPointer(e.global.x, e.global.y);
   });
   const stopDrag = (): void => {
     dragging = false;
@@ -104,17 +110,19 @@ async function main(): Promise<void> {
   app.stage.on("pointerupoutside", stopDrag);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Start/stop the drone on click anywhere (after the gesture resumes audio).
+  // Start/stop the drone on tap (after the gesture resumes audio). Guard on
+  // `dragOccurred`, not `dragging` — by the time pointertap fires, pointerup has
+  // already reset `dragging`, so a short puck drag would otherwise toggle too.
   // ─────────────────────────────────────────────────────────────────────────
   let active = false;
   app.stage.on("pointertap", () => {
-    if (dragging) return;
+    if (dragOccurred) return;
     active = !active;
     synth.setActive(active);
   });
 
   const hint = new Text({
-    text: "click to start the drone · drag the puck (→ cutoff, ↑ volume)",
+    text: "click to start the drone · drag the puck (→ cutoff, ↑ level)",
     style: { fill: 0x8899aa, fontSize: 14, fontFamily: "monospace" },
   });
   hint.position.set(12, 12);

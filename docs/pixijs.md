@@ -74,9 +74,9 @@ only on actual change.
 ```ts
 import { effect } from "alien-signals";
 
-// glow scales with volume — volume is a Param, so this is signal-driven
+// glow scales with level — level is a Param, so this is signal-driven
 const stop = effect(() => {
-  const v = engine.synth.params.volume.$(); // raw signal read = tracked
+  const v = engine.synth.params.level.$(); // raw signal read = tracked
   glow.scale.set(0.6 + v * 0.9);
 });
 // keep `stop` and call it on teardown
@@ -134,7 +134,9 @@ automation. If you **both** schedule a ramp (`synth.setActive()` →
 `linearRampToValueAtTime`) **and** write that same param continuously from a Pixi
 drag, the rAF poll will overwrite your UI write mid-ramp — the value visibly
 fights. Pick one owner per param, or drive a ramp and a UI control on **different**
-params.
+params. The worked example does exactly that: a `gate` param the envelope ramps,
+and a separate `level` param the puck drag writes — audible gain is `level * gate`,
+and neither owner fights the other.
 
 ## Lifecycle
 
@@ -154,5 +156,6 @@ engine.core.destroy(); // closes the AudioContext, destroys processors (incl. An
 
 [`apps/pixi-visualizer`](../apps/pixi-visualizer) is a complete, runnable app: a
 `DroneSynth` (core) visualized as a spectrum via the core `Analyser`, with a
-draggable puck (x → cutoff, y → volume) and a signal-driven glow. It uses only
-`@audiorective/core`, `alien-signals`, and `pixi.js` — no binding package.
+draggable puck (x → cutoff, y → level) and a signal-driven glow. It splits the
+UI-owned `level` from the envelope-owned `gate` to honor the Gotcha above, and
+uses only `@audiorective/core`, `alien-signals`, and `pixi.js` — no binding package.
