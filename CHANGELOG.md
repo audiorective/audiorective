@@ -13,6 +13,17 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+### Added
+
+- **core:** `Analyser` (+ `AnalyserOptions`) — an `AudioProcessor` wrapping an
+  `AnalyserNode` as a pass-through tap. Exposes `readFrequencies`/`readWaveform`
+  with `createFrequencyBuffer`/`createWaveformBuffer` and `binCount`/`fftSize`,
+  for audio visualizers. Poll it from a render loop, not an `effect()`.
+- **docs/skill:** `pixijs.md` — guide for pairing PixiJS with audiorective. No
+  binding package is needed; core + `alien-signals` cover it. Documents the boot
+  one-liner, the `effect`-vs-`ticker` decision, and the worked example
+  `apps/pixi-visualizer`.
+
 ## [1.2.0]
 
 ### Added
