@@ -1,6 +1,6 @@
 {
   "name": "@audiorective/playcanvas",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "PlayCanvas bindings for @audiorective/core — shared AudioContext + entity→panner transform binding (anchor model)",
   "type": "module",
   "license": "MIT",

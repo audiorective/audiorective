@@ -13,16 +13,41 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+## [2.0.0]
+
+### Changed
+
+- **BREAKING — core:** Player taxonomy renamed to split cleanly on source
+  (in-memory buffer vs streamed file) and voice model (polyphonic vs single
+  playhead). `SoundPlayer` → `Sampler`, `StreamPlayer` → `FilePlayer` (and their
+  `SoundPlayerOptions`/`StreamPlayerOptions` types → `SamplerOptions`/
+  `FilePlayerOptions`). Update imports accordingly.
+
 ### Added
 
+- **core:** `BufferPlayer` (+ `BufferPlayerOptions`) — buffer-backed
+  single-playhead deck: sample-accurate `start`/`stop`/`loop` with a schedulable
+  `params.rate` for beat-locked loops, stems, and DJ pitch/tempo moves. Its
+  source is one-shot, so each `start()` builds a fresh node and re-points the
+  stable `params.rate` at it via `SchedulableParam.rebind()`.
+- **core:** `SchedulableParam.rebind()` — re-point a stable param at a freshly
+  built source node, so a single reactive reference survives node rebuilds while
+  scheduled automation always lands on the live source.
 - **core:** `Analyser` (+ `AnalyserOptions`) — an `AudioProcessor` wrapping an
   `AnalyserNode` as a pass-through tap. Exposes `readFrequencies`/`readWaveform`
   with `createFrequencyBuffer`/`createWaveformBuffer` and `binCount`/`fftSize`,
   for audio visualizers. Poll it from a render loop, not an `effect()`.
+- **docs/skill:** `choosing-playback.md` — decision flow plus per-primitive
+  use/avoid and common mistakes for `Sampler`, `BufferPlayer`, and `FilePlayer`.
 - **docs/skill:** `pixijs.md` — guide for pairing PixiJS with audiorective. No
   binding package is needed; core + `alien-signals` cover it. Documents the boot
   one-liner, the `effect`-vs-`ticker` decision, and the worked example
   `apps/pixi-visualizer`.
+
+### Fixed
+
+- **core:** `BufferPlayer.loop` setter now reapplies the loop window when toggled
+  mid-play.
 
 ## [1.2.0]
 
