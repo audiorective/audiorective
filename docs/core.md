@@ -327,6 +327,50 @@ Position/orientation are plain `AudioParam`s on `spatial.panner`. Drive them dir
 
 ---
 
+### Analyser
+
+Built-in `AudioProcessor` that owns an `AnalyserNode` as a **pass-through tap** — wire it inline (`source → analyser.input`, `analyser.output → destination`) and read the realtime spectrum or waveform. The primitive every visualizer needs, so you don't hand-roll an `AnalyserNode` + byte buffer each time.
+
+```typescript
+import { Analyser, type AnalyserOptions } from "@audiorective/core";
+
+class Analyser extends AudioProcessor {
+  readonly node: AnalyserNode;
+  override get input(): AudioNode; // === output; the pass-through node
+  get output(): AudioNode;
+  get binCount(): number; // fftSize / 2 — length of a frequency buffer
+  get fftSize(): number; // length of a waveform buffer
+
+  createFrequencyBuffer(): Uint8Array; // sized to binCount
+  createWaveformBuffer(): Uint8Array; // sized to fftSize
+  readFrequencies(out: Uint8Array): void; // 0–255 per bin (getByteFrequencyData)
+  readWaveform(out: Uint8Array): void; // 0–255, 128 = silence (getByteTimeDomainData)
+
+  constructor(context: AudioContext, options?: AnalyserOptions);
+}
+
+interface AnalyserOptions {
+  fftSize?: number; // default 2048
+  smoothingTimeConstant?: number; // default 0.8
+  minDecibels?: number;
+  maxDecibels?: number;
+}
+```
+
+```typescript
+const analyser = new Analyser(ctx, { fftSize: 256 });
+synth.output.connect(analyser.input);
+analyser.output.connect(ctx.destination);
+
+const bins = analyser.createFrequencyBuffer();
+// each render frame (ticker / requestAnimationFrame / useFrame):
+analyser.readFrequencies(bins); // bins[i] = 0–255
+```
+
+**Analyser data is not reactive** — it changes every audio frame with no signal to subscribe to. Poll it from your render loop, **not** from an `effect()` or `useValue()`. See [pixijs.md](./pixijs.md) for the `effect`-vs-render-loop decision in a full app.
+
+---
+
 ## Sound Playback
 
 Three primitives cover audio playback. They split on two axes — **source** (in-memory `AudioBuffer` vs streamed file) and **voice model** (polyphonic vs single playhead). For a how-to-choose walkthrough see `choosing-playback.md`.
@@ -832,6 +876,7 @@ signals/src/
 ├── SchedulableParam.ts  # numeric param with Web Audio scheduling
 ├── ParamSync.ts         # per-context RAF sync loop
 ├── Spatial.ts           # AudioProcessor wrapping a PannerNode
+├── Analyser.ts          # AudioProcessor wrapping an AnalyserNode (spectrum/waveform tap)
 ├── types.ts             # SignalAccessor, ComputedAccessor, Readable, ParamBind, etc.
 └── index.ts             # public exports
 ```
@@ -840,7 +885,7 @@ signals/src/
 
 ```typescript
 // Classes
-export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell, Spatial };
+export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell, Spatial, Analyser };
 export { Sampler, BufferPlayer, FilePlayer, Voice };
 export { AudioBufferCache };
 
@@ -862,6 +907,7 @@ export type {
   BuildHelpers,
   BuildResult,
   SpatialOptions,
+  AnalyserOptions,
   SamplerOptions,
   TriggerOptions,
   BufferPlayerOptions,
