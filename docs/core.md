@@ -2,8 +2,6 @@
 title: Core
 ---
 
-# @audiorective/core
-
 Reactive primitives for Web Audio. Bridges audio parameter automation and UI frameworks.
 
 **Powered by alien-signals 3.x** — lightweight, zero-dependency, automatic dependency tracking. Signals use a callable API: `signal()` to read, `signal(value)` to write. Custom types `SignalAccessor<T>` and `ComputedAccessor<T>` are defined in types.ts (alien-signals no longer exports `Signal<T>`, `Effect<T>`, or `Computed<T>`).

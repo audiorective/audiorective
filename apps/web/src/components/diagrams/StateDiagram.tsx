@@ -21,10 +21,7 @@ export interface DesyncState {
 export function computeDesync(t: number): DesyncState {
   const phase = ((t % 1) + 1) % 1;
 
-  // Alternate the UI target each loop so the jump is visible: even loops jump
-  // low->high, odd loops jump high->low. We only render one loop's worth of
-  // phase, so within [0,1) ui always jumps from the previous target to the
-  // "current" target at phase 0.
+  // Within [0,1), ui jumps from the previous target to the current target at phase 0.
   const previousTarget = UI_TARGET_LOW;
   const currentTarget = UI_TARGET_HIGH;
 

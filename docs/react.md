@@ -2,8 +2,6 @@
 title: React
 ---
 
-# @audiorective/react
-
 React bindings for audiorective signals. Direct mutation model — no dispatch, no actions. The processor is the source of truth.
 
 ## Dependencies

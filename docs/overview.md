@@ -2,8 +2,6 @@
 title: Overview
 ---
 
-# Audiorective — Overview
-
 Modular toolkit for web audio development. Independent, composable packages that work alone or together.
 
 **Target users:** Audio engineers, creative coders, researchers who understand DSP and want cleaner web integration.

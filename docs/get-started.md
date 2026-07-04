@@ -2,8 +2,6 @@
 title: Get Started
 ---
 
-# Get Started
-
 ## Install the skill
 
 audiorective ships as an agent skill so LLMs can build with it correctly out of the box.

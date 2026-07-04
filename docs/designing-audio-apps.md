@@ -2,8 +2,6 @@
 title: Designing Audio Apps
 ---
 
-# Designing Audio Apps
-
 How to design a _whole_ audio application with audiorective — multiple sources, multiple UIs, spatial audio — not just wire up one processor. Builds on the audio/UI rule in `architecture.md`.
 
 ## Principles

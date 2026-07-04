@@ -2,8 +2,6 @@
 title: PlayCanvas
 ---
 
-# @audiorective/playcanvas
-
 PlayCanvas bindings for `@audiorective/core`. The integration layer between an audiorective engine and a PlayCanvas application. Audio always lives in core; this package provides the scene-side glue — wiring the engine's `AudioContext` into PlayCanvas's `SoundManager`, and syncing scene transforms onto audio nodes.
 
 It follows the same **anchor model** as `@audiorective/threejs`: audiorective owns the entire audio graph (source → effects → `Spatial` panner → destination), and the renderer only drives the panner's transform. The whole audio layer is reused verbatim across renderers. Pre-panner effects (FOH-style EQ, bus compression, instrument coloration) are simply how you wire the graph — they come for free, with no special hook.
