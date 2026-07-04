@@ -16,8 +16,11 @@ export default function LivehouseApp() {
 
   useEffect(() => {
     let alive = true;
-    void loadAppConfig().then((cfg) => {
-      void engine.applyAudioConfig(cfg.audio);
+    void loadAppConfig().then(async (cfg) => {
+      // Await config application: it decodes the FX pads and optional reverb
+      // buffer, so gating `ready` on it prevents the scene from mounting and
+      // taking a first click while those buffers are still missing.
+      await engine.applyAudioConfig(cfg.audio);
       if (alive) setReady(true);
     });
     return () => {
