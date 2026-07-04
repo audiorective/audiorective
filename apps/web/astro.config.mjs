@@ -14,27 +14,27 @@ export default defineConfig({
         {
           label: "Start",
           items: [
-            { label: "Overview", slug: "overview" },
-            // "Get Started" entry omitted: slug 'get-started' doesn't exist until Task 1.3.
-            // Re-add { label: "Get Started", slug: "get-started" } once that page is created.
+            { label: "Overview", slug: "docs/overview" },
+            // "Get Started" entry omitted: slug 'docs/get-started' doesn't exist until Task 1.3.
+            // Re-add { label: "Get Started", slug: "docs/get-started" } once that page is created.
           ],
         },
         {
           label: "Concepts",
           items: [
-            { label: "Architecture", slug: "architecture" },
-            { label: "Designing Audio Apps", slug: "designing-audio-apps" },
-            { label: "Choosing Playback", slug: "choosing-playback" },
+            { label: "Architecture", slug: "docs/architecture" },
+            { label: "Designing Audio Apps", slug: "docs/designing-audio-apps" },
+            { label: "Choosing Playback", slug: "docs/choosing-playback" },
           ],
         },
         {
           label: "Packages",
           items: [
-            { label: "Core", slug: "core" },
-            { label: "React", slug: "react" },
-            { label: "Three.js", slug: "threejs" },
-            { label: "PlayCanvas", slug: "playcanvas" },
-            { label: "PixiJS", slug: "pixijs" },
+            { label: "Core", slug: "docs/core" },
+            { label: "React", slug: "docs/react" },
+            { label: "Three.js", slug: "docs/threejs" },
+            { label: "PlayCanvas", slug: "docs/playcanvas" },
+            { label: "PixiJS", slug: "docs/pixijs" },
           ],
         },
       ],
