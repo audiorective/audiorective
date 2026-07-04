@@ -1,0 +1,51 @@
+---
+const links = [
+  { label: 'Docs', href: '/docs/overview' },
+  { label: 'Showroom', href: '/showroom' },
+  { label: 'GitHub', href: 'https://github.com/audiorective/audiorective' },
+];
+---
+<nav class="site-nav">
+  <a class="brand" href="/">audiorective</a>
+  <ul>
+    {links.map((l) => (
+      <li><a href={l.href}>{l.label}</a></li>
+    ))}
+  </ul>
+</nav>
+
+<style>
+  .site-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #1f1f2e;
+  }
+
+  .brand {
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+
+  .site-nav ul {
+    display: flex;
+    gap: 1.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .site-nav a {
+    color: var(--fg);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+
+  .site-nav a:hover {
+    color: var(--accent-2);
+  }
+</style>
