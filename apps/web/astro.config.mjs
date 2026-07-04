@@ -15,8 +15,7 @@ export default defineConfig({
           label: "Start",
           items: [
             { label: "Overview", slug: "docs/overview" },
-            // "Get Started" entry omitted: slug 'docs/get-started' doesn't exist until Task 1.3.
-            // Re-add { label: "Get Started", slug: "docs/get-started" } once that page is created.
+            { label: "Get Started", slug: "docs/get-started" },
           ],
         },
         {
