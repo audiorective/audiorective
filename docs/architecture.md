@@ -1,3 +1,7 @@
+---
+title: Architecture
+---
+
 # Architecture — Audio/UI Separation
 
 The audio layer must be fully operable without any UI framework. React (or any future binding) is a thin observation and mutation layer on top.

@@ -1,3 +1,7 @@
+---
+title: PixiJS
+---
+
 # Pairing PixiJS with audiorective
 
 **There is no `@audiorective/pixijs` package — and you don't need one.** Core

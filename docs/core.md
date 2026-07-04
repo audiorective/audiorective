@@ -1,3 +1,7 @@
+---
+title: Core
+---
+
 # @audiorective/core
 
 Reactive primitives for Web Audio. Bridges audio parameter automation and UI frameworks.

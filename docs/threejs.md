@@ -1,3 +1,7 @@
+---
+title: Three.js
+---
+
 # @audiorective/threejs
 
 Three.js bindings for `@audiorective/core`. The integration layer between an audiorective engine and a three.js scene. Audio always lives in core; this package provides the scene-side glue — wiring the engine's `AudioContext` into three.js, syncing scene transforms onto audio nodes, and any other binding that needs the renderer or `Object3D` graph. Today it ships `attach` (engine ↔ renderer setup) and `PannerAnchor` (spatial transform sync).

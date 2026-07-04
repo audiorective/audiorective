@@ -1,3 +1,7 @@
+---
+title: Choosing Playback
+---
+
 # Choosing a playback primitive
 
 `@audiorective/core` ships three ways to play audio: **`Sampler`**, **`BufferPlayer`**, and **`FilePlayer`**. They are not interchangeable — picking the wrong one shows up as subtle bugs (loops that drift off the beat, a rate you can't automate, a 60-minute file decoded into memory). This guide picks the right one.

@@ -1,3 +1,7 @@
+---
+title: PlayCanvas
+---
+
 # @audiorective/playcanvas
 
 PlayCanvas bindings for `@audiorective/core`. The integration layer between an audiorective engine and a PlayCanvas application. Audio always lives in core; this package provides the scene-side glue — wiring the engine's `AudioContext` into PlayCanvas's `SoundManager`, and syncing scene transforms onto audio nodes.
