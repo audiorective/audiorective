@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { assembleShape, pickPiles } from "./legoScene";
 
 const PIECES_PER_LOOP = 4;
@@ -28,7 +28,17 @@ function easeInOutCubic(t: number): number {
 }
 
 function usePrefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [prefers, setPrefers] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefers(query.matches);
+    const listener = (event: MediaQueryListEvent) => setPrefers(event.matches);
+    query.addEventListener("change", listener);
+    return () => query.removeEventListener("change", listener);
+  }, []);
+
+  return prefers;
 }
 
 /** Faux-2.5D: pieces higher on screen (smaller y) sit "further back" — slightly smaller and dimmer. */
