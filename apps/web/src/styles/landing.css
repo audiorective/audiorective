@@ -1,0 +1,357 @@
+/* Landing page — "cyber-livehouse, off-hours" visual system.
+   Extends the tokens defined in BaseLayout.astro. */
+
+:root {
+  --bg-raised: #111119;
+  --bg-well: #07070c;
+  --fg-dim: #8a8a9e;
+  --line: #1f1f2e;
+  --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.landing {
+  display: flex;
+  flex-direction: column;
+}
+
+.landing section {
+  position: relative;
+  padding: clamp(4rem, 10vw, 7rem) 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.landing section:last-of-type {
+  border-bottom: none;
+}
+
+.landing section.band-raised {
+  background: var(--bg-raised);
+}
+
+/* seam trace — a quiet animated scope-line that sits on each section border,
+   the page's one recurring "audio" signature */
+.landing section::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 20%, transparent 35%, var(--accent-2) 60%, transparent 80%);
+  background-size: 200% 100%;
+  opacity: 0.5;
+  animation: seam-drift 14s linear infinite;
+}
+
+.landing section:last-of-type::after {
+  display: none;
+}
+
+@keyframes seam-drift {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.landing .inner {
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.landing .inner--wide {
+  max-width: 56rem;
+}
+
+/* Eyebrow / console-tag label */
+.landing .eyebrow {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin: 0 0 1rem;
+}
+
+.landing .eyebrow::before {
+  content: "// ";
+  color: var(--accent);
+}
+
+/* Headings — monospace as display face, tight tracking */
+.landing h1,
+.landing h2 {
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin: 0 0 1rem;
+  color: var(--fg);
+}
+
+.landing h1 {
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  max-width: 20ch;
+}
+
+.landing h2 {
+  font-size: clamp(1.5rem, 3.6vw, 2.2rem);
+}
+
+.landing .subline {
+  font-family: var(--mono);
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  margin: 0 0 1.5rem;
+}
+
+.landing p {
+  font-family: var(--sans);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--fg);
+  margin: 0 0 1.25rem;
+  max-width: 62ch;
+}
+
+.landing p.lede {
+  color: var(--fg-dim);
+}
+
+.landing blockquote {
+  margin: 1.5rem 0;
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  border-left: 2px solid var(--accent-2);
+  font-family: var(--sans);
+  font-style: italic;
+  color: var(--fg);
+  max-width: 60ch;
+}
+
+.landing strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.landing a.inline-link {
+  color: var(--accent);
+}
+
+/* CTA buttons — terminal-bracket style, matching the copy deck's own
+   `[ Label ]` notation */
+.landing .cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 2rem;
+}
+
+.landing .cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.7rem 1.3rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  text-decoration: none;
+  color: var(--fg);
+  background: transparent;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.landing .cta:hover,
+.landing .cta:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  outline: none;
+}
+
+.landing .cta--primary {
+  border-color: var(--accent);
+  color: var(--bg);
+  background: var(--accent);
+}
+
+.landing .cta--primary:hover,
+.landing .cta--primary:focus-visible {
+  color: var(--bg);
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--accent-2);
+}
+
+/* Hero */
+.landing .hero {
+  padding-top: clamp(5rem, 14vw, 8.5rem);
+}
+
+/* Pain point cards — recessed "channel strip" wells */
+.landing .pain-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 2rem 0 2.5rem;
+}
+
+.landing .pain-card {
+  background: var(--bg-well);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--card-accent, var(--accent));
+  border-radius: 3px;
+  padding: 1.5rem 1.75rem;
+}
+
+.landing .pain-card--state {
+  --card-accent: var(--accent);
+}
+
+.landing .pain-card--clock {
+  --card-accent: var(--accent-2);
+}
+
+.landing .pain-card .card-title {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--fg);
+  margin: 0 0 0.5rem;
+}
+
+.landing .pain-card .card-oneliner {
+  font-family: var(--sans);
+  color: var(--fg-dim);
+  margin: 0 0 1rem;
+  max-width: 56ch;
+}
+
+.landing .pain-card details {
+  margin-top: 0.5rem;
+}
+
+.landing .pain-card summary {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: var(--card-accent, var(--accent));
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.landing .pain-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.landing .pain-card summary::before {
+  content: "» ";
+}
+
+.landing .pain-card details[open] summary::before {
+  content: "⌄ ";
+}
+
+.landing .pain-card .card-reasoning {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--line);
+}
+
+.landing .pain-card .card-reasoning p {
+  color: var(--fg-dim);
+  font-size: 0.98rem;
+}
+
+.landing .pain-card .card-connector {
+  margin-top: 1rem;
+  font-family: var(--sans);
+  font-style: italic;
+  color: var(--fg);
+}
+
+.landing .pain-card .card-resolves {
+  margin-top: 0.75rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+}
+
+.landing .pain-card .card-resolves code {
+  color: var(--card-accent, var(--accent));
+  background: none;
+}
+
+.landing .bridge {
+  margin-top: 2rem;
+}
+
+.landing .bridge .card-title {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--fg);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* Composability — Lego mount placeholder */
+.landing .lego-mount {
+  margin: 2.5rem 0;
+  height: clamp(10rem, 24vw, 16rem);
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.015) 10px, rgba(255, 255, 255, 0.015) 20px);
+}
+
+/* Send-off */
+.landing .send-off {
+  text-align: center;
+}
+
+.landing .send-off .inner {
+  margin: 0 auto;
+}
+
+.landing .send-off h2 {
+  max-width: none;
+}
+
+.landing .send-off .subline {
+  color: var(--fg-dim);
+  font-family: var(--sans);
+  font-style: normal;
+  letter-spacing: normal;
+  max-width: 50ch;
+  margin: 0 auto 0.5rem;
+}
+
+.landing .send-off .cta-row {
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .landing .cta-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing .send-off .cta-row {
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing section::after {
+    animation: none;
+  }
+}
