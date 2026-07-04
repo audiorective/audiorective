@@ -328,6 +328,111 @@ primitives, not a sandbox.
   (beat-anchored storage internally; the absolute-time public API is
   unchanged). Possibly count-in/pre-roll (below).
 
+## Stress test: four consumer archetypes
+
+Findings from walking the design through four developer archetypes — step
+sequencer, drum machine, DAW, rhythm game — recorded here first; the affected
+sections above have **not** yet been amended. Overall: the two sequencer
+archetypes fit the design as written; the DAW and rhythm game each expose one
+genuinely missing capability, plus smaller cracks. Ranked by severity.
+
+### ST-1. Looping is missing entirely (DAW: blocking; games: practice mode)
+
+The beat axis is monotonic; a loop region means beat jumps backward. There is
+no acceptable consumer-side workaround: with look-ahead, events _across_ the
+loop boundary must be scheduled before the boundary arrives — the window
+containing loop-end must hand out the tail of this pass **and** the head of
+the next pass, both converted to correct absolute times, in one tick. So loop
+cannot be "an anchor write when we get there"; the **window math must know the
+loop region**. Step sequencers and drum machines escape (they loop via
+`index % steps` over an infinite grid — no transport loop needed); a DAW loop
+region and a rhythm game's practice loop both need it native.
+
+Likely shape: a loop region on the transport, and a window whose beat range
+can be **two spans** at the boundary (analogous to a ring-buffer wraparound
+read). Needs its own design section. Real design work, not an amendment.
+
+### ST-2. Windows need a discontinuity signal; `grid().index` semantics must survive it
+
+Seek, stop→start, and every loop pass create a discontinuity in the beat
+axis. Consumers hold derived state (step counters, "already scheduled note
+i", arpeggio position) and currently have no way to know the axis jumped.
+Also, `index` was specced as "global step counter since transport start" —
+undefined after a seek to bar 33.
+
+Resolution (cheap, decide now): a `discontinuity` marker (or generation
+counter) on the window, and `index` redefined as **position-derived**
+(`floor(beat / stepSize)`) so it is stable under seek and loop, rather than
+"counted since start."
+
+### ST-3. The visual/observation side is unspecced
+
+Everything above serves the _scheduling_ direction. But a step sequencer
+highlights the current step, a DAW draws a playhead, a rhythm game renders a
+note highway — all need "**where is the audible now?**" at rAF rate. Three
+sub-gaps:
+
+- **Point queries.** `timeToBeat(ctx.currentTime)` exists, but ruler readings
+  (bar number, phase) can only be computed for _windows_ — `read(window,
+  timeline)` has no point form. Add a point-read; a window read is then the
+  range case of the same operation.
+- **Reactive position.** A coarse `clock.beat` `Param` pushed per tick
+  (~40 Hz) for `useValue` UI, alongside the pull-based point query for
+  rAF-driven canvases (the pixi/three bindings' home turf).
+- **Audible now ≠ `ctx.currentTime`.** Sound exits the speakers
+  `ctx.outputLatency` later; a playhead drawn at `currentTime` is visibly
+  early on Bluetooth audio. Expose a latency-compensated now.
+
+### ST-4. Rhythm games cross a clock domain at the input boundary
+
+Judging a hit compares a **player input timestamp** (`performance.now()`
+domain) against beat time (`AudioContext` domain). The domains must be
+correlated (`ctx.getOutputTimestamp()`), and judgment must account for output
+latency (score against what the player _heard_, not what was scheduled) plus
+a user calibration offset. None of this contradicts the design — it is the
+conversion feature extended one domain over — but without
+`performanceTimeToBeat(t)` / latency-aware helpers, every game reinvents the
+most error-prone part. (The scheduling direction already works: a beatmap
+scheduled per-window via `beatToTime` is exactly the intended idiom.)
+Candidate: one "clock domains & latency" section covering this and the third
+bullet of ST-3.
+
+### ST-5. The window contract is really an ownership contract
+
+A drum machine with flams/humanize schedules `gridPointTime + 8 ms`, which
+near the window edge lands _outside_ the window — yet is perfectly safe: it
+can never double-fire, because ownership follows the **grid point**, which was
+handed out exactly once. So `assertInWindow(finalTime)` as specced
+false-positives on legitimate swing offsets and grace notes. The honest
+contract is "**derive each event from data handed to you exactly once**,"
+with window bounds as the proxy for the common case. Resolution: validate the
+anchor (or allow a tolerance), and restate the contract section in ownership
+terms.
+
+### ST-6. Basic seek is deferred too far
+
+Given the anchor design, seek is a two-field write. The V3 deferral is really
+about seek under an _edited tempo map_ (second-anchored events go stale after
+a jump) — but `clock.start({ atBeat })` / basic seek at constant tempo is
+nearly free and wanted early by both the DAW and games (retry from
+checkpoint). Proposed: pull basic seek into V1 with a documented
+tempo-automation caveat; keep tempo-map-correct seek in V3.
+
+### Minor notes
+
+- `transport.isRecording` (present in the March doc) was dropped above —
+  believed correctly (armed-ness is app state, a `Cell`; punch-in/out is
+  window logic), but the drop should be explicit in the count-in open item
+  rather than silent.
+- Live pattern editing has an inherent ~`lookAhead` latency: toggling a step
+  whose window was already committed takes effect next pass. Not fixable —
+  document as an accepted property of look-ahead scheduling.
+
+Disposition: ST-2, ST-5, and the point-query part of ST-3 are cheap spec
+amendments; ST-1 needs a new design section (two-span windows); ST-4 plus the
+latency part of ST-3 become one "clock domains & latency" section; ST-6 is a
+roadmap reshuffle.
+
 ## Open questions
 
 1. **Count-in / pre-roll lifecycle.** Carried over unresolved. Likely a
