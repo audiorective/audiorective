@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { Channel } from "../src/audio/Channel";
-import { Mixer } from "../src/audio/Mixer";
+import { Channel } from "../../src/demos/livehouse/audio/Channel";
+import { Mixer } from "../../src/demos/livehouse/audio/Mixer";
 
 function makeChannel(ctx: AudioContext, id: string, x = 0) {
   return new Channel(ctx, { id, label: id, color: "#fff", source: { output: new GainNode(ctx) }, position: { x, y: 1, z: -3 } });

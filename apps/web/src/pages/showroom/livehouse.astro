@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import LivehouseApp from '../../demos/livehouse/LivehouseApp.tsx';
+---
+<BaseLayout title="Livehouse PA Simulator">
+  <LivehouseApp client:only="react" />
+</BaseLayout>

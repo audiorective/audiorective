@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { rms } from "../src/audio/meterMath";
+import { rms } from "../../src/demos/livehouse/audio/meterMath";
 
 describe("rms", () => {
   test("silence is 0", () => {

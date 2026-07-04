@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from "vitest";
-import { createPaEngine } from "../src/audio/engine";
+import { createPaEngine } from "../../src/demos/livehouse/audio/engine";
 
 describe("PA engine assembly", () => {
   let teardown: (() => void) | null = null;

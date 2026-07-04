@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { hoverOffset } from "../src/scene/hover";
+import { hoverOffset } from "../../src/demos/livehouse/scene/hover";
 
 describe("hoverOffset", () => {
   test("is deterministic for the same (t, seed)", () => {

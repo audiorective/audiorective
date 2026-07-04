@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { Channel } from "../src/audio/Channel";
+import { Channel } from "../../src/demos/livehouse/audio/Channel";
 
 function makeSource(ctx: AudioContext) {
   return { output: new GainNode(ctx) };

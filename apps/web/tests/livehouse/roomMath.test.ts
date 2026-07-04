@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { clampToRoom } from "../src/scene/roomMath";
+import { clampToRoom } from "../../src/demos/livehouse/scene/roomMath";
 
 describe("clampToRoom", () => {
   const opts = { halfW: 7, halfD: 8, margin: 0.5 };

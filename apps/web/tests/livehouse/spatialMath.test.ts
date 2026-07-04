@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { azimuthToPan, type Vec3 } from "../src/audio/spatialMath";
+import { azimuthToPan, type Vec3 } from "../../src/demos/livehouse/audio/spatialMath";
 
 const at = (x: number): Vec3 => ({ x, y: 1, z: -3 });
 

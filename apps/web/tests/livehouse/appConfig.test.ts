@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { DEFAULT_CONFIG, mergeConfig, matchAction } from "../src/config/appConfig";
+import { DEFAULT_CONFIG, mergeConfig, matchAction } from "../../src/demos/livehouse/config/appConfig";
 
 const ev = (code: string) => ({ code }) as KeyboardEvent;
 

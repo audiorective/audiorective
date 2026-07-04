@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { CHANNELS, FX_TARGET_CHANNEL } from "../src/audio/sceneConfig";
+import { CHANNELS, FX_TARGET_CHANNEL } from "../../src/demos/livehouse/audio/sceneConfig";
 
 describe("sceneConfig", () => {
   test("declares five stream channels with unique ids", () => {

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { makeImpulseResponse, createReverb } from "../src/audio/reverb";
+import { makeImpulseResponse, createReverb } from "../../src/demos/livehouse/audio/reverb";
 
 describe("reverb", () => {
   let ctx: AudioContext;

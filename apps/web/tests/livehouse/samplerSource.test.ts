@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { SamplerSource } from "../src/audio/sources/SamplerSource";
+import { SamplerSource } from "../../src/demos/livehouse/audio/sources/SamplerSource";
 
 function makeBuffer(ctx: AudioContext, seconds = 0.5): AudioBuffer {
   return ctx.createBuffer(1, Math.max(1, Math.ceil(ctx.sampleRate * seconds)), ctx.sampleRate);
