@@ -1,6 +1,6 @@
 # Audiorective Website + Documentation — Design
 
-*Status: approved design, ready for implementation planning. Date: 2026-06-29.*
+_Status: approved design, ready for implementation planning. Date: 2026-06-29._
 
 ## Goal
 
@@ -11,16 +11,16 @@ application, dogfooding the framework on the homepage.
 
 ## Decisions (locked)
 
-| Decision | Choice |
-| --- | --- |
-| App location | New `apps/web` (picked up by `apps/*` in `pnpm-workspace.yaml`) |
-| Stack | Astro + Starlight + `@astrojs/react`, Vite / React 19, `output: 'static'` |
-| Deploy | Static host (Vercel / Netlify), custom domain |
-| Docs source | Starlight reads the existing `docs/` markdown **in place** — single source of truth |
-| Demos | Ported into the site as **native React islands**; old `apps/showroom` + `apps/pixi-visualizer` removed |
-| Landing page | Copy-deck "trailer" content **plus** the full interactive instrument layer |
-| Lego animation | Canvas 2D faux-2.5D |
-| Scheduling | Uses `@audiorective/clock` (built in parallel) — **external dependency**, not hand-rolled here |
+| Decision       | Choice                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| App location   | New `apps/web` (picked up by `apps/*` in `pnpm-workspace.yaml`)                                        |
+| Stack          | Astro + Starlight + `@astrojs/react`, Vite / React 19, `output: 'static'`                              |
+| Deploy         | Static host (Vercel / Netlify), custom domain                                                          |
+| Docs source    | Starlight reads the existing `docs/` markdown **in place** — single source of truth                    |
+| Demos          | Ported into the site as **native React islands**; old `apps/showroom` + `apps/pixi-visualizer` removed |
+| Landing page   | Copy-deck "trailer" content **plus** the full interactive instrument layer                             |
+| Lego animation | Canvas 2D faux-2.5D                                                                                    |
+| Scheduling     | Uses `@audiorective/clock` (built in parallel) — **external dependency**, not hand-rolled here         |
 
 ## Dependencies
 
@@ -40,13 +40,13 @@ Nav: **logo · Docs · Showroom · GitHub**. No footer, no package grid, no
 roadmap on the landing page (per the copy deck — the page is a trailer, not a
 manual).
 
-| Route | What | Rendering |
-| --- | --- | --- |
-| `/` | Landing — trailer content + instrument layer | Astro page + React islands |
-| `/docs/...` | Full docs, incl. **Get Started / Install** page | Starlight, sourced from `../../docs` |
-| `/showroom` | Gallery with source links | Astro page |
-| `/showroom/livehouse` | Ported Livehouse PA Simulator | React island route |
-| `/showroom/pixi` | Ported Pixi spectrum visualizer | React island route |
+| Route                 | What                                            | Rendering                            |
+| --------------------- | ----------------------------------------------- | ------------------------------------ |
+| `/`                   | Landing — trailer content + instrument layer    | Astro page + React islands           |
+| `/docs/...`           | Full docs, incl. **Get Started / Install** page | Starlight, sourced from `../../docs` |
+| `/showroom`           | Gallery with source links                       | Astro page                           |
+| `/showroom/livehouse` | Ported Livehouse PA Simulator                   | React island route                   |
+| `/showroom/pixi`      | Ported Pixi spectrum visualizer                 | React island route                   |
 
 There is no separate top-level "Quick-start" route. The hero's `Get Started →`
 CTA and the skill section's `Install the skill →` CTA both point at the **Get
@@ -181,7 +181,7 @@ new source locations.
   lookahead scheduler.
 - Instrument islands: interaction tests via vitest browser (reuse the
   showroom's Playwright browser setup) — play/pause, a knob in one island
-  mutating a shared param observed from a *separate* island, sticky transport
+  mutating a shared param observed from a _separate_ island, sticky transport
   appearing on scroll.
 - Ported demos: bring their existing tests along.
 - CI: typecheck + build for `apps/web`.
