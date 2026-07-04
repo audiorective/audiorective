@@ -1,16 +1,19 @@
 ---
+import Reveal from './Reveal';
 ---
 <section class="band-raised send-off">
   <div class="inner">
-    <h2>Go make some noise.</h2>
-    <p class="subline">
-      Poke around the showroom, skim the docs, or dig into the source.
-      Whatever kind of curious you are.
-    </p>
-    <div class="cta-row">
-      <a class="cta cta--primary" href="/showroom">Showroom</a>
-      <a class="cta" href="/docs/overview">Docs</a>
-      <a class="cta" href="https://github.com/audiorective/audiorective">GitHub ★</a>
-    </div>
+    <Reveal client:visible>
+      <h2>Go make some noise.</h2>
+      <p class="subline">
+        Poke around the showroom, skim the docs, or dig into the source.
+        Whatever kind of curious you are.
+      </p>
+      <div class="cta-row">
+        <a class="cta cta--primary" href="/showroom">Showroom</a>
+        <a class="cta" href="/docs/overview">Docs</a>
+        <a class="cta" href="https://github.com/audiorective/audiorective">GitHub ★</a>
+      </div>
+    </Reveal>
   </div>
 </section>
