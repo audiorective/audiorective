@@ -229,6 +229,25 @@
   margin: 0 0 0.5rem;
 }
 
+.landing .pain-card button.card-title {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.landing .pain-card button.card-title::before {
+  content: "» ";
+  color: var(--card-accent, var(--accent));
+}
+
+.landing .pain-card button.card-title[aria-expanded="true"]::before {
+  content: "⌄ ";
+}
+
 .landing .pain-card .card-oneliner {
   font-family: var(--sans);
   color: var(--fg-dim);
@@ -236,30 +255,8 @@
   max-width: 56ch;
 }
 
-.landing .pain-card details {
-  margin-top: 0.5rem;
-}
-
-.landing .pain-card summary {
-  font-family: var(--mono);
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  color: var(--card-accent, var(--accent));
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.landing .pain-card summary::-webkit-details-marker {
-  display: none;
-}
-
-.landing .pain-card summary::before {
-  content: "» ";
-}
-
-.landing .pain-card details[open] summary::before {
-  content: "⌄ ";
+.landing .pain-card .card-diagram {
+  margin: 0 0 1rem;
 }
 
 .landing .pain-card .card-reasoning {
