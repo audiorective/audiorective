@@ -20,6 +20,16 @@ application, dogfooding the framework on the homepage.
 | Demos | Ported into the site as **native React islands**; old `apps/showroom` + `apps/pixi-visualizer` removed |
 | Landing page | Copy-deck "trailer" content **plus** the full interactive instrument layer |
 | Lego animation | Canvas 2D faux-2.5D |
+| Scheduling | Uses `@audiorective/clock` (built in parallel) — **external dependency**, not hand-rolled here |
+
+## Dependencies
+
+- **`@audiorective/clock`** — being developed in parallel as its own package. This
+  site does **not** hand-craft a lookahead scheduler. The instrument's looping
+  patch and the Clock pain-diagram both consume `@audiorective/clock` for
+  sample-accurate scheduling once it lands. Work that depends on it (see phasing)
+  is unblocked when the package publishes a usable transport/scheduler API; the
+  rest of the site proceeds independently.
 
 The landing-page copy deck is kept at `apps/web/copy/landing-page.md` as the
 canonical working document; future refinements are diffed against it.
@@ -77,12 +87,11 @@ contexts, zero duplicated state — the framework's core pitch made literal.
 
 Components:
 
-- **`apps/web/src/instrument/engine.ts`** — a looping patch (drum/synth pattern
-  driven by a small lookahead scheduler) built on `@audiorective/core`. Exported
-  as a **lazy module singleton**, created on first user gesture (AudioContext
-  resume). Framework-agnostic; not tied to any React context. The lookahead
-  scheduler is written to mirror the model the future `@audiorective/clock` will
-  implement, so it can later be swapped for the real package.
+- **`apps/web/src/instrument/engine.ts`** — a looping patch (drum/synth pattern)
+  built on `@audiorective/core`, with scheduling driven by **`@audiorective/clock`**
+  (external dependency, see above — no local scheduler). Exported as a **lazy
+  module singleton**, created on first user gesture (AudioContext resume).
+  Framework-agnostic; not tied to any React context.
 - **Floating control islands** (`position: fixed`, persist across scroll) —
   knobs (filter cutoff, tempo, reverb…) and trigger pads hanging at the page
   edges / background. Each is its own island, binding to the singleton via
@@ -100,11 +109,12 @@ takeover.
 
 ### Synergy: Clock diagram powered by the real scheduler
 
-The Clock pain-diagram reads the **same engine's scheduler** rather than a
-hand-faked timeline — the "problem diagram powered by the solution," for real.
-This is the intended end state; if phased, the diagram starts on a faithful
-standalone simulation built on the same lookahead logic and is switched to read
-the live engine once the instrument layer exists.
+The Clock pain-diagram reads the **same engine's `@audiorective/clock` scheduler**
+rather than a hand-faked timeline — the "problem diagram powered by the solution,"
+for real. This is the intended end state and depends on the clock package. Until
+it lands, the diagram runs on a faithful standalone simulation of the same
+lookahead behaviour, then switches to read the live clock — a swap of the data
+source, not a rewrite of the visual.
 
 ## Animations
 
@@ -113,8 +123,9 @@ not decorative SVG."** No Lottie / pre-baked keyframes for those.
 
 - **State & Clock diagrams** — hand-coded live simulations: a small
   `requestAnimationFrame` / signals-driven model rendered to **SVG** (crisp,
-  schematic, labelable). The Clock sim shares the lookahead logic of the real
-  clock (see synergy above). Optional muted audio cue via `@audiorective/core`
+  schematic, labelable). The Clock sim is ultimately powered by
+  `@audiorective/clock` (see synergy above; standalone simulation until the
+  package lands). Optional muted audio cue via `@audiorective/core`
   (hear drift vs lock).
   - State diagram: two boxes (UI Framework / Audio Engine) showing the same
     value; dragging desyncs them (audio box tinted stale-red), a manual "sync"
@@ -190,15 +201,19 @@ Each phase ships something usable:
    update README.
 2. Static landing copy sections (all six) + Motion reveals.
 3. Live pain diagrams (State, Clock) + Lego canvas animation.
-4. The instrument layer: engine singleton → floating controls → sticky
-   transport; switch the Clock diagram to read the live scheduler.
+4. The instrument layer: engine singleton (scheduling via `@audiorective/clock`)
+   → floating controls → sticky transport; switch the Clock diagram to read the
+   live scheduler. **Depends on `@audiorective/clock` landing.** Phases 1–3 do
+   not depend on it and proceed in parallel with the clock package's development;
+   if the package is not ready when phase 4 begins, the instrument ships against
+   a temporary standalone scheduler and is swapped to the real clock on release.
 
 ## Out of scope
 
 - A footer, package catalog/grid, or roadmap on the landing page.
 - npm links in the top nav.
-- The `@audiorective/clock` package itself (the site ships a local lookahead
-  scheduler modeled on it; graduating that into the package is separate work).
+- Building the `@audiorective/clock` package — it is a **separate, parallel
+  workstream** consumed here as a dependency (see Dependencies).
 
 ## Open items
 
