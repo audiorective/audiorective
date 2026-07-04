@@ -133,6 +133,9 @@ importers:
       motion:
         specifier: ^11.11.0
         version: 11.18.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      pixi.js:
+        specifier: ^8.6.6
+        version: 8.19.0
       react:
         specifier: ^19.2.7
         version: 19.2.7

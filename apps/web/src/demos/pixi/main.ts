@@ -15,15 +15,15 @@ const BAR_GAP = 2;
 const MIN_CUTOFF = 80;
 const MAX_CUTOFF = 8000;
 
-async function main(): Promise<void> {
+export async function mountPixi(container: HTMLElement): Promise<() => void> {
   const app = new Application();
-  await app.init({ background: "#0a0a12", resizeTo: window, antialias: true });
-  document.getElementById("app")!.appendChild(app.canvas);
+  await app.init({ background: "#0a0a12", resizeTo: container, antialias: true });
+  container.appendChild(app.canvas);
 
   // ── Boot: the ONLY lifecycle glue. autoStart already lives in core; it arms a
-  // one-shot gesture listener on the canvas and resumes the AudioContext. There
+  // one-shot gesture listener on the target and resumes the AudioContext. There
   // is no PixiJS audio subsystem to reconcile, so this is the whole story.
-  const detachAutoStart = engine.core.autoStart(app.canvas);
+  const detachAutoStart = engine.core.autoStart(container);
 
   const disposers: Array<() => void> = [detachAutoStart];
 
@@ -134,11 +134,9 @@ async function main(): Promise<void> {
   hint.position.set(12, 12);
   app.stage.addChild(hint);
 
-  window.addEventListener("beforeunload", () => {
+  return () => {
     for (const d of disposers) d();
     engine.core.destroy();
     app.destroy(true);
-  });
+  };
 }
-
-void main();
