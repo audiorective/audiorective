@@ -1,5 +1,6 @@
 ---
 import Reveal from './Reveal';
+import Lego from './Lego';
 ---
 <section class="band-raised composability">
   <div class="inner">
@@ -17,7 +18,9 @@ import Reveal from './Reveal';
         lock-in to regret. Start with one brick. Come back for more whenever you
         fancy.
       </p>
-      <div class="lego-mount" aria-hidden="true"></div>
+      <div class="lego-mount" aria-hidden="true">
+        <Lego client:visible />
+      </div>
     </Reveal>
   </div>
 </section>

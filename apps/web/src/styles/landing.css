@@ -301,13 +301,13 @@
   margin-bottom: 0.5rem;
 }
 
-/* Composability — Lego mount placeholder */
+/* Composability — Lego mount */
 .landing .lego-mount {
   margin: 2.5rem 0;
   height: clamp(10rem, 24vw, 16rem);
-  border: 1px dashed var(--line);
+  border: 1px solid var(--line);
   border-radius: 4px;
-  background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, 0.015) 10px, rgba(255, 255, 255, 0.015) 20px);
+  overflow: hidden;
 }
 
 /* Send-off */
