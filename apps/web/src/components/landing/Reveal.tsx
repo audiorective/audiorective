@@ -5,9 +5,11 @@ export default function Reveal({ children, delay = 0 }: { children: ReactNode; d
   const prefersReducedMotion = useReducedMotion();
 
   if (prefersReducedMotion) {
-    return <div>{children}</div>;
+    return <div style={{ display: "contents" }}>{children}</div>;
   }
 
+  // Must stay a real box: opacity/transform animations require a generated
+  // box, so `display: contents` is intentionally not used here.
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
