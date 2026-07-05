@@ -46,6 +46,16 @@ of them — beat is derived.**
    - `stop()` → `{ 0, — }` (reset)
    - (V3) `seek(beat)` → `{ targetBeat, now }` — seek is nothing new, just an
      anchor write.
+
+   `beatAtAnchor` exists because pause and seek make position underivable from
+   the curve alone: the tempo curve lives on the audio clock and cannot know
+   when the transport was paused. Each transport event evaluates the current
+   beat once, stores it, and moves the integration origin forward —
+   `beatAtAnchor` collapses all prior transport history into one number, so
+   `beat(t)` stays a pure O(1) function of `(anchor, curve, now)` instead of a
+   sum over the full start/pause/seek log. In the plain start-and-run case it
+   just sits at `0`. The anchor is the **only** place in the design where
+   musical position is ever stored.
 3. **The speed curve** — a `TempoParam` event list (see below). Constant tempo
    is the one-segment case.
 
@@ -82,6 +92,20 @@ axis, exactly like `bar.number`. So:
 > The clock's only native coordinate is the **beat axis** — a monotonic float
 > driven by the tempo curve against the audio clock. Every other reading —
 > bars, cycles/phase, seconds, swing, polyrhythm — is a **ruler**.
+
+**What "beat" means here:** the axis unit is defined by the tempo curve and
+nothing else — `bpm` is axis-units per minute, so the unit is literally the B
+in BPM. The axis carries no time signature, no bars, no downbeat; it is
+musically meaningless on its own (like a sample counter, or MIDI's
+quarter-note-normalized ppq ticks) until a ruler interprets it. This is
+Ableton Link's convention exactly: a float beat plus a bpm, with "beat =
+quarter note" as shared convention rather than enforced meaning. In
+particular, "beat" here is never the meter-relative felt beat — a
+`BarRuler({ 6, 8 })` maps axis units to its bars however it defines that
+mapping, while the axis underneath stays fixed. (Where we diverge from Link:
+Link keeps quantum/phase in its core because network peers must agree on a
+cycle to phase-align against; we have no peers, so quantum lives in
+`CycleRuler`.)
 
 All positions are plain floats. No string notation (`"4n"`, `"1:2:3"`).
 
@@ -208,9 +232,16 @@ do no conversion arithmetic in the hot path.
 
 ### Rulers — window-scoped coordinate readers
 
-A ruler interprets the beat axis into another coordinate system. The March doc
-had rulers as pure data producers; this spec extends them to **window-scoped
-readings** that mix data fields with query methods:
+A ruler interprets the beat axis into another coordinate system. Rulers hold
+**no position state**: every reading is a pure function of the axis beat
+(`BarRuler` computes `beatInBar` from it, `CycleRuler` computes
+`beat % quantum`, a polyrhythm ruler rescales it). Ask the same ruler about
+the same axis beat twice and the answer is identical; pause, seek, and loop
+cost rulers nothing because they store nothing. A ruler with its own
+accumulated position would be a second clock with extra steps.
+
+The March doc had rulers as pure data producers; this spec extends them to
+**window-scoped readings** that mix data fields with query methods:
 
 ```ts
 interface Ruler<R> {
