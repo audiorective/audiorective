@@ -2,8 +2,6 @@
 
 Date: 2026-07-04
 Package: `@audiorective/clock` (new)
-Builds on: Notion "LLM Knowledge Hub → Audiorective → @audiorective/clock"
-(last edited 2026-03-09); supersedes it where they differ.
 
 ## Context & motivation
 
@@ -11,16 +9,16 @@ Audiorective has no timing engine. `docs/architecture.md` currently tells users
 that "transport logic (start, stop, scheduling loops)" belongs in their own
 `AudioProcessor` subclasses — i.e. every app hand-rolls its own scheduling.
 Vibe-coded sequencers do this with `setTimeout` loops and fragile callback
-teardown, and break in exactly the ways the March design doc catalogued.
+teardown, and break in predictable ways (drift, double-scheduling, brittle
+count-in transitions).
 
 `@audiorective/clock` is the temporal pillar of the system: **one clock, one
 tick, one source of truth for time.** It is _not_ an `AudioProcessor` — it owns
 no audio nodes and produces no signal. It is the other axis: `core` answers
 "what sounds and how," `clock` answers "when."
 
-Guiding principle carried over from the March doc: the clock provides timing
-but does not own musical state. Params/Cells own state; the clock provides
-timing windows.
+Guiding principle: the clock provides timing but does not own musical state.
+Params/Cells own state; the clock provides timing windows.
 
 ### The mental model: a buffer, one level up
 
@@ -85,13 +83,9 @@ Two properties fall out of this shape:
 
 ## Timing model: the beat axis is the only native coordinate
 
-The March doc carried an Ableton-Link-style trio (beat / phase / quantum).
-This spec reduces it: `phase = beat % quantum` is a _reading_ of the beat
-axis, exactly like `bar.number`. So:
-
 > The clock's only native coordinate is the **beat axis** — a monotonic float
 > driven by the tempo curve against the audio clock. Every other reading —
-> bars, cycles/phase, seconds, swing, polyrhythm — is a **ruler**.
+> bars, cycles/phase, seconds, polyrhythm — is a **ruler**.
 
 **What "beat" means here:** the axis unit is defined by the tempo curve and
 nothing else — `bpm` is axis-units per minute, so the unit is literally the B
@@ -101,11 +95,11 @@ quarter-note-normalized ppq ticks) until a ruler interprets it. This is
 Ableton Link's convention exactly: a float beat plus a bpm, with "beat =
 quarter note" as shared convention rather than enforced meaning. In
 particular, "beat" here is never the meter-relative felt beat — a
-`BarRuler({ 6, 8 })` maps axis units to its bars however it defines that
-mapping, while the axis underneath stays fixed. (Where we diverge from Link:
-Link keeps quantum/phase in its core because network peers must agree on a
-cycle to phase-align against; we have no peers, so quantum lives in
-`CycleRuler`.)
+`LinearBarRuler({ 6, 8 })` maps axis units to its bars however it defines
+that mapping, while the axis underneath stays fixed. (Where we diverge from
+Link: Link keeps quantum/phase in its core because network peers must agree
+on a cycle to phase-align against; we have no peers, so cyclic readings live
+in rulers.)
 
 All positions are plain floats. No string notation (`"4n"`, `"1:2:3"`).
 
@@ -116,7 +110,7 @@ time base, no per-API ambiguity. The clock's headline feature is _conversion_:
 you convert desired musical positions to absolute time, then schedule.
 
 ```ts
-clock.bpm.setValueAtTime(140, timeline.beatToTime(64));
+timeline.bpm.setValueAtTime(140, timeline.beatToTime(64));
 sampler.trigger({ time: timeline.beatToTime(nextBarBeat) }); // same unit everywhere
 ```
 
@@ -140,9 +134,9 @@ in background tabs.
 
 ## TempoParam: standalone, event-list-backed
 
-`clock.bpm` (exposed via `timeline.bpm`) mirrors the `SchedulableParam`
-scheduling API but is a **standalone class in `@audiorective/clock`**, not a
-reuse of core's `SchedulableParam`. Rationale, from a member-by-member audit:
+`timeline.bpm` mirrors the `SchedulableParam` scheduling API but is a
+**standalone class in `@audiorective/clock`**, not a reuse of core's
+`SchedulableParam`. Rationale, from a member-by-member audit:
 
 - Core's `SchedulableParam` is hard-wired to an `AudioParam`: every scheduling
   method is a one-line delegation, and read-back is `ParamSync` polling. There
@@ -213,6 +207,12 @@ methods, which write the Timeline's anchor.
 - `start()` / `pause()` / `stop()` (stop resets position)
 - Transport state exposed as a readable `Param` so `useValue(clock.state)`
   works in every binding.
+- `onMiss(gap)` — the single reporting channel for gaps, fired before the
+  tick that follows the gap, with `{ gapStart, gapEnd, gapDuration }`. If the
+  clock fires late and audio time has already passed the previous window's
+  end, those beats are gone — Web Audio cannot schedule into the past. The
+  clock reports and continues; it does not try to recover. Gone is gone.
+  Remedy: raise `lookAhead`.
 
 ### TickWindow — the callback payload
 
@@ -223,25 +223,30 @@ do no conversion arithmetic in the hot path.
 - `time` — `started`, `current`, `lookAheadEnd` (absolute audio-clock seconds)
 - `beat` — `start`, `end` (window range on the beat axis)
 - `transport` — `state`, `position` (pause-aware seconds since start)
-- `missed?` — `{ gapStart, gapEnd, gapDuration }`; only present when a gap
-  occurred. The clock reports and continues. It does not recover: Web Audio
-  cannot schedule into the past. Gone is gone. Remedy: raise `lookAhead`.
 - `rulers` — readings from registered rulers; **starts empty**, see below.
-- `contains(time)` / dev-mode `assertInWindow(time)` — coordinate-agnostic
-  validation for hand-computed times (see window contract).
+
+The window contract is a convention, not an enforced boundary: derive each
+event from data the window hands you exactly once (grid iteration does this
+automatically), and you will never double-schedule. Scheduling outside the
+window is permitted — Web Audio allows it, and it is sometimes exactly right
+(e.g. a grace-note offset computed from an in-window grid point may land past
+the window edge; it is still safe, because ownership follows the grid point,
+which was handed out exactly once). The clock ships no validation or guard
+APIs; the convention lives in the audiorective skill, which is where most
+`onTick` callbacks get written anyway.
 
 ### Rulers — window-scoped coordinate readers
 
 A ruler interprets the beat axis into another coordinate system. Rulers hold
 **no position state**: every reading is a pure function of the axis beat
-(`BarRuler` computes `beatInBar` from it, `CycleRuler` computes
-`beat % quantum`, a polyrhythm ruler rescales it). Ask the same ruler about
-the same axis beat twice and the answer is identical; pause, seek, and loop
-cost rulers nothing because they store nothing. A ruler with its own
-accumulated position would be a second clock with extra steps.
+(a bar ruler computes `beatInBar` from it, a cycle ruler computes a phase, a
+polyrhythm ruler rescales it). Ask the same ruler about the same axis beat
+twice and the answer is identical; pause, seek, and loop cost rulers nothing
+because they store nothing. A ruler with its own accumulated position would
+be a second clock with extra steps.
 
-The March doc had rulers as pure data producers; this spec extends them to
-**window-scoped readings** that mix data fields with query methods:
+Rulers produce **window-scoped readings** that mix data fields with query
+methods:
 
 ```ts
 interface Ruler<R> {
@@ -249,43 +254,51 @@ interface Ruler<R> {
 }
 ```
 
-A reading's methods close over the window bounds — so an iterator built from
-the window's beat range structurally cannot emit an out-of-window time.
+A reading's methods close over the window bounds — an iterator built from the
+window's beat range only ever emits grid points inside the window.
 
-**No ruler is registered by default.** `window.rulers` starts as `{}`. Built-ins
-ship as opt-in exports:
+**No ruler is registered by default.** `window.rulers` starts as `{}`.
+Built-ins ship as opt-in exports, named along two orthogonal axes — the
+**unit** it reads (bars vs. raw time) × the **topology** (linear/absolute
+counting vs. cyclic/wrapping):
 
-- `BarRuler({ numerator, denominator })` → `{ number, beatInBar, numerator,
-  denominator, grid(division) }`
-- `CycleRuler({ quantum })` → `{ cycle, phase, grid(division) }` — the former
-  core phase/quantum, demoted to a reading
-- `TimeRuler()` → `{ seconds }` (absolute seconds since playback start)
+|            | Linear (counts forever)                          | Cycle (wraps)                                      |
+| ---------- | ------------------------------------------------ | -------------------------------------------------- |
+| **Bar**    | `LinearBarRuler({ numerator, denominator })` → `{ bar, beatInBar, numerator, denominator, grid(division) }` | `CycleBarRuler({ numerator, denominator, bars })` → `{ cycle, barInCycle, beatInBar, phase, grid(division) }` |
+| **Time**   | `LinearTimeRuler()` → `{ seconds }`              | `CycleTimeRuler({ seconds })` → `{ cycle, secondsInCycle, phase }` |
 
-Zero defaults pays for itself: the `TickWindow` generic-typing problem the
-March doc flagged as unsolved mostly dissolves (`rulers` is exactly what you
-registered — an accumulating `addRuler(key, ruler)` signature, no
-special-cased built-in keys), and tree-shaking is honest. The accepted cost:
-there is no zero-config grid — even "hello metronome" registers a ruler first.
-One explicit line, and the line tells you which coordinate system your grid
-lives in. Matches the repo's taste (`param()` over decorators, explicit
-`.value`, no magic).
+`CycleBarRuler` covers the Link-style quantum/phase reading (a repeating
+N-bar cycle); `CycleTimeRuler` covers time-periodic uses (e.g. driving a
+visual that repeats every N seconds).
 
-Custom rulers are the extension mechanism, and two former "open problems"
-become examples:
+Zero defaults pays for itself: `rulers` is exactly what you registered — an
+accumulating `addRuler(key, ruler)` signature, no special-cased built-in keys
+— so the generic typing of `TickWindow` stays simple, and tree-shaking is
+honest. The accepted cost: there is no zero-config grid — even "hello
+metronome" registers a ruler first. One explicit line, and the line tells you
+which coordinate system your grid lives in. Matches the repo's taste
+(`param()` over decorators, explicit `.value`, no magic).
 
-- **Polyrhythm** — a ruler whose `grid()` emits points at a different tempo
-  relationship. One scheduling loop, N musical grids. (No second clock:
-  multiple independent clocks remain a non-goal — a second loop means a second
-  source of temporal truth and the exact fragmentation this package exists to
-  eliminate.)
-- **Swing** — a ruler whose `grid()` emits time-shifted grid points. The clock
-  has no special swing support anywhere.
+Custom rulers are the extension mechanism. Example — **polyrhythm**: a ruler
+whose `grid()` emits points at a different tempo relationship. One scheduling
+loop, N musical grids. (No second clock: multiple independent clocks are a
+non-goal — a second loop means a second source of temporal truth and the
+exact fragmentation this package exists to eliminate.)
+
+**Swing is deliberately not a ruler concern.** Swing is a transformation of
+_event placement_, not a coordinate reading, and it typically applies to only
+some events (the off-beats of a subdivision) — that is note-data territory.
+It belongs to a future track/clip primitive (a "MIDI track" equivalent:
+notes with per-note offsets, swing, shift, scale data) that _consumes_ the
+clock — reads windows, converts, schedules — and would support a DAW-style
+MIDI editor, including notes that are not snapped to any grid. The clock
+stays content-agnostic.
 
 ### Grid iteration — the primary idiom
 
 ```ts
 const timeline = new Timeline({ audioContext: ctx, bpm: 120 })
-  .addRuler("bar", new BarRuler({ numerator: 4, denominator: 4 }));
+  .addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }));
 
 const clock = new Clock({
   timeline,
@@ -300,45 +313,20 @@ clock.start();
 
 `grid(division)` yields `{ beat, time, index }` for each grid point inside the
 window — absolute time pre-converted, `index` a global step counter since
-transport start. Each ruler defines its own division semantics (BarRuler:
-steps per bar; CycleRuler: steps per cycle); exact signatures are an
+transport start. Each ruler defines its own division semantics (bar rulers:
+steps per bar; cycle rulers: steps per cycle); exact signatures are an
 implementation detail.
-
-## The window contract and its enforcement
-
-Contract: schedule only inside `[window start, window end)` — not later, not
-earlier. Violations are **not Web Audio errors**: scheduling past the window
-end works fine _now_ and double-fires one tick later (the next window covers
-those beats again); scheduling before the start silently clamps to "now" and
-produces timing slop. Silent misbehavior — the vibe-coded fragility class.
-
-A hard guard is unenforceable anyway: consumers hold real references
-(samplers, `AudioParam`s, the `AudioContext` itself); any wrapper is opt-in.
-So enforcement is layered, making the right thing the easiest thing:
-
-1. **Affordances** — `ruler.grid(...)` iteration and pre-converted window
-   ranges; the majority sequencer/arpeggiator/metronome case never computes a
-   raw time, so the contract holds structurally.
-2. **Opt-in dev-mode validation** — `window.contains(time)` /
-   `window.assertInWindow(time)` for hand-computed times (one-shots, manual
-   offsets); loud in development, free in production.
-3. **Convention in the skill** — the audiorective skill gains a clock section:
-   "always iterate `grid()`; validate hand-computed times with `contains()`."
-   Unusually effective in this repo, where the entity writing most `onTick`
-   callbacks may be an LLM following `skills/`.
-
-A mandatory guard-wrapper (all scheduling through `window.schedule(...)`) is
-rejected: it cannot actually enforce anything, adds ceremony to every call,
-and fights the audience — engineers who understand DSP and want clean
-primitives, not a sandbox.
 
 ## Non-goals
 
-- **Multiple clocks.** Unchanged stance. Rich window + rulers cover the use
-  cases (metronome, secondary loop, subdivision, polyrhythm-as-ruler).
+- **Multiple clocks.** Rich window + rulers cover the use cases (metronome,
+  secondary loop, subdivision, polyrhythm-as-ruler).
 - **Syncing `FilePlayer`.** It runs on the media clock and cannot sample-lock
   to ctx-clocked sources; the clock governs ctx-clocked sources
   (`BufferPlayer`, `Sampler`, synths). See `docs/choosing-playback.md`.
+- **Note content and micro-timing** (swing, humanize, per-note offsets,
+  scales) — future track/clip primitive territory; the clock stays
+  content-agnostic.
 - **Ableton Link network sync.** If it ever lands, a Link integration owns its
   quantum — nothing in core to fight.
 - **Retroactive tempo-map editing** before V3.
@@ -349,12 +337,12 @@ primitives, not a sandbox.
 - **V1:** Clock + Timeline + anchor + event-list `TempoParam` limited to
   `setValueAtTime` (piecewise-constant → trivial integrals; constant tempo =
   one event). Non-overlapping windows, miss detection, `onTick`/`onMiss`,
-  worker tick source. `BarRuler`, `CycleRuler`, `TimeRuler` as opt-in exports.
-  `contains`/`assertInWindow`. Skill section.
+  worker tick source. `LinearBarRuler`, `CycleBarRuler`, `LinearTimeRuler`,
+  `CycleTimeRuler` as opt-in exports. Skill section (window convention lives
+  here).
 - **V2:** unlock `linearRampToValueAtTime` / `exponentialRampToValueAtTime`
   (quadratic/analytic integrals). Because the event list exists from day one,
-  V2 is "more segment types," not a rewrite — the March doc's V1/V2 split
-  largely collapses.
+  V2 is "more segment types," not a rewrite.
 - **V3:** `seek(beat)` (an anchor write) + DAW-style editable tempo map
   (beat-anchored storage internally; the absolute-time public API is
   unchanged). Possibly count-in/pre-roll (below).
@@ -362,10 +350,10 @@ primitives, not a sandbox.
 ## Stress test: four consumer archetypes
 
 Findings from walking the design through four developer archetypes — step
-sequencer, drum machine, DAW, rhythm game — recorded here first; the affected
-sections above have **not** yet been amended. Overall: the two sequencer
+sequencer, drum machine, DAW, rhythm game. Overall: the two sequencer
 archetypes fit the design as written; the DAW and rhythm game each expose one
-genuinely missing capability, plus smaller cracks. Ranked by severity.
+genuinely missing capability, plus smaller cracks. Ranked by severity;
+resolved items are marked.
 
 ### ST-1. Looping is missing entirely (DAW: blocking; games: practice mode)
 
@@ -428,17 +416,20 @@ scheduled per-window via `beatToTime` is exactly the intended idiom.)
 Candidate: one "clock domains & latency" section covering this and the third
 bullet of ST-3.
 
-### ST-5. The window contract is really an ownership contract
+### ST-5. The window contract is really an ownership contract — RESOLVED
 
 A drum machine with flams/humanize schedules `gridPointTime + 8 ms`, which
 near the window edge lands _outside_ the window — yet is perfectly safe: it
 can never double-fire, because ownership follows the **grid point**, which was
-handed out exactly once. So `assertInWindow(finalTime)` as specced
-false-positives on legitimate swing offsets and grace notes. The honest
-contract is "**derive each event from data handed to you exactly once**,"
-with window bounds as the proxy for the common case. Resolution: validate the
-anchor (or allow a tolerance), and restate the contract section in ownership
-terms.
+handed out exactly once. The honest contract is "**derive each event from
+data handed to you exactly once**," with window bounds as the proxy for the
+common case.
+
+Resolved: validation/guard APIs (`contains`/`assertInWindow`) were dropped
+entirely; the contract is stated in ownership terms as a convention (see
+TickWindow section) carried by the skill. Out-of-window scheduling is
+permitted. Per-note offsets become first-class in the future track/clip
+primitive.
 
 ### ST-6. Basic seek is deferred too far
 
@@ -451,25 +442,23 @@ tempo-automation caveat; keep tempo-map-correct seek in V3.
 
 ### Minor notes
 
-- `transport.isRecording` (present in the March doc) was dropped above —
-  believed correctly (armed-ness is app state, a `Cell`; punch-in/out is
-  window logic), but the drop should be explicit in the count-in open item
-  rather than silent.
 - Live pattern editing has an inherent ~`lookAhead` latency: toggling a step
   whose window was already committed takes effect next pass. Not fixable —
   document as an accepted property of look-ahead scheduling.
 
-Disposition: ST-2, ST-5, and the point-query part of ST-3 are cheap spec
-amendments; ST-1 needs a new design section (two-span windows); ST-4 plus the
-latency part of ST-3 become one "clock domains & latency" section; ST-6 is a
-roadmap reshuffle.
+Disposition: ST-2 and the point-query part of ST-3 are cheap spec amendments;
+ST-1 needs a new design section (two-span windows); ST-4 plus the latency
+part of ST-3 become one "clock domains & latency" section; ST-6 is a roadmap
+reshuffle. ST-5 is resolved.
 
 ## Open questions
 
-1. **Count-in / pre-roll lifecycle.** Carried over unresolved. Likely a
-   declarative phase transition (count-in → armed → recording) the clock
-   resolves at a ruler boundary; with transport state as a `Param` and rulers
-   providing boundaries, the pieces exist, but the API shape is undecided.
+1. **Count-in / pre-roll lifecycle.** Likely a declarative phase transition
+   (count-in → armed → recording) the clock resolves at a ruler boundary;
+   with transport state as a `Param` and rulers providing boundaries, the
+   pieces exist, but the API shape is undecided. Note: there is deliberately
+   no `transport.isRecording` — recording armed-ness is app state (a `Cell`);
+   only the phase _transitions_ are the clock's concern.
 2. **`addRuler` typing mechanics.** Accumulating-generic Timeline vs. builder;
    decide against real TS ergonomics during implementation.
 3. **`grid()` exact signatures** and whether a shared nominal
