@@ -351,38 +351,58 @@ implementation detail.
 
 Findings from walking the design through four developer archetypes — step
 sequencer, drum machine, DAW, rhythm game. Overall: the two sequencer
-archetypes fit the design as written; the DAW and rhythm game each expose one
-genuinely missing capability, plus smaller cracks. Ranked by severity;
-resolved items are marked.
+archetypes fit the design as written; the DAW and rhythm game surfaced the
+remaining findings. Ranked by original severity; resolved items are marked.
 
-### ST-1. Looping is missing entirely (DAW: blocking; games: practice mode)
+### ST-1. Looping (DAW loop region; games: practice mode) — RESOLVED BY DESIGN
 
-The beat axis is monotonic; a loop region means beat jumps backward. There is
-no acceptable consumer-side workaround: with look-ahead, events _across_ the
-loop boundary must be scheduled before the boundary arrives — the window
-containing loop-end must hand out the tail of this pass **and** the head of
-the next pass, both converted to correct absolute times, in one tick. So loop
-cannot be "an anchor write when we get there"; the **window math must know the
-loop region**. Step sequencers and drum machines escape (they loop via
-`index % steps` over an infinite grid — no transport loop needed); a DAW loop
-region and a rhythm game's practice loop both need it native.
+Initially recorded as a missing capability requiring transport-level loop
+state and two-span windows. Wrong: that imports the DAW's _implementation_
+(a playhead that jumps back) instead of applying this design's own logic.
 
-Likely shape: a loop region on the transport, and a window whose beat range
-can be **two spans** at the boundary (analogous to a ring-buffer wraparound
-read). Needs its own design section. Real design work, not an amendment.
+**Loop is a cycle-ruler reading; the axis never jumps.** A loop region
+[bar 17, bar 21) is a cycle ruler over that span. The beat axis keeps
+climbing monotonically (…39, 40, 41…) while the ruler reads it as bar 19,
+20, 17, 18… Content lookup happens in loop-space; scheduling happens on the
+axis. This dissolves the hard part automatically: a window spanning beats
+[39.5, 41) maps through the ruler to loop-space [19.5, 21) ∪ [17, 17.5) —
+`grid()` emits points from both sides of the wrap at their correct _axis_
+positions, which convert to strictly increasing absolute times. Scheduling
+across the loop boundary needs no special case; the window math never knows
+the loop exists. No transport loop state, no anchor rewrite per pass; the
+anchor stays the only stored position, and looping creates no axis
+discontinuities (shrinking ST-2). The DAW's jumping playhead is just the
+loop-space point-read (ST-3).
+
+Residuals (small, real):
+
+1. **Non-grid content.** DAW notes aren't grid-snapped, so `grid()` isn't
+   enough: cycle readings must also expose the window's **wrapped spans**
+   (the `[19.5, 21) ∪ [17, 17.5)` pieces, each with its own
+   loop-space→absolute-time conversion, since the same loop-space position
+   converts differently per pass). Reading-API addition, not architecture —
+   and exactly what the future track/clip primitive will consume.
+2. **Cycle rulers need a region/offset config.** A loop region is
+   `[start, end)`, not "every N bars from zero" as currently specced.
+3. **Loop exit.** "Turn looping off and continue from bar 18" rejoins the
+   diverged axis and musical position — that is a **seek** (an anchor
+   write). Loop exit is built from the seek primitive → strengthens ST-6.
+4. **Tempo automation inside a looped region** re-fires per pass, and tempo
+   events are global — genuinely messy; explicitly deferred to V3 alongside
+   the editable tempo map.
 
 ### ST-2. Windows need a discontinuity signal; `grid().index` semantics must survive it
 
-Seek, stop→start, and every loop pass create a discontinuity in the beat
-axis. Consumers hold derived state (step counters, "already scheduled note
-i", arpeggio position) and currently have no way to know the axis jumped.
-Also, `index` was specced as "global step counter since transport start" —
-undefined after a seek to bar 33.
+Seek and stop→start create a discontinuity in the beat axis (looping does
+not — see ST-1: the axis never jumps). Consumers hold derived state (step
+counters, "already scheduled note i", arpeggio position) and currently have
+no way to know the axis jumped. Also, `index` was specced as "global step
+counter since transport start" — undefined after a seek to bar 33.
 
 Resolution (cheap, decide now): a `discontinuity` marker (or generation
 counter) on the window, and `index` redefined as **position-derived**
-(`floor(beat / stepSize)`) so it is stable under seek and loop, rather than
-"counted since start."
+(`floor(beat / stepSize)`) so it is stable under seek, rather than "counted
+since start."
 
 ### ST-3. The visual/observation side is unspecced
 
@@ -437,8 +457,9 @@ Given the anchor design, seek is a two-field write. The V3 deferral is really
 about seek under an _edited tempo map_ (second-anchored events go stale after
 a jump) — but `clock.start({ atBeat })` / basic seek at constant tempo is
 nearly free and wanted early by both the DAW and games (retry from
-checkpoint). Proposed: pull basic seek into V1 with a documented
-tempo-automation caveat; keep tempo-map-correct seek in V3.
+checkpoint). ST-1 adds weight: loop exit is built from seek. Proposed: pull
+basic seek into V1 with a documented tempo-automation caveat; keep
+tempo-map-correct seek in V3.
 
 ### Minor notes
 
@@ -446,10 +467,11 @@ tempo-automation caveat; keep tempo-map-correct seek in V3.
   whose window was already committed takes effect next pass. Not fixable —
   document as an accepted property of look-ahead scheduling.
 
-Disposition: ST-2 and the point-query part of ST-3 are cheap spec amendments;
-ST-1 needs a new design section (two-span windows); ST-4 plus the latency
-part of ST-3 become one "clock domains & latency" section; ST-6 is a roadmap
-reshuffle. ST-5 is resolved.
+Disposition: ST-1 and ST-5 are resolved by design decisions; ST-1's
+residuals (cycle-ruler region config + wrapped-span exposure) plus ST-2 and
+the point-query part of ST-3 are cheap spec amendments; ST-4 plus the
+latency part of ST-3 become one "clock domains & latency" section; ST-6 is a
+roadmap reshuffle.
 
 ## Open questions
 
