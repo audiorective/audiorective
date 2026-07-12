@@ -40,7 +40,15 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
   private readonly _tickSource: TickSource;
 
   private _previousWindowEndBeat = 0;
+  // The generation `_previousWindowEndBeat` belongs to. A fresh segment
+  // (start/seek) has no prior emitted window to have fallen behind -- some
+  // real time inevitably passes between anchoring the target beat and the
+  // tick source's next callback, which would otherwise register as a
+  // spurious one-tick miss on every single start/seek. Comparing generations
+  // lets that first tick land exactly on the target beat with no false miss.
+  private _previousWindowEndGeneration = -1;
   private _startedAt = 0;
+  private _destroyed = false;
 
   constructor(options: ClockOptions<TRulers>) {
     this._timeline = options.timeline;
@@ -61,6 +69,10 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
     const atBeat = options?.atBeat ?? 0;
     this._timeline._start(atBeat);
     this._previousWindowEndBeat = atBeat;
+    // deliberately NOT updating _previousWindowEndGeneration here: it must
+    // stay stale (mismatching the just-bumped generation) so the first tick
+    // recognizes this as a fresh segment and skips the miss check; _tick()
+    // catches it up to the current generation once that tick has run.
     this._startedAt = this._timeline.now;
     this.state.value = "playing";
   }
@@ -88,14 +100,20 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
   seek(beat: number): void {
     this._timeline._seek(beat);
     this._previousWindowEndBeat = beat;
+    // see start(): _previousWindowEndGeneration deliberately stays stale here too
   }
 
   /** Stops the tick loop for good (terminates the underlying worker/timer). */
   destroy(): void {
+    this._destroyed = true;
     this._tickSource.stop();
   }
 
   private _tick(): void {
+    // a tick already in flight (posted by the worker before terminate())
+    // can still arrive after destroy() -- ignore it
+    if (this._destroyed) return;
+
     const now = this._timeline.now;
 
     // reactive surfaces refresh every tick regardless of transport state
@@ -104,9 +122,12 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
 
     if (this.state.value !== "playing") return;
 
+    const generation = this._timeline.generation;
+    const freshSegment = generation !== this._previousWindowEndGeneration;
+
     let startBeat = this._previousWindowEndBeat;
     const nowBeat = this._timeline.timeToBeat(now);
-    if (nowBeat > startBeat) {
+    if (!freshSegment && nowBeat > startBeat) {
       // the clock fired late; those beats are gone -- Web Audio cannot schedule into the past
       this._onMiss?.({
         gapStart: startBeat,
@@ -121,7 +142,7 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
       const coreWindow: CoreTickWindow = {
         time: { started: this._startedAt, current: now, lookAheadEnd: now + this._lookAhead },
         beat: { start: startBeat, end: endBeat },
-        generation: this._timeline.generation,
+        generation,
         transport: { state: this.state.value, position: this._timeline.position },
       };
       this._onTick({
@@ -131,5 +152,6 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
     }
 
     this._previousWindowEndBeat = endBeat;
+    this._previousWindowEndGeneration = generation;
   }
 }

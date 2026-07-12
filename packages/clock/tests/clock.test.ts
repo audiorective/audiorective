@@ -55,6 +55,36 @@ describe("Clock — windows while playing", () => {
     tickSource.tick(); // clock never started
     expect(windows).toHaveLength(0);
   });
+
+  test("the first tick after start() never reports a false miss, even if real time passed before it fired", () => {
+    // Some real time inevitably passes between start() anchoring the target
+    // beat and the tick source's next callback -- previousWindowEndBeat was
+    // set to the target beat at that exact instant, so by the time this tick
+    // runs, timeToBeat(now) has already crept past it. Without the
+    // fresh-segment exemption this fires a spurious miss on every start().
+    const { ctx, tickSource, clock, windows, misses } = makeHarness(120, 0.1); // 2 beats/sec
+    clock.start();
+    ctx.currentTime = 0.01; // a small, unavoidable real delay before the first tick
+    tickSource.tick();
+
+    expect(misses).toHaveLength(0);
+    expect(windows).toHaveLength(1);
+    expect(windows[0]!.beat.start).toBeCloseTo(0); // the target beat, not now-beat (0.02)
+  });
+
+  test("seek's next tick is also exempt from the miss check, even with real delay before it fires", () => {
+    const { ctx, tickSource, clock, windows, misses } = makeHarness(120, 0.1);
+    clock.start();
+    tickSource.tick();
+    ctx.currentTime = 0.05;
+
+    clock.seek(64);
+    ctx.currentTime = 0.06; // a small delay before the next tick fires
+    tickSource.tick();
+
+    expect(misses).toHaveLength(0);
+    expect(windows[windows.length - 1]!.beat.start).toBeCloseTo(64); // the seek target, not now-beat
+  });
 });
 
 describe("Clock — miss detection", () => {
