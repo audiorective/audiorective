@@ -8,6 +8,15 @@ import type { CoreTickWindow } from "../types";
 export interface TimelineLike {
   beatToTime(beat: number): number;
   timeToBeat(time: number): number;
+  /**
+   * Pause-aware played seconds (a stopwatch, not tempo-scaled). Time rulers
+   * read this directly rather than deriving from `beat`: transport pauses
+   * break the beat<->wallclock correspondence in a way the tempo curve
+   * alone can't recover (tempo events are anchored to absolute audio-clock
+   * time, not elapsed play time). A deliberate, documented exception to
+   * "every reading is a pure function of the beat position".
+   */
+  readonly position: number;
 }
 
 /**
@@ -26,6 +35,11 @@ export interface GridPoint {
   beat: number;
   time: number;
   index: number;
+}
+
+/** Axis-unit beats per bar: quarter note is the axis unit (Link/MIDI convention). */
+export function beatsPerBar(numerator: number, denominator: number): number {
+  return (numerator * 4) / denominator;
 }
 
 /**
