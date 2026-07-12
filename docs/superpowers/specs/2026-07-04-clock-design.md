@@ -54,6 +54,7 @@ of them — beat is derived.**
    sum over the full start/pause/seek log. In the plain start-and-run case it
    just sits at `0`. The anchor is the **only** place in the design where
    musical position is ever stored.
+
 3. **The speed curve** — a `TempoParam` event list (see below). Constant tempo
    is the one-segment case.
 
@@ -152,12 +153,12 @@ in background tabs.
 
 What is reused vs. new:
 
-| From `@audiorective/core`            | Not applicable                          | New in clock                        |
-| ------------------------------------ | --------------------------------------- | ----------------------------------- |
-| `Param<number>` base (signal, `.value`, label/min/max, `bind`) | `ParamSync` (tick pushes value instead) | sorted event list                   |
-| `ParamOptions` types                 | `rebind()` (one-shot-node workaround)    | `valueAtTime(t)` analytic evaluation |
-|                                      | `read()` / `syncFromAudio()`             | piecewise integration for `beatToTime` |
-|                                      |                                          | validation (`bpm > 0`)               |
+| From `@audiorective/core`                                      | Not applicable                          | New in clock                           |
+| -------------------------------------------------------------- | --------------------------------------- | -------------------------------------- |
+| `Param<number>` base (signal, `.value`, label/min/max, `bind`) | `ParamSync` (tick pushes value instead) | sorted event list                      |
+| `ParamOptions` types                                           | `rebind()` (one-shot-node workaround)   | `valueAtTime(t)` analytic evaluation   |
+|                                                                | `read()` / `syncFromAudio()`            | piecewise integration for `beatToTime` |
+|                                                                |                                         | validation (`bpm > 0`)                 |
 
 API surface:
 
@@ -285,10 +286,10 @@ Built-ins ship as opt-in exports, named along two orthogonal axes — the
 **unit** it reads (bars vs. raw time) × the **topology** (linear/absolute
 counting vs. cyclic/wrapping):
 
-|            | Linear (counts forever)                          | Cycle (wraps)                                      |
-| ---------- | ------------------------------------------------ | -------------------------------------------------- |
-| **Bar**    | `LinearBarRuler({ numerator, denominator })` → `{ bar, beatInBar, numerator, denominator, grid(division) }` | `CycleBarRuler({ numerator, denominator, bars, from? })` → `{ cycle, barInCycle, beatInBar, phase, grid(division), spans }` |
-| **Time**   | `LinearTimeRuler()` → `{ seconds }`              | `CycleTimeRuler({ seconds, from? })` → `{ cycle, secondsInCycle, phase }` |
+|          | Linear (counts forever)                                                                                     | Cycle (wraps)                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Bar**  | `LinearBarRuler({ numerator, denominator })` → `{ bar, beatInBar, numerator, denominator, grid(division) }` | `CycleBarRuler({ numerator, denominator, bars, from? })` → `{ cycle, barInCycle, beatInBar, phase, grid(division), spans }` |
+| **Time** | `LinearTimeRuler()` → `{ seconds }`                                                                         | `CycleTimeRuler({ seconds, from? })` → `{ cycle, secondsInCycle, phase }`                                                   |
 
 `CycleBarRuler` covers the Link-style quantum/phase reading (a repeating
 N-bar cycle); `CycleTimeRuler` covers time-periodic uses (e.g. driving a
@@ -338,8 +339,7 @@ stays content-agnostic.
 ### Grid iteration — the primary idiom
 
 ```ts
-const timeline = new Timeline({ audioContext: ctx, bpm: 120 })
-  .addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }));
+const timeline = new Timeline({ audioContext: ctx, bpm: 120 }).addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }));
 
 const clock = new Clock({
   timeline,
