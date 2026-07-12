@@ -14,6 +14,10 @@ Modular toolkit for web audio development. Independent, composable packages that
 
 `@audiorective/core` ships three ready-to-use players: **`Sampler`** (buffer-backed, polyphonic pad — fire `trigger()` for SFX and one-shots), **`BufferPlayer`** (buffer-backed single playhead with `start`/`stop`/loop and a schedulable rate — for beat-locked loops and stems), and **`FilePlayer`** (streaming track with a single play/pause/seek transport — for music and long-form audio). All are output-only `AudioProcessor`s; route `player.output` through `Spatial` or directly to `ctx.destination`. See `choosing-playback.md` to pick between them.
 
+## Timing & Scheduling
+
+`@audiorective/clock` is the temporal pillar: transport (start/pause/stop/seek), a standalone event-list tempo curve, and a look-ahead tick loop that hands consumers non-overlapping scheduling windows instead of a bare beat counter. Rulers (bars, cycles/loops, seconds — and custom ones for polyrhythm) interpret the beat axis without owning any position state of their own. See `clock.md`.
+
 ## Key Design Decisions
 
 - **alien-signals 3.x callable API** — signals are callable functions (`signal()` to read, `signal(value)` to write), not objects with `.get()`/`.set()`. `SignalAccessor<T>` and `ComputedAccessor<T>` are defined in `types.ts`.
@@ -29,5 +33,7 @@ Modular toolkit for web audio development. Independent, composable packages that
 ## Roadmap
 
 **V1:** signals, react, threejs, playcanvas, docs site
-**V2:** analysis (FFT, beat detection), Vue bindings
-**V3:** Phaser.js, component library
+**V2:** analysis (FFT, beat detection), Vue bindings, clock tempo automation (ramps) + basic seek
+**V3:** Phaser.js, component library, clock editable tempo map + DAW-style seek
+
+**Clock (shipped V1):** `@audiorective/clock` — transport, tempo, look-ahead scheduling windows, rulers. See `clock.md`.

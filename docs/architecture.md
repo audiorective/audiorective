@@ -13,8 +13,13 @@ The audio layer must be fully operable without any UI framework. React (or any f
 - Audio graph construction and wiring
 - Envelope shaping, note triggering
 - Parameter automation sequences (ramps, sweeps, scheduled transitions)
-- Transport logic (start, stop, scheduling loops)
 - Any operation that touches `AudioContext.currentTime` or schedules values on `AudioParam`
+
+Look-ahead scheduling loops (sequencers, drum machines, loopers, transport
+start/stop/seek) belong to **`@audiorective/clock`**, not hand-rolled inside
+an `AudioProcessor` — see `docs/clock.md`. A processor consumes a `Clock`'s
+`onTick` window to schedule its own notes/automation; it doesn't own the tick
+loop itself.
 
 ### Structured state (plain classes with `Cell`)
 

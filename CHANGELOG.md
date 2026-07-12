@@ -13,6 +13,21 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+### Added
+
+- **clock:** New package `@audiorective/clock` — the timing and scheduling
+  engine. `Clock` (worker-based look-ahead tick loop, transport
+  start/pause/resume/stop/seek, miss detection via `onMiss`) + `Timeline`
+  (beat↔time conversion, anchor, `generation`) + a standalone event-list
+  `TempoParam` (V1: steps only; ramp methods throw, reserved for V2) + four
+  stateless rulers (`LinearBarRuler`, `CycleBarRuler`, `LinearTimeRuler`,
+  `CycleTimeRuler`) with grid iteration, `spans`, and a reactive `current`
+  reading for visuals. Looping is expressed as a `CycleBarRuler` reading, not
+  transport state — the beat axis never jumps. See `docs/clock.md` and
+  `docs/superpowers/specs/2026-07-04-clock-design.md`.
+- **docs/skill:** `clock.md` — usage guide for the new package; `SKILL.md`
+  packages table and read-next table updated accordingly.
+
 ## [2.0.0]
 
 ### Changed
