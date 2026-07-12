@@ -393,16 +393,54 @@ Residuals (small, real):
 
 ### ST-2. Windows need a discontinuity signal; `grid().index` semantics must survive it
 
-Seek and stop→start create a discontinuity in the beat axis (looping does
-not — see ST-1: the axis never jumps). Consumers hold derived state (step
-counters, "already scheduled note i", arpeggio position) and currently have
-no way to know the axis jumped. Also, `index` was specced as "global step
-counter since transport start" — undefined after a seek to bar 33.
+A discontinuity is any transport event that _jumps_ the position: `seek`,
+`start({ atBeat })`, and stop→start. Nothing else qualifies — pause/resume
+is continuous (the axis freezes and continues), looping never jumps the axis
+(ST-1), and tempo changes alter speed, not position.
 
-Resolution (cheap, decide now): a `discontinuity` marker (or generation
-counter) on the window, and `index` redefined as **position-derived**
-(`floor(beat / stepSize)`) so it is stable under seek, rather than "counted
-since start."
+A jump invalidates two different things, and the signal is the hook for
+both:
+
+1. **Consumer derived state.** Cursors into sorted note lists ("already
+   scheduled up to note i"), arpeggiator/generator positions, envelope
+   chunk-schedulers' progress. After a backward seek, a stale cursor skips
+   everything it thinks it already played; after a forward seek, it replays
+   or bursts. The consumer must reset — but only if it can tell the jump
+   happened. The module holding the cursor is typically not the module that
+   called `seek()` (a React transport bar vs. an audio-layer sequencer), so
+   "you called it, you know" does not compose; the signal must ride the
+   window.
+2. **Already-committed Web Audio events.** At the moment of a seek, up to
+   `lookAhead` seconds of now-stale events are already scheduled into the
+   audio graph and _will sound_ unless cancelled. The clock cannot cancel
+   them — it does not own them; samplers, voices, and `AudioParam`s do. The
+   first post-jump window is where consumers run their cancel/flush logic.
+   (Adjacent but distinct: `pause()` also leaves committed look-ahead audio
+   sounding for ~`lookAhead` after the pause — consumers wanting a hard stop
+   subscribe to the transport-state `Param` and cancel there. Not a
+   discontinuity; the axis never jumped.)
+
+The jump also forces a restatement of the window contract itself. "Each beat
+is handed out exactly once" is false across a backward seek — replaying bars
+17–20 is the _point_ of seeking back. The precise contract is:
+**non-overlapping windows within a continuity segment**; a jump starts a new
+segment and beats may legitimately reappear.
+
+Resolution: a monotonically increasing `generation` counter on the window,
+bumped on every position-jumping anchor write (a boolean `discontinuity`
+flag is a lossy derivative of it; the counter also serves point-query
+consumers that sample position outside `onTick`). `previousWindowEnd` resets
+with the anchor, so windows stay well-formed within each generation.
+
+`index` follows from the ruler-statelessness principle rather than
+convenience: a "counted since transport start" index is hidden accumulated
+state inside a ruler — exactly the "second clock with extra steps" the
+rulers section forbids. So `index` is **position-derived**
+(`floor(rulerSpacePosition / stepSize)`): a pure function of the axis
+position through the ruler's coordinate. It is automatically correct across
+any jump — after a seek to bar 33 with 16 steps/bar, `index` is 528 and
+`index % 16` still lands on the right pattern step, with no reset logic in
+the consumer at all.
 
 ### ST-3. The visual/observation side is unspecced
 
