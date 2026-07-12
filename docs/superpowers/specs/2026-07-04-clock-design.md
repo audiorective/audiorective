@@ -207,6 +207,8 @@ methods, which write the Timeline's anchor.
 - `start()` / `pause()` / `stop()` (stop resets position)
 - Transport state exposed as a readable `Param` so `useValue(clock.state)`
   works in every binding.
+- The tick refreshes the reactive surfaces: `timeline.bpm`'s signal and each
+  registered ruler's `current` reading.
 - `onMiss(gap)` — the single reporting channel for gaps, fired before the
   tick that follows the gap, with `{ gapStart, gapEnd, gapDuration }`. If the
   clock fires late and audio time has already passed the previous window's
@@ -256,6 +258,14 @@ interface Ruler<R> {
 
 A reading's methods close over the window bounds — an iterator built from the
 window's beat range only ever emits grid points inside the window.
+
+Each registered ruler slot also exposes a reactive **`current`** reading —
+the same coordinates evaluated at the playhead, refreshed by the clock tick
+into a readable `Param` (`useValue(timeline.rulers.bar.current)`). This is
+the visual-sync surface: a step sequencer lights its current step, a DAW
+draws its playhead, from the `current` of the ruler that represents the
+timeline the app is showing. Rulers stay stateless — the reactive cell lives
+on the timeline's slot; the ruler only computes.
 
 **No ruler is registered by default.** `window.rulers` starts as `{}`.
 Built-ins ship as opt-in exports, named along two orthogonal axes — the
@@ -346,6 +356,11 @@ implementation detail.
 - **V3:** `seek(beat)` (an anchor write) + DAW-style editable tempo map
   (beat-anchored storage internally; the absolute-time public API is
   unchanged). Possibly count-in/pre-roll (below).
+- **Future (beyond V3):** latency-compensation infrastructure —
+  `ctx.outputLatency`, `performance.now()` ↔ audio-clock correlation,
+  calibration offsets — enabling rhythm-game input judging and latency-true
+  visuals (ST-3/ST-4). Track/clip primitive (notes, per-note offsets, swing,
+  scale data) as a separate package consuming the clock.
 
 ## Stress test: four consumer archetypes
 
@@ -398,27 +413,22 @@ A discontinuity is any transport event that _jumps_ the position: `seek`,
 is continuous (the axis freezes and continues), looping never jumps the axis
 (ST-1), and tempo changes alter speed, not position.
 
-A jump invalidates two different things, and the signal is the hook for
-both:
+A jump invalidates consumer derived state: cursors into sorted note lists
+("already scheduled up to note i"), arpeggiator/generator positions,
+envelope chunk-schedulers' progress. After a backward seek, a stale cursor
+skips everything it thinks it already played; after a forward seek, it
+replays or bursts. The consumer must reset — but only if it can tell the
+jump happened. The module holding the cursor is typically not the module
+that called `seek()` (a React transport bar vs. an audio-layer sequencer),
+so "you called it, you know" does not compose; the signal must ride the
+window.
 
-1. **Consumer derived state.** Cursors into sorted note lists ("already
-   scheduled up to note i"), arpeggiator/generator positions, envelope
-   chunk-schedulers' progress. After a backward seek, a stale cursor skips
-   everything it thinks it already played; after a forward seek, it replays
-   or bursts. The consumer must reset — but only if it can tell the jump
-   happened. The module holding the cursor is typically not the module that
-   called `seek()` (a React transport bar vs. an audio-layer sequencer), so
-   "you called it, you know" does not compose; the signal must ride the
-   window.
-2. **Already-committed Web Audio events.** At the moment of a seek, up to
-   `lookAhead` seconds of now-stale events are already scheduled into the
-   audio graph and _will sound_ unless cancelled. The clock cannot cancel
-   them — it does not own them; samplers, voices, and `AudioParam`s do. The
-   first post-jump window is where consumers run their cancel/flush logic.
-   (Adjacent but distinct: `pause()` also leaves committed look-ahead audio
-   sounding for ~`lookAhead` after the pause — consumers wanting a hard stop
-   subscribe to the transport-state `Param` and cancel there. Not a
-   discontinuity; the axis never jumped.)
+What a jump does **not** obligate anyone to handle: already-committed Web
+Audio events. At the moment of a seek or pause, up to `lookAhead` (~100 ms)
+of already-scheduled audio will still sound — an **accepted tail**, kept
+small by the look-ahead itself and consistent with how DAWs behave.
+Consumers who genuinely care can cancel the voices they own; the clock
+neither owns nor cancels scheduled events.
 
 The jump also forces a restatement of the window contract itself. "Each beat
 is handed out exactly once" is false across a backward seek — replaying bars
@@ -442,23 +452,27 @@ any jump — after a seek to bar 33 with 16 steps/bar, `index` is 528 and
 `index % 16` still lands on the right pattern step, with no reset logic in
 the consumer at all.
 
-### ST-3. The visual/observation side is unspecced
+### ST-3. The visual/observation side — RESOLVED (latency compensation deferred)
 
-Everything above serves the _scheduling_ direction. But a step sequencer
-highlights the current step, a DAW draws a playhead, a rhythm game renders a
-note highway — all need "**where is the audible now?**" at rAF rate. Three
-sub-gaps:
+Everything else in the spec serves the _scheduling_ direction, but a step
+sequencer highlights the current step, a DAW draws a playhead, a rhythm game
+renders a note highway.
 
-- **Point queries.** `timeToBeat(ctx.currentTime)` exists, but ruler readings
-  (bar number, phase) can only be computed for _windows_ — `read(window,
-  timeline)` has no point form. Add a point-read; a window read is then the
-  range case of the same operation.
-- **Reactive position.** A coarse `clock.beat` `Param` pushed per tick
-  (~40 Hz) for `useValue` UI, alongside the pull-based point query for
-  rAF-driven canvases (the pixi/three bindings' home turf).
-- **Audible now ≠ `ctx.currentTime`.** Sound exits the speakers
-  `ctx.outputLatency` later; a playhead drawn at `currentTime` is visibly
-  early on Bluetooth audio. Expose a latency-compensated now.
+Resolved: **each registered ruler slot exposes a reactive `current`
+reading** — the ruler's coordinates evaluated at the playhead, refreshed by
+the clock tick (~40 Hz at defaults) into a readable `Param`, so
+`useValue(timeline.rulers.bar.current)` works in every binding and
+rAF-driven canvases read the same value (interpolating from `current` +
+`bpm` if they want sub-tick smoothness). Rulers stay stateless — the
+reactive cell lives on the timeline's ruler slot; the ruler only computes.
+The expected common case: an app renders one `LinearBarRuler`'s `current`,
+since that ruler _is_ the timeline the app is showing. Future note
+positions (a note highway) come from `beatToTime`, which already exists.
+
+Deferred: output-latency compensation ("audible now" ≠ `ctx.currentTime`;
+sound exits the speakers `ctx.outputLatency` later, visibly so on Bluetooth
+audio). Real, but not tackled until the latency-compensation infrastructure
+lands (see roadmap: Future).
 
 ### ST-4. Rhythm games cross a clock domain at the input boundary
 
@@ -471,8 +485,9 @@ conversion feature extended one domain over — but without
 `performanceTimeToBeat(t)` / latency-aware helpers, every game reinvents the
 most error-prone part. (The scheduling direction already works: a beatmap
 scheduled per-window via `beatToTime` is exactly the intended idiom.)
-Candidate: one "clock domains & latency" section covering this and the third
-bullet of ST-3.
+
+Deferred: same latency-compensation infrastructure as ST-3's deferred part
+(see roadmap: Future). Until then, games correlate the domains app-side.
 
 ### ST-5. The window contract is really an ownership contract — RESOLVED
 
@@ -505,11 +520,11 @@ tempo-map-correct seek in V3.
   whose window was already committed takes effect next pass. Not fixable —
   document as an accepted property of look-ahead scheduling.
 
-Disposition: ST-1 and ST-5 are resolved by design decisions; ST-1's
-residuals (cycle-ruler region config + wrapped-span exposure) plus ST-2 and
-the point-query part of ST-3 are cheap spec amendments; ST-4 plus the
-latency part of ST-3 become one "clock domains & latency" section; ST-6 is a
-roadmap reshuffle.
+Disposition: ST-1, ST-3, and ST-5 are resolved by design decisions (the
+latency parts of ST-3 and ST-4 are deferred to the Future roadmap item);
+remaining cheap amendments: ST-1's residuals (cycle-ruler region config +
+wrapped-span exposure) and ST-2's generation counter; ST-6 is a roadmap
+reshuffle.
 
 ## Open questions
 
