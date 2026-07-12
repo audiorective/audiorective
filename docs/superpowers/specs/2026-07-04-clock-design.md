@@ -42,8 +42,8 @@ of them — beat is derived.**
    - `pause()` → freeze current beat
    - `resume()` → `{ frozenBeat, now }`
    - `stop()` → `{ 0, — }` (reset)
-   - (V3) `seek(beat)` → `{ targetBeat, now }` — seek is nothing new, just an
-     anchor write.
+   - `seek(beat)` / `start({ atBeat })` → `{ targetBeat, now }` — seek is
+     nothing new, just an anchor write.
 
    `beatAtAnchor` exists because pause and seek make position underivable from
    the curve alone: the tempo curve lives on the audio clock and cannot know
@@ -204,7 +204,13 @@ Consumes a Timeline. Owns the worker-timer tick loop and the transport
 methods, which write the Timeline's anchor.
 
 - Constructor: `{ timeline, lookAhead = 0.1, tickInterval = 0.025, onTick, onMiss? }`
-- `start()` / `pause()` / `stop()` (stop resets position)
+- `start()` / `start({ atBeat })` / `pause()` / `stop()` (stop resets
+  position) / `seek(beat)`. V1 caveat: across a jump, already-scheduled
+  tempo events (second-anchored) go stale; tempo-map-correct seek is V3.
+- Seek and pause leave up to `lookAhead` (~100 ms) of already-committed
+  audio sounding — an **accepted tail**, consistent with DAW behavior.
+  The clock neither owns nor cancels scheduled events; consumers who
+  genuinely care can cancel the voices they own.
 - Transport state exposed as a readable `Param` so `useValue(clock.state)`
   works in every binding.
 - The tick refreshes the reactive surfaces: `timeline.bpm`'s signal and each
@@ -218,12 +224,19 @@ methods, which write the Timeline's anchor.
 
 ### TickWindow — the callback payload
 
-Non-overlapping windows; each tick hands beats never handed before; schedule
-them once. The window carries **both coordinates pre-converted** so consumers
-do no conversion arithmetic in the hot path.
+Windows are non-overlapping **within a continuity segment**: each tick hands
+beats never handed before; schedule them once. A position jump (`seek`,
+`start({ atBeat })`, stop→start) begins a new segment — beats may
+legitimately reappear (replaying bars 17–20 is the point of seeking back) —
+and bumps the window's `generation`, so consumers holding derived state
+(cursors into note lists, generator positions) know to reset. Pause/resume,
+looping, and tempo changes are continuous and do not bump it. The window
+carries **both coordinates pre-converted** so consumers do no conversion
+arithmetic in the hot path.
 
 - `time` — `started`, `current`, `lookAheadEnd` (absolute audio-clock seconds)
 - `beat` — `start`, `end` (window range on the beat axis)
+- `generation` — integer, incremented on every position-jumping anchor write
 - `transport` — `state`, `position` (pause-aware seconds since start)
 - `rulers` — readings from registered rulers; **starts empty**, see below.
 
@@ -274,12 +287,30 @@ counting vs. cyclic/wrapping):
 
 |            | Linear (counts forever)                          | Cycle (wraps)                                      |
 | ---------- | ------------------------------------------------ | -------------------------------------------------- |
-| **Bar**    | `LinearBarRuler({ numerator, denominator })` → `{ bar, beatInBar, numerator, denominator, grid(division) }` | `CycleBarRuler({ numerator, denominator, bars })` → `{ cycle, barInCycle, beatInBar, phase, grid(division) }` |
-| **Time**   | `LinearTimeRuler()` → `{ seconds }`              | `CycleTimeRuler({ seconds })` → `{ cycle, secondsInCycle, phase }` |
+| **Bar**    | `LinearBarRuler({ numerator, denominator })` → `{ bar, beatInBar, numerator, denominator, grid(division) }` | `CycleBarRuler({ numerator, denominator, bars, from? })` → `{ cycle, barInCycle, beatInBar, phase, grid(division), spans }` |
+| **Time**   | `LinearTimeRuler()` → `{ seconds }`              | `CycleTimeRuler({ seconds, from? })` → `{ cycle, secondsInCycle, phase }` |
 
 `CycleBarRuler` covers the Link-style quantum/phase reading (a repeating
 N-bar cycle); `CycleTimeRuler` covers time-periodic uses (e.g. driving a
 visual that repeats every N seconds).
+
+Cycle rulers take a **region**, not just a length: `from` (default `0`)
+anchors the cycle at `[from, from + length)`. Their window readings expose
+the window's **wrapped spans**: a window crossing the wrap point maps to two
+sub-ranges in cycle coordinates (e.g. `[19.5, 21) ∪ [17, 17.5)`), each with
+its own cycle-space → absolute-time conversion — the same cycle position
+converts differently on each pass. `grid()` handles the wrap on its own;
+`spans` serves non-grid content (the future track/clip primitive's notes).
+
+**Looping is a cycle-ruler reading, not transport state.** A loop region
+[bar 17, bar 21) is a cycle ruler over that region: the beat axis keeps
+climbing monotonically while the ruler reads it as bar 19, 20, 17, 18…
+Content lookup happens in cycle space; scheduling happens on the axis, so
+scheduling across the loop boundary needs no special case — grid points from
+both sides of the wrap convert to strictly increasing absolute times.
+Exiting the loop ("continue from bar 18") rejoins the diverged axis and
+musical position: that is a `seek`. (Tempo automation inside a looped region
+re-fires per pass — deferred to V3 with the editable tempo map.)
 
 Zero defaults pays for itself: `rulers` is exactly what you registered — an
 accumulating `addRuler(key, ruler)` signature, no special-cased built-in keys
@@ -322,8 +353,11 @@ clock.start();
 ```
 
 `grid(division)` yields `{ beat, time, index }` for each grid point inside the
-window — absolute time pre-converted, `index` a global step counter since
-transport start. Each ruler defines its own division semantics (bar rulers:
+window — absolute time pre-converted, `index` **position-derived**
+(`floor(rulerSpacePosition / stepSize)`): a pure function of position, never
+a counter, so `index % patternLength` stays correct across seek and loop
+with no consumer reset logic (a counted index would be hidden ruler state —
+forbidden above). Each ruler defines its own division semantics (bar rulers:
 steps per bar; cycle rulers: steps per cycle); exact signatures are an
 implementation detail.
 
@@ -346,16 +380,19 @@ implementation detail.
 
 - **V1:** Clock + Timeline + anchor + event-list `TempoParam` limited to
   `setValueAtTime` (piecewise-constant → trivial integrals; constant tempo =
-  one event). Non-overlapping windows, miss detection, `onTick`/`onMiss`,
-  worker tick source. `LinearBarRuler`, `CycleBarRuler`, `LinearTimeRuler`,
-  `CycleTimeRuler` as opt-in exports. Skill section (window convention lives
-  here).
+  one event). Non-overlapping windows per continuity segment, `generation`,
+  miss detection, `onTick`/`onMiss`, worker tick source. Basic `seek(beat)` /
+  `start({ atBeat })` (caveat: already-scheduled tempo events go stale across
+  a jump). `LinearBarRuler`, `CycleBarRuler`, `LinearTimeRuler`,
+  `CycleTimeRuler` as opt-in exports; reactive `current` per registered
+  ruler. Skill section (window convention lives here).
 - **V2:** unlock `linearRampToValueAtTime` / `exponentialRampToValueAtTime`
   (quadratic/analytic integrals). Because the event list exists from day one,
   V2 is "more segment types," not a rewrite.
-- **V3:** `seek(beat)` (an anchor write) + DAW-style editable tempo map
+- **V3:** tempo-map-correct `seek` + DAW-style editable tempo map
   (beat-anchored storage internally; the absolute-time public API is
-  unchanged). Possibly count-in/pre-roll (below).
+  unchanged); tempo automation inside looped regions. Possibly
+  count-in/pre-roll (below).
 - **Future (beyond V3):** latency-compensation infrastructure —
   `ctx.outputLatency`, `performance.now()` ↔ audio-clock correlation,
   calibration offsets — enabling rhythm-game input judging and latency-true
@@ -389,24 +426,16 @@ anchor stays the only stored position, and looping creates no axis
 discontinuities (shrinking ST-2). The DAW's jumping playhead is just the
 loop-space point-read (ST-3).
 
-Residuals (small, real):
+Residuals, all now folded into the rulers section and roadmap:
 
-1. **Non-grid content.** DAW notes aren't grid-snapped, so `grid()` isn't
-   enough: cycle readings must also expose the window's **wrapped spans**
-   (the `[19.5, 21) ∪ [17, 17.5)` pieces, each with its own
-   loop-space→absolute-time conversion, since the same loop-space position
-   converts differently per pass). Reading-API addition, not architecture —
-   and exactly what the future track/clip primitive will consume.
-2. **Cycle rulers need a region/offset config.** A loop region is
-   `[start, end)`, not "every N bars from zero" as currently specced.
-3. **Loop exit.** "Turn looping off and continue from bar 18" rejoins the
-   diverged axis and musical position — that is a **seek** (an anchor
-   write). Loop exit is built from the seek primitive → strengthens ST-6.
-4. **Tempo automation inside a looped region** re-fires per pass, and tempo
-   events are global — genuinely messy; explicitly deferred to V3 alongside
-   the editable tempo map.
+1. **Non-grid content** → cycle readings expose the window's **wrapped
+   spans**, each with its own cycle-space→absolute-time conversion.
+2. **Cycle rulers take a region** (`from`, default 0), not just a length.
+3. **Loop exit is a seek** → basic seek pulled into V1 (ST-6).
+4. **Tempo automation inside a looped region** re-fires per pass — deferred
+   to V3 alongside the editable tempo map.
 
-### ST-2. Windows need a discontinuity signal; `grid().index` semantics must survive it
+### ST-2. Windows need a discontinuity signal; `grid().index` semantics must survive it — RESOLVED
 
 A discontinuity is any transport event that _jumps_ the position: `seek`,
 `start({ atBeat })`, and stop→start. Nothing else qualifies — pause/resume
@@ -436,7 +465,8 @@ is handed out exactly once" is false across a backward seek — replaying bars
 **non-overlapping windows within a continuity segment**; a jump starts a new
 segment and beats may legitimately reappear.
 
-Resolution: a monotonically increasing `generation` counter on the window,
+Resolved (folded into the TickWindow and grid-iteration sections): a
+monotonically increasing `generation` counter on the window,
 bumped on every position-jumping anchor write (a boolean `discontinuity`
 flag is a lossy derivative of it; the counter also serves point-query
 consumers that sample position outside `onTick`). `previousWindowEnd` resets
@@ -504,15 +534,17 @@ TickWindow section) carried by the skill. Out-of-window scheduling is
 permitted. Per-note offsets become first-class in the future track/clip
 primitive.
 
-### ST-6. Basic seek is deferred too far
+### ST-6. Basic seek is deferred too far — RESOLVED
 
 Given the anchor design, seek is a two-field write. The V3 deferral is really
 about seek under an _edited tempo map_ (second-anchored events go stale after
 a jump) — but `clock.start({ atBeat })` / basic seek at constant tempo is
 nearly free and wanted early by both the DAW and games (retry from
-checkpoint). ST-1 adds weight: loop exit is built from seek. Proposed: pull
-basic seek into V1 with a documented tempo-automation caveat; keep
-tempo-map-correct seek in V3.
+checkpoint). ST-1 adds weight: loop exit is built from seek.
+
+Resolved (folded into the Clock section and roadmap): basic
+`seek(beat)` / `start({ atBeat })` in V1 with the documented
+tempo-automation caveat; tempo-map-correct seek stays in V3.
 
 ### Minor notes
 
@@ -520,11 +552,10 @@ tempo-map-correct seek in V3.
   whose window was already committed takes effect next pass. Not fixable —
   document as an accepted property of look-ahead scheduling.
 
-Disposition: ST-1, ST-3, and ST-5 are resolved by design decisions (the
-latency parts of ST-3 and ST-4 are deferred to the Future roadmap item);
-remaining cheap amendments: ST-1's residuals (cycle-ruler region config +
-wrapped-span exposure) and ST-2's generation counter; ST-6 is a roadmap
-reshuffle.
+Disposition: all findings are dispositioned. ST-1, ST-2, ST-3, ST-5, and
+ST-6 are resolved and folded into the main sections above; the latency parts
+of ST-3 and ST-4 are deferred to the Future roadmap item. This section
+remains as the record of why.
 
 ## Open questions
 
