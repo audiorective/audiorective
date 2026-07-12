@@ -18,7 +18,7 @@ interface RulerEntry {
  * Beat position is never stored beyond the anchor; see the clock design
  * spec's "The core is three things" section.
  */
-export class Timeline<TRulers extends Record<string, Ruler<unknown, unknown>> = Record<string, never>> {
+export class Timeline<TRulers extends Record<string, Ruler<unknown, unknown>> = Record<never, never>> {
   readonly bpm: TempoParam;
 
   private readonly _audioContext: TimeSource;
@@ -39,6 +39,11 @@ export class Timeline<TRulers extends Record<string, Ruler<unknown, unknown>> = 
 
   private _now(): number {
     return this._audioContext.currentTime;
+  }
+
+  /** @internal Raw audio-clock time, for the Clock tick loop. Timeline is the only holder of the time source. */
+  get now(): number {
+    return this._now();
   }
 
   get state(): TransportState {
