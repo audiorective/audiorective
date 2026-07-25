@@ -224,6 +224,19 @@ describe("ruler option validation", () => {
     expect(() => new CycleBarRuler({ numerator: 4, denominator: 0, bars: 4 })).toThrow(RangeError);
   });
 
+  test("cycle rulers reject a non-finite region offset", () => {
+    // A non-finite `from` doesn't hang (gridPoints guards its origin) -- it
+    // poisons readings to NaN and makes grid() yield nothing at all, i.e. no
+    // sound and no error. Negative and zero offsets stay legal.
+    const bar = { numerator: 4, denominator: 4, bars: 4 };
+    expect(() => new CycleBarRuler({ ...bar, from: NaN })).toThrow(RangeError);
+    expect(() => new CycleBarRuler({ ...bar, from: Infinity })).toThrow(RangeError);
+    expect(() => new CycleTimeRuler({ seconds: 4, from: -Infinity })).toThrow(RangeError);
+
+    expect(() => new CycleBarRuler({ ...bar, from: -8 })).not.toThrow();
+    expect(() => new CycleBarRuler({ ...bar, from: 0 })).not.toThrow();
+  });
+
   test("valid options still construct", () => {
     expect(() => new LinearBarRuler({ numerator: 7, denominator: 8 })).not.toThrow();
     expect(() => new CycleBarRuler({ numerator: 4, denominator: 4, bars: 2, from: 8 })).not.toThrow();

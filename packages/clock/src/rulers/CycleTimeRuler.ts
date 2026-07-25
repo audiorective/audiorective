@@ -1,5 +1,5 @@
 import type { CoreTickWindow } from "../types";
-import { assertPositiveLength } from "./Ruler";
+import { assertFiniteOffset, assertPositiveLength } from "./Ruler";
 import type { Ruler, TimelineLike } from "./Ruler";
 
 export interface CycleTimeRulerOptions {
@@ -27,6 +27,7 @@ export class CycleTimeRuler implements Ruler<CycleTimePoint, CycleTimePoint> {
 
   constructor(options: CycleTimeRulerOptions) {
     assertPositiveLength(options.seconds, "seconds");
+    assertFiniteOffset(options.from ?? 0, "from");
     this._seconds = options.seconds;
     this._from = options.from ?? 0;
   }

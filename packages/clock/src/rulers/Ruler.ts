@@ -51,6 +51,18 @@ export function assertPositiveLength(value: number, name: string): void {
   }
 }
 
+/**
+ * Guard a ruler option used as an offset. Unlike a length, zero and negatives
+ * are legitimate here — only non-finite values are rejected, because they
+ * poison a reading into NaN and make `gridPoints` bail on its origin check,
+ * which surfaces as a grid that silently yields nothing: no sound, no error.
+ */
+export function assertFiniteOffset(value: number, name: string): void {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`${name} must be a finite number, got ${value}`);
+  }
+}
+
 /** Axis-unit beats per bar: quarter note is the axis unit (Link/MIDI convention). */
 export function beatsPerBar(numerator: number, denominator: number): number {
   assertPositiveLength(numerator, "numerator");

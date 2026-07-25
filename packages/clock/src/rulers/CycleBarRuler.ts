@@ -1,5 +1,5 @@
 import type { CoreTickWindow } from "../types";
-import { assertPositiveLength, beatsPerBar, gridPoints } from "./Ruler";
+import { assertFiniteOffset, assertPositiveLength, beatsPerBar, gridPoints } from "./Ruler";
 import type { GridPoint, Ruler, TimelineLike } from "./Ruler";
 
 export interface CycleBarRulerOptions {
@@ -51,6 +51,7 @@ export class CycleBarRuler implements Ruler<CycleBarWindow, CycleBarPoint> {
 
   constructor(options: CycleBarRulerOptions) {
     assertPositiveLength(options.bars, "bars");
+    assertFiniteOffset(options.from ?? 0, "from");
     this._beatsPerBar = beatsPerBar(options.numerator, options.denominator);
     this._regionLength = options.bars * this._beatsPerBar;
     this._from = options.from ?? 0;
