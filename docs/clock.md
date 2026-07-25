@@ -12,7 +12,7 @@ Everything schedulable takes absolute `AudioContext` time — no parallel time b
 
 ```typescript
 timeline.bpm.setValueAtTime(140, timeline.beatToTime(64));
-sampler.trigger({ time: timeline.beatToTime(nextBarBeat) }); // same unit everywhere
+sampler.trigger({ when: timeline.beatToTime(nextBarBeat) }); // same unit everywhere
 ```
 
 ## Quick start — a metronome
@@ -26,7 +26,8 @@ const clock = new Clock({
   timeline,
   onTick(window) {
     for (const { time, index } of window.rulers.bar.grid(16)) {
-      if (pattern[index % 16]) sampler.trigger({ time });
+      // `time` is absolute AudioContext time -- exactly what Sampler's `when` wants
+      if (pattern[index % 16]) sampler.trigger({ when: time });
     }
   },
 });

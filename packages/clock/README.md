@@ -25,8 +25,9 @@ const clock = new Clock({
   timeline,
   onTick(window) {
     for (const { time, index } of window.rulers.bar.grid(16)) {
-      // time is already an absolute AudioContext time
-      if (pattern[index % 16]) sampler.trigger({ time });
+      // `time` is already an absolute AudioContext time, which is what
+      // core's Sampler takes as `when`
+      if (pattern[index % 16]) sampler.trigger({ when: time });
     }
   },
 });
