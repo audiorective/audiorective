@@ -30,6 +30,7 @@ Press **Play**. Browsers require a user gesture before audio, which `EngineProvi
 4. **Transport** — play / pause / resume / stop, with button state from `useValue(clock.state)`. Resume continues mid-bar; stop returns to step 0.
 5. **Live pattern editing** — toggle steps while playing, including the documented ~`lookAhead` latency when you edit a step whose window is already committed (asserted in the tests rather than hidden).
 6. **The audio/UI split** — `DrumMachine` is headless: it owns the Timeline, the Clock, and four `Sampler`s, and runs entirely inside a unit test with no DOM. React only observes and calls methods.
+7. **Both architectural axes at once** — `DrumMachine` is an `AudioProcessor` on the space axis (master gain + samplers, exposing `output` rather than wiring itself to `destination`, so it can be routed through an EQ or reverb) that consumes a `Clock` on the time axis. Holding a clock is the point; reimplementing one would be the error — see [`docs/architecture.md`](../../docs/architecture.md).
 
 ## Structure
 

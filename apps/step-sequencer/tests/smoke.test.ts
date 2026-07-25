@@ -34,6 +34,8 @@ describe("step sequencer smoke (real AudioContext + WorkerTickSource)", () => {
       bpm: 240, // a bar every second, so the test stays quick
       onStepScheduled: (trackId, step, time) => scheduled.push({ trackId, step, time }),
     });
+    // wire it exactly as the app does, so the smoke test really makes sound
+    machine.output.connect(ctx.destination);
 
     machine.play();
     const kicks = () => scheduled.filter((s) => s.trackId === "kick");

@@ -1,4 +1,4 @@
-import { Cell, Param, Sampler } from "@audiorective/core";
+import { AudioProcessor, Cell, Param, Sampler } from "@audiorective/core";
 import { Clock, LinearBarRuler, Timeline } from "@audiorective/clock";
 import type { TickSource, TimeSource } from "@audiorective/clock";
 import type { DrumKit, DrumVoiceId } from "./drumKit";
@@ -56,25 +56,33 @@ function patternFromSteps(steps: number[]): boolean[] {
  * The headless audio core: owns the Timeline, the Clock, and one Sampler per
  * track. No DOM, no framework — runs entirely inside a unit test.
  *
+ * Sits on both of the system's axes (see `docs/architecture.md`): an
+ * `AudioProcessor` on the space axis — it owns the master gain and four
+ * samplers, and exposes `output` — that consumes a `Clock` on the time axis.
+ * Holding a clock is the point; reimplementing one would be the error.
+ *
  * The whole scheduling story is the `onTick` handler below: iterate the bar
  * ruler's 16th-note grid, look the step up with `index % 16`, trigger. There
  * are no cursors and nothing to reset on a transport jump, because `index` is
  * derived from position rather than counted.
  */
-export class DrumMachine {
+export class DrumMachine extends AudioProcessor {
   readonly tracks: readonly DrumTrack[];
 
-  private readonly _ctx: AudioContext;
   private readonly _master: GainNode;
   private readonly _timeline: Timeline<SequencerRulers>;
   private readonly _clock: Clock<SequencerRulers>;
 
   constructor(options: DrumMachineOptions) {
     const { audioContext, kit, bpm = 120, timeSource, tickSource, onStepScheduled } = options;
-    this._ctx = audioContext;
+    // No params/cells registry: the reactive surface is per-track (`pattern`,
+    // `mute` on each DrumTrack) plus `bpm`/`state`, which belong to the
+    // Timeline and Clock respectively.
+    super(audioContext, () => ({}));
 
+    // Not connected to `destination` here -- the caller wires `output`, so the
+    // machine can be routed through an EQ, reverb, or mixer like any processor.
     this._master = new GainNode(audioContext, { gain: 0.8 });
-    this._master.connect(audioContext.destination);
 
     const ids: DrumVoiceId[] = ["kick", "snare", "hat", "clap"];
     this.tracks = ids.map((id) => {
@@ -110,6 +118,10 @@ export class DrumMachine {
         }
       },
     });
+  }
+
+  get output(): AudioNode {
+    return this._master;
   }
 
   /** Live tempo (a Param — bind a slider straight to `.value`). */
@@ -154,10 +166,6 @@ export class DrumMachine {
     this._clock.destroy();
     for (const track of this.tracks) track.sampler.destroy();
     this._master.disconnect();
-  }
-
-  /** Escape hatch for tests/debug — the UI never needs this. */
-  get context(): AudioContext {
-    return this._ctx;
+    super.destroy();
   }
 }

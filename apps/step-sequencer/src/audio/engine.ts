@@ -9,8 +9,21 @@ import { createDrumKit } from "./drumKit";
  * `EngineProvider`'s `autoStart` satisfies the browser's user-gesture
  * requirement on the first interaction.
  */
-export const engine = createEngine((ctx) => ({
-  machine: new DrumMachine({ audioContext: ctx, kit: createDrumKit(ctx) }),
-}));
+export const engine = createEngine((ctx) => {
+  const machine = new DrumMachine({ audioContext: ctx, kit: createDrumKit(ctx) });
+  // The machine exposes `output` rather than wiring itself to the destination,
+  // so routing it through an EQ or reverb later is a one-line change here.
+  machine.output.connect(ctx.destination);
+  return { machine };
+});
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
+
+declare global {
+  interface Window {
+    __seqEngine?: typeof engine;
+  }
+}
+if (typeof window !== "undefined") {
+  window.__seqEngine = engine;
+}
