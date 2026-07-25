@@ -197,6 +197,53 @@ describe("CycleBarRuler", () => {
   });
 });
 
+describe("ruler option validation", () => {
+  // A non-positive cycle length is not merely wrong, it hangs: _spans() walks
+  // `cursor` by regionLength, so a negative length marches it away from the
+  // window forever -- inside a tick callback, that freezes the tab. Reject at
+  // construction, the way TempoCurve already rejects bpm <= 0.
+  test("CycleBarRuler rejects a non-positive or non-finite bar count", () => {
+    const opts = { numerator: 4, denominator: 4 };
+    expect(() => new CycleBarRuler({ ...opts, bars: 0 })).toThrow(RangeError);
+    expect(() => new CycleBarRuler({ ...opts, bars: -1 })).toThrow(RangeError);
+    expect(() => new CycleBarRuler({ ...opts, bars: Infinity })).toThrow(RangeError);
+    expect(() => new CycleBarRuler({ ...opts, bars: NaN })).toThrow(RangeError);
+  });
+
+  test("CycleTimeRuler rejects a non-positive or non-finite cycle length", () => {
+    expect(() => new CycleTimeRuler({ seconds: 0 })).toThrow(RangeError);
+    expect(() => new CycleTimeRuler({ seconds: -5 })).toThrow(RangeError);
+    expect(() => new CycleTimeRuler({ seconds: NaN })).toThrow(RangeError);
+  });
+
+  test("bar rulers reject a degenerate time signature", () => {
+    // beatsPerBar = numerator*4/denominator; 0/0 yields NaN, which makes
+    // gridPoints' termination check (beat >= endBeat) never true.
+    expect(() => new LinearBarRuler({ numerator: 0, denominator: 4 })).toThrow(RangeError);
+    expect(() => new LinearBarRuler({ numerator: 4, denominator: 0 })).toThrow(RangeError);
+    expect(() => new CycleBarRuler({ numerator: 4, denominator: 0, bars: 4 })).toThrow(RangeError);
+  });
+
+  test("valid options still construct", () => {
+    expect(() => new LinearBarRuler({ numerator: 7, denominator: 8 })).not.toThrow();
+    expect(() => new CycleBarRuler({ numerator: 4, denominator: 4, bars: 2, from: 8 })).not.toThrow();
+    expect(() => new CycleTimeRuler({ seconds: 0.5 })).not.toThrow();
+  });
+});
+
+describe("gridPoints — degenerate step guard", () => {
+  test("a non-finite step yields nothing instead of looping forever", () => {
+    // NaN fails every comparison, so the `beat >= endBeat` return could never
+    // fire -- a hang in the scheduling hot path.
+    expect(collect(gridPoints(0, 10, NaN, 0, identityTimeline))).toEqual([]);
+    expect(collect(gridPoints(0, 10, Infinity, 0, identityTimeline))).toEqual([]);
+  });
+
+  test("a non-finite origin yields nothing", () => {
+    expect(collect(gridPoints(0, 10, 1, NaN, identityTimeline))).toEqual([]);
+  });
+});
+
 describe("LinearTimeRuler", () => {
   test("seconds mirrors timeline.position", () => {
     const ruler = new LinearTimeRuler();

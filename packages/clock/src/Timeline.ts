@@ -134,8 +134,19 @@ export class Timeline<TRulers extends Record<string, Ruler<unknown, unknown>> = 
     this._state = "paused";
   }
 
-  /** @internal Anchor write for Clock.resume(). Continuous; not a jump. */
+  /**
+   * @internal Anchor write for Clock.resume(). Continuous; not a jump.
+   *
+   * Only a paused transport can resume. Without this guard, resuming while
+   * already playing moves `timeAtAnchor` to now while `beatAtAnchor` stays
+   * where it was, so the derived position snaps backwards and the next windows
+   * replay beats that were already scheduled. (`_pause()` has always had the
+   * matching guard; this one was missing.) Resuming from stopped is likewise
+   * not a transport start -- that is `_start()`, which anchors the position
+   * and bumps the generation.
+   */
   _resume(): void {
+    if (this._state !== "paused") return;
     this._timeAtAnchor = this._now();
     this._state = "playing";
   }

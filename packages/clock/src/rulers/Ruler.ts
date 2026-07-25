@@ -37,8 +37,24 @@ export interface GridPoint {
   index: number;
 }
 
+/**
+ * Guard a ruler option that a reading later divides by or advances a cursor
+ * with. Zero, negative, and non-finite values don't merely produce wrong
+ * numbers — a negative cycle length walks `CycleBarRuler._spans()` away from
+ * its window forever, and a NaN step makes `gridPoints`' termination check
+ * unreachable. Both hang inside a tick callback, so reject at construction,
+ * the way TempoCurve already rejects bpm <= 0.
+ */
+export function assertPositiveLength(value: number, name: string): void {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`${name} must be a finite number > 0, got ${value}`);
+  }
+}
+
 /** Axis-unit beats per bar: quarter note is the axis unit (Link/MIDI convention). */
 export function beatsPerBar(numerator: number, denominator: number): number {
+  assertPositiveLength(numerator, "numerator");
+  assertPositiveLength(denominator, "denominator");
   return (numerator * 4) / denominator;
 }
 
@@ -53,6 +69,10 @@ export function beatsPerBar(numerator: number, denominator: number): number {
  * exactly at `startBeat` is included.
  */
 export function* gridPoints(startBeat: number, endBeat: number, stepBeats: number, originBeat: number, timeline: TimelineLike): Generator<GridPoint> {
+  // Non-finite guards are load-bearing, not defensive noise: with a NaN step
+  // or origin every `beat` is NaN, so the `beat >= endBeat` return below never
+  // fires and this generator spins forever in the scheduling hot path.
+  if (!Number.isFinite(stepBeats) || !Number.isFinite(originBeat)) return;
   if (stepBeats <= 0 || endBeat <= startBeat) return;
   // `|| 0` normalizes -0 (e.g. ceil(-0.5)) to a plain 0 index
   const firstIndex = Math.ceil((startBeat - originBeat) / stepBeats) || 0;

@@ -83,8 +83,13 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
     this.state.value = "paused";
   }
 
-  /** Continues from the frozen position — not a position jump, `generation` unchanged. */
+  /**
+   * Continues from the frozen position — not a position jump, `generation`
+   * unchanged. A no-op unless the transport is paused, so a stray resume can't
+   * rewind a running clock or start a stopped one (see `Timeline._resume`).
+   */
   resume(): void {
+    if (this.state.value !== "paused") return;
     this._timeline._resume();
     this.state.value = "playing";
   }

@@ -64,6 +64,28 @@ describe("Timeline — pause/resume semantics", () => {
     expect(timeline.timeToBeat(101)).toBeCloseTo(12); // 10 + 2 beats/sec * 1s
   });
 
+  test("resume while already playing is a no-op, not a rewind", () => {
+    // _pause() guards on state; _resume() must too. Without the guard it moves
+    // timeAtAnchor to now while beatAtAnchor stays stale, so position snaps
+    // back to the anchor beat and the next windows replay scheduled beats.
+    const ctx = makeContext(0);
+    const timeline = new Timeline({ audioContext: ctx, bpm: 120 }); // 2 beats/sec
+    timeline._start();
+    ctx.currentTime = 5;
+    expect(timeline.timeToBeat(5)).toBeCloseTo(10);
+
+    timeline._resume(); // redundant call while playing
+    expect(timeline.timeToBeat(5)).toBeCloseTo(10); // position preserved
+    expect(timeline.position).toBeCloseTo(5);
+  });
+
+  test("resume while stopped does not start playback", () => {
+    const ctx = makeContext(0);
+    const timeline = new Timeline({ audioContext: ctx, bpm: 120 });
+    timeline._resume();
+    expect(timeline.state).toBe("stopped");
+  });
+
   test("pause/resume does not bump generation", () => {
     const ctx = makeContext(0);
     const timeline = new Timeline({ audioContext: ctx, bpm: 120 });
