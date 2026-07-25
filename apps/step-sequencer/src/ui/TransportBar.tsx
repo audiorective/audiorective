@@ -1,16 +1,26 @@
 import { useValue } from "@audiorective/react";
-import type { DrumMachine } from "../audio/DrumMachine";
+import { useEngine } from "../audio/engine";
 
-export function TransportBar({ machine }: { machine: DrumMachine }) {
+export function TransportBar() {
+  const { core, machine } = useEngine();
   const state = useValue(machine.state);
   const bpm = useValue(machine.bpm);
   const bar = useValue(machine.currentBar);
 
   const playing = state === "playing";
 
+  // `autoStart` would resume the context on this same click anyway, but doing it
+  // here first removes the ordering question: the transport never anchors itself
+  // to a suspended context's frozen `currentTime`. Both paths are idempotent.
+  async function togglePlay() {
+    await core.start();
+    if (playing) machine.pause();
+    else machine.play();
+  }
+
   return (
     <div className="transport">
-      <button className="transport__button transport__button--primary" onClick={() => (playing ? machine.pause() : machine.play())}>
+      <button className="transport__button transport__button--primary" onClick={() => void togglePlay()}>
         {playing ? "Pause" : state === "paused" ? "Resume" : "Play"}
       </button>
       <button className="transport__button" onClick={() => machine.stop()} disabled={state === "stopped"}>

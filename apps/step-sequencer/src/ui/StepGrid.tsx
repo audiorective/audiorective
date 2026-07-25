@@ -1,10 +1,12 @@
 import { useValue } from "@audiorective/react";
-import type { DrumMachine, DrumTrack } from "../audio/DrumMachine";
+import { useEngine } from "../audio/engine";
+import type { DrumTrack } from "../audio/DrumMachine";
 import { STEPS_PER_BAR, stepFromBar } from "../audio/stepFromBar";
 
 const STEPS = Array.from({ length: STEPS_PER_BAR }, (_, i) => i);
 
-function TrackRow({ machine, track, playhead }: { machine: DrumMachine; track: DrumTrack; playhead: number | null }) {
+function TrackRow({ track, playhead }: { track: DrumTrack; playhead: number | null }) {
+  const { machine } = useEngine();
   const pattern = useValue(track.pattern);
   const muted = useValue(track.mute);
 
@@ -38,7 +40,8 @@ function TrackRow({ machine, track, playhead }: { machine: DrumMachine; track: D
   );
 }
 
-export function StepGrid({ machine }: { machine: DrumMachine }) {
+export function StepGrid() {
+  const { machine } = useEngine();
   const state = useValue(machine.state);
   const bar = useValue(machine.currentBar);
   // one reactive ruler reading drives every row's highlight
@@ -57,7 +60,7 @@ export function StepGrid({ machine }: { machine: DrumMachine }) {
         </div>
       </div>
       {machine.tracks.map((track) => (
-        <TrackRow key={track.id} machine={machine} track={track} playhead={playhead} />
+        <TrackRow key={track.id} track={track} playhead={playhead} />
       ))}
     </div>
   );

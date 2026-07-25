@@ -6,7 +6,7 @@ A 4-track × 16-step drum machine — the canonical consumer demo for [`@audiore
 pnpm --filter @audiorective/step-sequencer dev
 ```
 
-Click **Power on** (browsers need a user gesture before audio), then **Play**.
+Press **Play**. Browsers require a user gesture before audio, which `EngineProvider`'s `autoStart` handles on that same click — there is no separate power-on step.
 
 ## What it demonstrates
 
@@ -38,7 +38,8 @@ Click **Power on** (browsers need a user gesture before audio), then **Play**.
 | `src/audio/DrumMachine.ts` | The headless core — Timeline + Clock + tracks, transport, reactive surface |
 | `src/audio/drumKit.ts`     | Procedurally synthesized kick/snare/hat/clap (no binary assets)            |
 | `src/audio/stepFromBar.ts` | Bar reading → step index; shared by the UI playhead and the tests          |
-| `src/ui/`                  | React observer layer                                                       |
+| `src/audio/engine.ts`      | `createEngine` + `createEngineContext` — owns the AudioContext             |
+| `src/ui/`                  | React observer layer, reading the machine via `useEngine()`                |
 
 ## Tests
 

@@ -100,8 +100,10 @@ with no DOM.
 
 ### UI (`src/ui/`) — thin observer, React 19
 
-- **`App`** — owns the `DrumMachine` instance (created once, destroyed on
-  unmount) and the AudioContext-resume-on-first-gesture handshake.
+- **`App`** — wraps the tree in `EngineProvider`. The `DrumMachine` and the
+  AudioContext are owned by `createEngine` in `src/audio/engine.ts`, not by a
+  component; `autoStart` handles the resume-on-first-gesture handshake. Every
+  child reaches the machine through `useEngine()` rather than a prop.
 - **`TransportBar`** — play/pause/stop buttons (labels/disabled state from
   `useValue(machine.state)`), bpm slider + numeric readout bound to
   `machine.bpm.value` (range ~40–220), and a `bar : beat` position readout

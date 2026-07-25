@@ -129,9 +129,36 @@ function SynthUI() {
 }
 ```
 
-## Owning an AudioContext in a component
+## Who owns the AudioContext
 
-Browsers won't let an `AudioContext` make sound until a user gesture, so an app that builds its own context (rather than using `createEngine`'s module-level singleton above) creates it on the first click and tears it down on unmount. The trap is in the teardown.
+**`createEngine` does — never a component.** This is the single most important lifecycle rule in the package, and it is easy to drift off because building an `AudioContext` in an `onClick` feels like the obvious way to satisfy the browser's user-gesture requirement.
+
+It isn't necessary. `AudioEngine` creates the context at module scope and holds it for the page's lifetime; `EngineProvider`'s `autoStart` resumes it on the first interaction. So there is nothing to construct in an effect, nothing to `resume()` by hand, and nothing to close on unmount — which is why the entire class of teardown bugs below cannot occur. Both apps in this repo follow it: `apps/showroom/src/audio/engine.ts` and `apps/step-sequencer/src/audio/engine.ts`.
+
+If a host application hands you a context, pass it in rather than reaching for `new AudioContext()`:
+
+```typescript
+export const engine = createEngine((ctx) => ({ machine: new DrumMachine({ audioContext: ctx }) }), { context: hostContext });
+```
+
+Note that `createEngine`'s setup callback still receives `ctx` and you still pass it explicitly to every node and processor — that part is the normal pattern, not a smell. What `createEngine` owns is the context's _lifecycle_, not its plumbing.
+
+### Starting the transport on the same click
+
+`autoStart` and an explicit `core.start()` are both idempotent, so a transport button can safely do both:
+
+```tsx
+async function togglePlay() {
+  await core.start(); // resolves immediately once running
+  playing ? machine.pause() : machine.play();
+}
+```
+
+Doing it explicitly removes an ordering question. React attaches its handlers to the root container while `autoStart` listens on `document`, so the button's `onClick` runs _first_ — and a transport started against a still-suspended context anchors itself to a frozen `currentTime`. Awaiting `core.start()` makes the ordering irrelevant.
+
+### If you genuinely must own one in a component
+
+Rare — multiple independent contexts on one page, or a context whose lifetime is shorter than the app's. The trap is the teardown, and it is worth knowing because the symptom is silent.
 
 **Wrong — the cleanup closes the context it just created:**
 
@@ -179,4 +206,4 @@ function powerOn() {
 
 The early `return` means the pre-power-on render registers no cleanup at all, so the only teardown that ever runs is the real one. Keeping the context in state beside the thing that uses it — rather than in a ref the effect can reach across renders — is what makes that possible.
 
-Worked example: `apps/step-sequencer/src/ui/App.tsx`.
+There is no worked example of this in the repo, deliberately: `apps/step-sequencer` was written this way first, hit exactly this bug, and was rewritten onto `createEngine`. Reach for the pattern above only when `createEngine`'s `context` option genuinely cannot express what you need.

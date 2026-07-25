@@ -50,20 +50,14 @@ code {
   font-size: 14px;
 }
 
-.app__power {
-  width: 100%;
-  padding: 20px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--bg);
-  background: var(--accent);
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.app__power:hover {
-  filter: brightness(1.08);
+.app__hint {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  color: var(--muted-text);
+  font-size: 13px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 
 .app__footer {
