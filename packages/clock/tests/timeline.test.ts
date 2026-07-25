@@ -1,5 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { Timeline } from "../src/Timeline";
+import { LinearBarRuler } from "../src/rulers/LinearBarRuler";
 
 function makeContext(startAt = 0) {
   return { currentTime: startAt };
@@ -128,5 +129,44 @@ describe("Timeline — position (pause-aware played seconds)", () => {
     ctx.currentTime = 100;
     timeline._seek(20); // 20 beats * 0.5s/beat = 10s
     expect(timeline.position).toBeCloseTo(10);
+  });
+});
+
+describe("Timeline — registered ruler slots", () => {
+  // These read `rulers.<key>.current` the way a UI actually does. Nothing did
+  // that before, and an `as unknown as` cast in addRuler was stashing the
+  // Param *as* the slot -- so the types claimed `.current` existed while at
+  // runtime it was undefined, and the first real consumer crashed on mount.
+  test("rulers.<key>.current exposes the ruler's point reading", () => {
+    const ctx = makeContext(0);
+    const timeline = new Timeline({ audioContext: ctx, bpm: 120 }).addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }));
+
+    const slot = timeline.rulers.bar;
+    expect(slot).toBeDefined();
+    expect(slot.current).toBeDefined();
+    expect(slot.current.value).toMatchObject({ bar: 0, beatInBar: 0 });
+  });
+
+  test("the tick refresh advances the reading", () => {
+    const ctx = makeContext(0);
+    const timeline = new Timeline({ audioContext: ctx, bpm: 120 }).addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }));
+    timeline._start();
+
+    ctx.currentTime = 2.5; // 5 beats in => bar 1, beat 1
+    timeline._refreshRulerCurrents(ctx.currentTime);
+    expect(timeline.rulers.bar.current.value).toMatchObject({ bar: 1, beatInBar: 1 });
+  });
+
+  test("multiple rulers keep independent slots", () => {
+    const ctx = makeContext(0);
+    const timeline = new Timeline({ audioContext: ctx, bpm: 120 })
+      .addRuler("fourFour", new LinearBarRuler({ numerator: 4, denominator: 4 }))
+      .addRuler("threeFour", new LinearBarRuler({ numerator: 3, denominator: 4 }));
+    timeline._start();
+
+    ctx.currentTime = 1.5; // 3 beats in
+    timeline._refreshRulerCurrents(ctx.currentTime);
+    expect(timeline.rulers.fourFour.current.value).toMatchObject({ bar: 0, beatInBar: 3 });
+    expect(timeline.rulers.threeFour.current.value).toMatchObject({ bar: 1, beatInBar: 0 });
   });
 });

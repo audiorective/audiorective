@@ -4,6 +4,8 @@ import type { TickSource, TimeSource } from "@audiorective/clock";
 import type { DrumKit, DrumVoiceId } from "./drumKit";
 import { STEPS_PER_BAR } from "./stepFromBar";
 
+type SequencerRulers = { bar: LinearBarRuler };
+
 export interface DrumTrack {
   readonly id: DrumVoiceId;
   readonly label: string;
@@ -64,8 +66,8 @@ export class DrumMachine {
 
   private readonly _ctx: AudioContext;
   private readonly _master: GainNode;
-  private readonly _timeline: Timeline<{ bar: LinearBarRuler }>;
-  private readonly _clock: Clock<{ bar: LinearBarRuler }>;
+  private readonly _timeline: Timeline<SequencerRulers>;
+  private readonly _clock: Clock<SequencerRulers>;
 
   constructor(options: DrumMachineOptions) {
     const { audioContext, kit, bpm = 120, timeSource, tickSource, onStepScheduled } = options;

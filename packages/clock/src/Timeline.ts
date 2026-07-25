@@ -78,12 +78,18 @@ export class Timeline<TRulers extends Record<string, Ruler<unknown, unknown>> = 
     return this._beatAtAnchor + this.bpm._curveForTimeline.beatsBetween(this._timeAtAnchor, time);
   }
 
-  addRuler<K extends string, TWindow, TPoint>(key: K, ruler: Ruler<TWindow, TPoint>): Timeline<TRulers & Record<K, Ruler<TWindow, TPoint>>> {
+  // TKey, not K: a method-level `K` collides with the `[K in keyof TRulers]`
+  // mapped types below, and the .d.ts bundler resolves that collision by
+  // renaming one side only -- emitting `TRulers[K$1]` inside a mapped type
+  // still bound to `K`, which silently degrades every consumer's ruler
+  // readings to `unknown`. Distinct names keep the emitted types correct.
+  addRuler<TKey extends string, TWindow, TPoint>(key: TKey, ruler: Ruler<TWindow, TPoint>): Timeline<TRulers & Record<TKey, Ruler<TWindow, TPoint>>> {
     const now = this._now();
     const current = new Param<TPoint>({ default: ruler.at(this.timeToBeat(now), this) });
     this._rulers.set(key, { ruler: ruler as Ruler<unknown, unknown>, current: current as Param<unknown> });
-    this._rulersView[key] = current as unknown as RulerSlot<unknown>;
-    return this as unknown as Timeline<TRulers & Record<K, Ruler<TWindow, TPoint>>>;
+    // the slot wraps the Param -- consumers read `rulers.<key>.current`
+    this._rulersView[key] = { current: current as Param<unknown> };
+    return this as unknown as Timeline<TRulers & Record<TKey, Ruler<TWindow, TPoint>>>;
   }
 
   get rulers(): { [K in keyof TRulers]: RulerSlot<TRulers[K] extends Ruler<unknown, infer TPoint> ? TPoint : never> } {
