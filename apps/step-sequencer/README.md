@@ -50,7 +50,9 @@ Press **Play**. Browsers require a user gesture before audio, which `EngineProvi
 pnpm --filter @audiorective/step-sequencer test -- --run
 ```
 
-Scheduling is verified deterministically: a `ManualTickSource` plus a plain `{ currentTime }` time source means ticks fire only when the test says and "now" only moves when the test moves it, so every assertion is exact. One smoke test runs the real `WorkerTickSource` against a real `AudioContext`.
+Scheduling is verified deterministically, and `DrumMachine` carries **no test-only constructor options** to make that possible — the seams are mocked instead. "Now" is an own `currentTime` property shadowing the prototype getter on a real context (a `Proxy` would fail Web Audio's brand-check; shadowing the instance doesn't), ticks come from capturing the callback `WorkerTickSource.start` was handed so no Worker spawns, and what got scheduled is read off `Sampler.trigger` itself. That last one is the real gain: the assertions cover the audio call the machine actually made, not a parallel notification that could keep firing after the trigger broke.
+
+One smoke test runs the real `WorkerTickSource` against a real `AudioContext`, polling rather than sleeping.
 
 ## Deliberately out of scope
 

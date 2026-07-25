@@ -1,6 +1,5 @@
 import { AudioProcessor, Cell, Param, Sampler } from "@audiorective/core";
 import { Clock, CycleBarRuler, LinearBarRuler, Timeline } from "@audiorective/clock";
-import type { TickSource, TimeSource } from "@audiorective/clock";
 import type { DrumKit, DrumVoiceId } from "./drumKit";
 import { DEFAULT_PATTERN_LENGTH, STEPS_PER_BAR } from "./stepFromPattern";
 
@@ -33,17 +32,6 @@ export interface DrumMachineOptions {
    * gives a two-bar pattern with no other change.
    */
   patternLength?: number;
-  /**
-   * Where the Timeline reads "now". Defaults to `audioContext` — the whole
-   * point of the clock's structural TimeSource is that a test can hand it a
-   * plain `{ currentTime }` it advances by hand, while audio nodes keep the
-   * real context they need.
-   */
-  timeSource?: TimeSource;
-  /** Injected by tests (ManualTickSource); production uses the Clock default. */
-  tickSource?: TickSource;
-  /** Test hook: fires alongside every scheduled trigger. */
-  onStepScheduled?: (trackId: DrumVoiceId, step: number, time: number) => void;
 }
 
 const TRACK_LABELS: Record<DrumVoiceId, string> = {
@@ -91,7 +79,7 @@ export class DrumMachine extends AudioProcessor {
   private readonly _clock: Clock<SequencerRulers>;
 
   constructor(options: DrumMachineOptions) {
-    const { audioContext, kit, bpm = 120, patternLength = DEFAULT_PATTERN_LENGTH, timeSource, tickSource, onStepScheduled } = options;
+    const { audioContext, kit, bpm = 120, patternLength = DEFAULT_PATTERN_LENGTH } = options;
     // No params/cells registry: the reactive surface is per-track (`pattern`,
     // `mute` on each DrumTrack) plus `bpm`/`state`, which belong to the
     // Timeline and Clock respectively.
@@ -120,13 +108,12 @@ export class DrumMachine extends AudioProcessor {
     // bars -- 16 steps is one bar, 32 is two. The cycle region therefore holds
     // exactly one pass of the pattern, which is what makes a grid point's
     // `step` a direct index into it.
-    this._timeline = new Timeline({ audioContext: timeSource ?? audioContext, bpm })
+    this._timeline = new Timeline({ audioContext, bpm })
       .addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }))
       .addRuler("pattern", new CycleBarRuler({ numerator: 4, denominator: 4, bars: patternLength / STEPS_PER_BAR }));
 
     this._clock = new Clock({
       timeline: this._timeline,
-      tickSource,
       onTick: (window) => {
         // `step` is already folded into the cycle, so it indexes the pattern
         // directly -- and it stays in range across the loop wrap and any seek.
@@ -135,7 +122,6 @@ export class DrumMachine extends AudioProcessor {
             if (track.mute.value) continue;
             if (!track.pattern.value[step]) continue;
             track.sampler.trigger({ when: time });
-            onStepScheduled?.(track.id, step, time);
           }
         }
       },

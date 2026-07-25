@@ -1,53 +1,58 @@
-import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { ManualTickSource } from "@audiorective/clock";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
+import { WorkerTickSource } from "@audiorective/clock";
 import { DrumMachine } from "../src/audio/DrumMachine";
 import { createDrumKit } from "../src/audio/drumKit";
 import type { DrumVoiceId } from "../src/audio/drumKit";
 import { stepFromPattern } from "../src/audio/stepFromPattern";
-
-interface Scheduled {
-  trackId: DrumVoiceId;
-  step: number;
-  time: number;
-}
 
 /**
  * A DrumMachine driven by hand: ticks fire only when we say, and "now" only
  * moves when we move it. Every assertion below is therefore exact — no
  * tolerance windows, no polling.
  *
- * The AudioContext is real (Sampler needs one to build nodes), but the clock
- * reads its time through the Timeline's structural `{ currentTime }` contract,
- * so we hand it a fake whose currentTime we control.
+ * `DrumMachine` exposes no test seams, so all three come from mocks:
+ *
+ * - "now" — an own `currentTime` property shadowing the prototype getter on a
+ *   real context. The nodes stay real (a Proxy would fail Web Audio's
+ *   constructor brand-check; shadowing the instance does not).
+ * - ticks — the Worker never spawns; we capture the callback it was handed.
+ * - what got scheduled — read off `Sampler.trigger` itself, so these assert
+ *   the actual audio call rather than a parallel notification.
  */
 function makeHarness(ctx: AudioContext, bpm = 120) {
-  const fakeClock = { currentTime: 0 };
-  const tickSource = new ManualTickSource();
-  const scheduled: Scheduled[] = [];
+  let now = 0;
+  Object.defineProperty(ctx, "currentTime", { get: () => now, configurable: true });
 
-  const machine = new DrumMachine({
-    audioContext: ctx, // real context: Sampler builds real nodes
-    timeSource: fakeClock, // fake "now": we control every conversion
-    kit: createDrumKit(ctx),
-    bpm,
-    tickSource,
-    onStepScheduled: (trackId, step, time) => scheduled.push({ trackId, step, time }),
+  let tick: (() => void) | undefined;
+  vi.spyOn(WorkerTickSource.prototype, "start").mockImplementation((onTick: () => void) => {
+    tick = onTick;
   });
+  vi.spyOn(WorkerTickSource.prototype, "stop").mockImplementation(() => {});
+
+  const machine = new DrumMachine({ audioContext: ctx, kit: createDrumKit(ctx), bpm });
+  const triggers = new Map(machine.tracks.map((t) => [t.id, vi.spyOn(t.sampler, "trigger")]));
+
+  /** A 16th note in seconds — how a scheduled `when` maps back to a step. */
+  const stepDuration = 60 / bpm / 4;
 
   return {
     machine,
-    scheduled,
-    tick: () => tickSource.tick(),
+    tick: () => tick?.(),
     advanceTo: (t: number) => {
-      fakeClock.currentTime = t;
+      now = t;
     },
-    now: () => fakeClock.currentTime,
+    now: () => now,
+    whensFor: (id: DrumVoiceId) => triggers.get(id)!.mock.calls.map((c) => c[0]!.when!),
+    /**
+     * Scheduled steps for one track, recovered from the times it was given.
+     * Assumes beat 0 sits at time 0 — true for a first segment, but not after
+     * a restart, which re-anchors beat 0 to "now". Tests that cross one assert
+     * on `whensFor` instead.
+     */
+    stepsFor: (id: DrumVoiceId) => triggers.get(id)!.mock.calls.map((c) => Math.round(c[0]!.when! / stepDuration) % machine.patternLength),
+    triggerCount: () => [...triggers.values()].reduce((n, s) => n + s.mock.calls.length, 0),
+    clearTriggers: () => triggers.forEach((s) => s.mockClear()),
   };
-}
-
-/** Steps scheduled for one track, in order. */
-function stepsFor(scheduled: Scheduled[], trackId: DrumVoiceId): number[] {
-  return scheduled.filter((s) => s.trackId === trackId).map((s) => s.step);
 }
 
 describe("DrumMachine — pattern state", () => {
@@ -56,7 +61,12 @@ describe("DrumMachine — pattern state", () => {
     ctx = new AudioContext();
     await ctx.resume();
   });
-  afterEach(() => void ctx.close());
+  afterEach(() => {
+    // the WorkerTickSource spies live on the prototype -- global state, so
+    // restoring is not optional
+    vi.restoreAllMocks();
+    void ctx.close();
+  });
 
   test("ships a legible default pattern", () => {
     const { machine } = makeHarness(ctx);
@@ -90,7 +100,12 @@ describe("DrumMachine — scheduling", () => {
     ctx = new AudioContext();
     await ctx.resume();
   });
-  afterEach(() => void ctx.close());
+  afterEach(() => {
+    // the WorkerTickSource spies live on the prototype -- global state, so
+    // restoring is not optional
+    vi.restoreAllMocks();
+    void ctx.close();
+  });
 
   test("schedules exactly the on-steps, at strictly increasing times", () => {
     const h = makeHarness(ctx, 120);
@@ -104,12 +119,12 @@ describe("DrumMachine — scheduling", () => {
       h.tick();
     }
 
-    expect(stepsFor(h.scheduled, "kick")).toEqual([0, 4, 8, 12]);
-    expect(stepsFor(h.scheduled, "snare")).toEqual([4, 12]);
-    expect(stepsFor(h.scheduled, "hat")).toEqual([2, 6, 10, 14]);
-    expect(stepsFor(h.scheduled, "clap")).toEqual([]);
+    expect(h.stepsFor("kick")).toEqual([0, 4, 8, 12]);
+    expect(h.stepsFor("snare")).toEqual([4, 12]);
+    expect(h.stepsFor("hat")).toEqual([2, 6, 10, 14]);
+    expect(h.stepsFor("clap")).toEqual([]);
 
-    const kickTimes = h.scheduled.filter((s) => s.trackId === "kick").map((s) => s.time);
+    const kickTimes = h.whensFor("kick");
     for (let i = 1; i < kickTimes.length; i++) {
       expect(kickTimes[i]!).toBeGreaterThan(kickTimes[i - 1]!);
     }
@@ -125,7 +140,7 @@ describe("DrumMachine — scheduling", () => {
       h.tick();
     }
     // two bars of four-on-the-floor
-    expect(stepsFor(h.scheduled, "kick")).toEqual([0, 4, 8, 12, 0, 4, 8, 12]);
+    expect(h.stepsFor("kick")).toEqual([0, 4, 8, 12, 0, 4, 8, 12]);
     h.machine.destroy();
   });
 
@@ -139,8 +154,8 @@ describe("DrumMachine — scheduling", () => {
       h.advanceTo(t);
       h.tick();
     }
-    expect(stepsFor(h.scheduled, "kick")).toEqual([]);
-    expect(stepsFor(h.scheduled, "hat").length).toBeGreaterThan(0); // others unaffected
+    expect(h.stepsFor("kick")).toEqual([]);
+    expect(h.stepsFor("hat").length).toBeGreaterThan(0); // others unaffected
 
     kick.mute.value = false;
     for (let t = 1.05; t <= 1.85; t += 0.05) {
@@ -149,7 +164,7 @@ describe("DrumMachine — scheduling", () => {
     }
     // step 8 (t=1.0s) was already inside a committed window while muted, so
     // the next kick to schedule is step 12 (t=1.5s) -- the rest of the bar
-    expect(stepsFor(h.scheduled, "kick")).toEqual([12]);
+    expect(h.stepsFor("kick")).toEqual([12]);
     h.machine.destroy();
   });
 
@@ -160,16 +175,21 @@ describe("DrumMachine — scheduling", () => {
       h.advanceTo(t);
       h.tick();
     }
-    expect(stepsFor(h.scheduled, "kick")).toEqual([0, 4]); // mid-bar
+    expect(h.stepsFor("kick")).toEqual([0, 4]); // mid-bar
 
     h.machine.stop();
-    h.scheduled.length = 0;
+    h.clearTriggers();
+    const restartAt = h.now();
     h.machine.play(); // fresh transport segment, anchored at beat 0
     for (let t = 0.9; t <= 1.2; t += 0.05) {
       h.advanceTo(t);
       h.tick();
     }
-    expect(stepsFor(h.scheduled, "kick")[0]).toBe(0); // back to the top
+    // Back to the top: play() re-anchors beat 0 to the instant it was called,
+    // so the first kick of the new segment is scheduled exactly there. (Step
+    // indices are derived from absolute time, which only holds while beat 0
+    // sits at time 0 -- hence asserting the anchor rather than the index.)
+    expect(h.whensFor("kick")[0]).toBeCloseTo(restartAt, 5);
     h.machine.destroy();
   });
 
@@ -185,7 +205,7 @@ describe("DrumMachine — scheduling", () => {
       h.advanceTo(t);
       h.tick();
     }
-    expect(stepsFor(h.scheduled, "kick")).toContain(4);
+    expect(h.stepsFor("kick")).toContain(4);
 
     // now switch it off -- too late for the already-committed hit
     h.machine.toggleStep("kick", 4);
@@ -197,7 +217,7 @@ describe("DrumMachine — scheduling", () => {
       h.advanceTo(t);
       h.tick();
     }
-    const kicks = stepsFor(h.scheduled, "kick");
+    const kicks = h.stepsFor("kick");
     expect(kicks.filter((s) => s === 4)).toHaveLength(1); // the committed one only
     h.machine.destroy();
   });
@@ -209,7 +229,7 @@ describe("DrumMachine — scheduling", () => {
       h.advanceTo(t);
       h.tick();
     }
-    const beforeCount = h.scheduled.length;
+    const beforeCount = h.triggerCount();
 
     h.machine.bpm.value = 240; // twice as fast: a 16th = 0.0625s
     for (let t = 0.35; t <= 1; t += 0.05) {
@@ -217,7 +237,7 @@ describe("DrumMachine — scheduling", () => {
       h.tick();
     }
     // more steps land in the same wall-clock span once the tempo doubles
-    expect(h.scheduled.length).toBeGreaterThan(beforeCount);
+    expect(h.triggerCount()).toBeGreaterThan(beforeCount);
     h.machine.destroy();
   });
 });

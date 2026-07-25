@@ -190,7 +190,29 @@ for (let t = 0; t <= 1.85; t += 0.05) {
 
 Every assertion is then exact — no tolerances, no polling, no flake.
 
-**Keep the fake clock separate from the audio context.** In an app that also builds real nodes, pass the real `AudioContext` to the players and the fake object to the `Timeline`; do not try to wrap one context in a `Proxy` that overrides `currentTime`. Web Audio constructors brand-check their context argument, so a proxied context fails with `Failed to construct 'GainNode': parameter 1 is not of type 'BaseAudioContext'`. `apps/step-sequencer`'s `DrumMachine` takes `audioContext` and an optional `timeSource` for exactly this reason.
+### When you can't inject — testing a type that owns its Clock
+
+The two parameters above are the right approach when the code under test _takes_ a `Timeline` or a `Clock`. A class that builds its own — as `apps/step-sequencer`'s `DrumMachine` does — shouldn't grow constructor options that exist only for tests. Mock the seams instead:
+
+```typescript
+// "now": an own property shadowing the prototype getter on a real context
+let now = 0;
+Object.defineProperty(ctx, "currentTime", { get: () => now, configurable: true });
+
+// ticks: capture the callback, so no Worker ever spawns
+let tick: (() => void) | undefined;
+vi.spyOn(WorkerTickSource.prototype, "start").mockImplementation((onTick) => {
+  tick = onTick;
+});
+vi.spyOn(WorkerTickSource.prototype, "stop").mockImplementation(() => {});
+
+// what was scheduled: read the real call, not a parallel notification
+const kick = vi.spyOn(machine.tracks[0].sampler, "trigger");
+```
+
+**Shadow the instance; don't wrap it in a `Proxy`.** Web Audio constructors brand-check their context argument, so a proxied context fails with `Failed to construct 'GainNode': parameter 1 is not of type 'BaseAudioContext'`. Defining an own `currentTime` on the real context has no such problem — the nodes keep working, only the reading changes.
+
+Two consequences worth planning for. The prototype spies are global state, so `vi.restoreAllMocks()` in `afterEach` is not optional. And with no callback reporting step indices, you recover them from the scheduled `when` (`Math.round(when / stepDuration) % patternLength`) — which assumes beat 0 sits at time 0, so any test that crosses a `stop()`/`play()` restart must assert on the times themselves, since a restart re-anchors beat 0 to "now".
 
 Two things to remember when writing assertions:
 
