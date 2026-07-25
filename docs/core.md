@@ -477,6 +477,8 @@ interface TriggerOptions {
 }
 ```
 
+`when` is absolute `AudioContext` time — the same unit `@audiorective/clock` hands you as `time` on each grid point, so a sequencer passes it straight through as `trigger({ when: time })`. Note the rename across the boundary: the clock says `time`, the player says `when`. See `clock.md`.
+
 ### Voice
 
 `trigger()` returns a `Voice` — a per-voice handle for real-time control. You never construct `Voice` directly.

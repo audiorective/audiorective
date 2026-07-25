@@ -128,3 +128,55 @@ function SynthUI() {
   );
 }
 ```
+
+## Owning an AudioContext in a component
+
+Browsers won't let an `AudioContext` make sound until a user gesture, so an app that builds its own context (rather than using `createEngine`'s module-level singleton above) creates it on the first click and tears it down on unmount. The trap is in the teardown.
+
+**Wrong — the cleanup closes the context it just created:**
+
+```tsx
+const [machine, setMachine] = useState<DrumMachine | null>(null);
+const ctxRef = useRef<AudioContext | null>(null);
+
+useEffect(() => {
+  return () => {
+    machine?.destroy();
+    void ctxRef.current?.close(); // runs on null -> instance, not just unmount
+  };
+}, [machine]);
+
+function powerOn() {
+  const ctx = new AudioContext();
+  ctxRef.current = ctx;
+  setMachine(new DrumMachine({ audioContext: ctx /* ... */ }));
+}
+```
+
+When `machine` goes `null → instance`, React runs the _previous_ render's cleanup before the next effect. `machine?.destroy()` is null-safe and no-ops, but `ctxRef.current` is already the live context — so it gets closed immediately.
+
+The symptom is nasty because nothing throws: the clock's ticks keep firing, `state` still reads `"playing"`, and the only tell is that `ctx.currentTime` never advances, so every derived position freezes at its start value.
+
+**Right — context and engine are one state value, torn down together:**
+
+```tsx
+const [rig, setRig] = useState<{ ctx: AudioContext; machine: DrumMachine } | null>(null);
+
+useEffect(() => {
+  if (!rig) return; // nothing to clean up before power-on
+  return () => {
+    rig.machine.destroy();
+    void rig.ctx.close();
+  };
+}, [rig]);
+
+function powerOn() {
+  const ctx = new AudioContext();
+  void ctx.resume();
+  setRig({ ctx, machine: new DrumMachine({ audioContext: ctx /* ... */ }) });
+}
+```
+
+The early `return` means the pre-power-on render registers no cleanup at all, so the only teardown that ever runs is the real one. Keeping the context in state beside the thing that uses it — rather than in a ref the effect can reach across renders — is what makes that possible.
+
+Worked example: `apps/step-sequencer/src/ui/App.tsx`.

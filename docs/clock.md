@@ -35,6 +35,19 @@ const clock = new Clock({
 clock.start();
 ```
 
+### Handing a grid point to a core player
+
+The names differ across the package boundary, and that is the single easiest thing to get wrong here: the clock gives you **`time`**, core's players take **`when`**. Both are absolute `AudioContext` seconds, so the value passes straight through — only the key changes.
+
+```typescript
+for (const { time } of window.rulers.bar.grid(16)) {
+  sampler.trigger({ when: time }); // Sampler / Voice
+  bufferPlayer.start(time); // BufferPlayer takes it positionally
+}
+```
+
+Writing `trigger({ time })` is the natural first draft and it does not compile — TypeScript rejects it (`'time' does not exist in type 'VoiceOptions'`). That error is the fix instruction: rename the key, don't reshape the call.
+
 ## The window convention
 
 **Derive each event from data the window hands you exactly once, and you will never double-schedule.** Grid iteration (`ruler.grid(division)`) does this automatically — it's the primary idiom and covers the large majority of sequencer/arpeggiator/metronome code.
@@ -128,6 +141,35 @@ Toggling a step whose window has already been committed takes effect on the _nex
 ## Tick sources
 
 `Clock` defaults to `WorkerTickSource` (a Web-Worker timer, so ticks continue in background tabs). `IntervalTickSource` (setInterval fallback) and `ManualTickSource` (deterministic, hand-driven ticks — how this package's own tests work without a real `AudioContext`) are also exported.
+
+## Testing scheduling deterministically
+
+The repo's rule is that audio logic runs in a unit test with no DOM. For time, that needs **two** injections, and they are separate parameters on purpose:
+
+- `tickSource: new ManualTickSource()` — ticks fire only when the test calls `tick()`.
+- `audioContext: { currentTime }` — a plain object the test advances by hand. `Timeline` only ever reads `currentTime`, so it accepts any object with that property.
+
+```typescript
+const fakeClock = { currentTime: 0 };
+const tickSource = new ManualTickSource();
+const timeline = new Timeline({ audioContext: fakeClock, bpm: 120 }).addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }));
+const clock = new Clock({ timeline, tickSource, onTick: (w) => collect(w) });
+
+clock.start();
+for (let t = 0; t <= 1.85; t += 0.05) {
+  fakeClock.currentTime = t; // "now" moves only here
+  tickSource.tick(); // windows are emitted only here
+}
+```
+
+Every assertion is then exact — no tolerances, no polling, no flake.
+
+**Keep the fake clock separate from the audio context.** In an app that also builds real nodes, pass the real `AudioContext` to the players and the fake object to the `Timeline`; do not try to wrap one context in a `Proxy` that overrides `currentTime`. Web Audio constructors brand-check their context argument, so a proxied context fails with `Failed to construct 'GainNode': parameter 1 is not of type 'BaseAudioContext'`. `apps/step-sequencer`'s `DrumMachine` takes `audioContext` and an optional `timeSource` for exactly this reason.
+
+Two things to remember when writing assertions:
+
+- A window at `now` already covers `now + lookAhead`, so a loop ending at `t` has committed events up to `t + 0.1` with the defaults. Pick loop bounds accordingly, or you will "lose" a step you expected or gain one you didn't.
+- Pair the deterministic tests with one real-`WorkerTickSource` smoke test, and poll for the data instead of sleeping a fixed duration.
 
 ## Non-goals
 
