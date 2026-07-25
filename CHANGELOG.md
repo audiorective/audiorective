@@ -27,6 +27,22 @@ predates that API. See the "Version mismatches" note in the skill.
   `docs/superpowers/specs/2026-07-04-clock-design.md`.
 - **docs/skill:** `clock.md` — usage guide for the new package; `SKILL.md`
   packages table and read-next table updated accordingly.
+- **apps:** `step-sequencer` — a 4-track × 16-step drum machine demoing the
+  clock end to end: `grid(16)` + `index % 16` scheduling, the bar ruler's
+  reactive `current` driving the playhead, live tempo, transport, and live
+  pattern editing, over a headless `DrumMachine` core.
+
+### Fixed
+
+- **clock:** `Timeline.addRuler` stored the reading `Param` where the slot
+  object belonged, so `timeline.rulers.<key>.current` was `undefined` at
+  runtime (an `as unknown as` cast hid it from the type checker). Anything
+  binding a UI to a ruler reading would have crashed on mount.
+- **clock:** the published `.d.ts` degraded every consumer's ruler readings to
+  `unknown` — a method generic named `K` collided with the `[K in keyof
+TRulers]` mapped types and the declaration bundler emitted `TRulers[K$1]`.
+  Source-level types were always correct, so only a consumer compiling against
+  the built package saw it.
 
 ## [2.0.0]
 
