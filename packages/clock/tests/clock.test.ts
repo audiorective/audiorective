@@ -141,6 +141,44 @@ describe("Clock — pause/resume", () => {
     expect(last.beat.start).toBeCloseTo(0.2);
     expect(last.beat.end).toBeCloseTo(0.4);
   });
+
+  test("stop -> pause -> resume cannot start playback, so beat 0 is never skipped", () => {
+    // pause() used to be unconditional, so it turned a *stopped* transport into
+    // a resumable paused one. resume() then began playback with no start() to
+    // bump the generation -- while stop() had already reset previousWindowEndBeat
+    // to 0. The first tick therefore saw a continuous segment whose "now" had
+    // moved past 0, reported a spurious miss, and began its window past beat 0,
+    // silently dropping whatever was scheduled there (step 0 of a pattern).
+    const { ctx, timeline, tickSource, clock, windows, misses } = makeHarness(120, 0.1);
+    clock.start();
+    tickSource.tick();
+    ctx.currentTime = 0.05;
+    tickSource.tick();
+
+    const genAfterPlay = timeline.generation;
+    clock.stop();
+    clock.pause();
+    expect(clock.state.value).toBe("stopped"); // not "paused"
+
+    clock.resume();
+    expect(clock.state.value).toBe("stopped"); // resume has nothing to resume
+
+    windows.length = 0;
+    misses.length = 0;
+    ctx.currentTime = 0.08; // a realistic delay before the next tick fires
+    tickSource.tick();
+
+    expect(misses).toHaveLength(0);
+    expect(windows).toHaveLength(0); // still stopped -- start() is the only way in
+    expect(timeline.generation).toBe(genAfterPlay);
+
+    // and a real start() from here still begins exactly at beat 0
+    clock.start();
+    ctx.currentTime = 0.11;
+    tickSource.tick();
+    expect(misses).toHaveLength(0);
+    expect(windows[0]!.beat.start).toBe(0);
+  });
 });
 
 describe("Clock — seek", () => {

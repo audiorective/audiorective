@@ -123,13 +123,19 @@ export class Timeline<TRulers extends Record<string, Ruler<unknown, unknown>> = 
     this._generation++;
   }
 
-  /** @internal Anchor write for Clock.pause(). Freezes position; not a jump. */
+  /**
+   * @internal Anchor write for Clock.pause(). Freezes position; not a jump.
+   *
+   * Only a playing transport can pause — the mirror of `_resume()`'s guard.
+   * The state write used to sit outside the guard, so pausing a stopped
+   * transport left it `"paused"` and therefore resumable without any
+   * `_start()` having anchored it or bumped the generation.
+   */
   _pause(): void {
+    if (this._state !== "playing") return;
     const now = this._now();
-    if (this._state === "playing") {
-      this._beatAtAnchor = this.timeToBeat(now);
-      this._positionAtAnchor += now - this._timeAtAnchor;
-    }
+    this._beatAtAnchor = this.timeToBeat(now);
+    this._positionAtAnchor += now - this._timeAtAnchor;
     this._timeAtAnchor = now;
     this._state = "paused";
   }

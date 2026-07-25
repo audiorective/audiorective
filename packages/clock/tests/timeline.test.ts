@@ -86,6 +86,23 @@ describe("Timeline — pause/resume semantics", () => {
     expect(timeline.state).toBe("stopped");
   });
 
+  test("pause while stopped stays stopped, so it cannot become resumable", () => {
+    // The mirror of the guard above. When the state write sat outside the
+    // "playing" check, a stopped transport went to "paused" and _resume()
+    // then happily started it -- playback without a _start() to anchor the
+    // position or bump the generation.
+    const ctx = makeContext(0);
+    const timeline = new Timeline({ audioContext: ctx, bpm: 120 });
+    timeline._start();
+    timeline._stop();
+
+    timeline._pause();
+    expect(timeline.state).toBe("stopped");
+
+    timeline._resume();
+    expect(timeline.state).toBe("stopped");
+  });
+
   test("pause/resume does not bump generation", () => {
     const ctx = makeContext(0);
     const timeline = new Timeline({ audioContext: ctx, bpm: 120 });

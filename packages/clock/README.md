@@ -59,6 +59,8 @@ clock.stop(); // resets to beat 0
 clock.seek(64); // jumps to beat 64
 ```
 
+`pause()` only pauses a playing clock and `resume()` only resumes a paused one; each is otherwise a no-op, so `start()` is the sole entry into playback.
+
 `clock.state` is a reactive `Param<"stopped" | "playing" | "paused">`.
 
 Every jump (`seek`, `start({ atBeat })`, stop→start) bumps `window.generation` and begins a new continuity segment — windows are non-overlapping only _within_ a segment, so beats may legitimately reappear across a backward seek. Consumers holding derived state (step counters, generator positions) should reset when `generation` changes.

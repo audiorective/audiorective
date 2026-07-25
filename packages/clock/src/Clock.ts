@@ -77,8 +77,19 @@ export class Clock<TRulers extends Record<string, Ruler<unknown, unknown>> = Rec
     this.state.value = "playing";
   }
 
-  /** Stops without resetting position. Committed look-ahead audio keeps sounding — an accepted tail. */
+  /**
+   * Stops without resetting position. Committed look-ahead audio keeps
+   * sounding — an accepted tail.
+   *
+   * A no-op unless the transport is playing. Pausing a *stopped* clock would
+   * otherwise mint a resumable paused state that no `start()` ever anchored:
+   * `stop()` resets `_previousWindowEndBeat` to 0 without bumping
+   * `generation`, so the following `resume()` produces a segment the miss
+   * check treats as continuous, and the first tick reports a spurious gap and
+   * skips past beat 0 — dropping the events there.
+   */
   pause(): void {
+    if (this.state.value !== "playing") return;
     this._timeline._pause();
     this.state.value = "paused";
   }
