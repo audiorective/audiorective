@@ -3,7 +3,7 @@ import { ManualTickSource } from "@audiorective/clock";
 import { DrumMachine } from "../src/audio/DrumMachine";
 import { createDrumKit } from "../src/audio/drumKit";
 import type { DrumVoiceId } from "../src/audio/drumKit";
-import { stepFromBar } from "../src/audio/stepFromBar";
+import { stepFromPattern } from "../src/audio/stepFromPattern";
 
 interface Scheduled {
   trackId: DrumVoiceId;
@@ -116,7 +116,7 @@ describe("DrumMachine — scheduling", () => {
     h.machine.destroy();
   });
 
-  test("index % 16 wraps — bar two replays the same steps", () => {
+  test("the cycle wraps — pass two replays the same steps, with no modulo at the call site", () => {
     const h = makeHarness(ctx, 120);
     h.machine.play();
     // through 3.95s (3.85 + look-ahead): two whole bars, none of bar 3
@@ -222,16 +222,21 @@ describe("DrumMachine — scheduling", () => {
   });
 });
 
-describe("stepFromBar", () => {
-  test("maps beat-in-bar to a 16th-note step", () => {
-    expect(stepFromBar({ beatInBar: 0 })).toBe(0);
-    expect(stepFromBar({ beatInBar: 0.25 })).toBe(1);
-    expect(stepFromBar({ beatInBar: 1 })).toBe(4);
-    expect(stepFromBar({ beatInBar: 3.75 })).toBe(15);
+describe("stepFromPattern", () => {
+  test("maps cycle phase to a step", () => {
+    expect(stepFromPattern({ phase: 0 }, 16)).toBe(0);
+    expect(stepFromPattern({ phase: 1 / 16 }, 16)).toBe(1);
+    expect(stepFromPattern({ phase: 0.25 }, 16)).toBe(4);
+    expect(stepFromPattern({ phase: 15 / 16 }, 16)).toBe(15);
   });
 
-  test("clamps rather than overflowing at the bar edge", () => {
-    expect(stepFromBar({ beatInBar: 3.9999 })).toBe(15);
-    expect(stepFromBar({ beatInBar: -0.1 })).toBe(0);
+  test("clamps rather than overflowing at the cycle edge", () => {
+    expect(stepFromPattern({ phase: 0.99999 }, 16)).toBe(15);
+    expect(stepFromPattern({ phase: -0.01 }, 16)).toBe(0);
+  });
+
+  test("works for any pattern length, with no time-signature knowledge", () => {
+    expect(stepFromPattern({ phase: 0.5 }, 32)).toBe(16);
+    expect(stepFromPattern({ phase: 0.5 }, 8)).toBe(4);
   });
 });

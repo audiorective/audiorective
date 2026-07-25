@@ -1,10 +1,19 @@
 import { AudioProcessor, Cell, Param, Sampler } from "@audiorective/core";
-import { Clock, LinearBarRuler, Timeline } from "@audiorective/clock";
+import { Clock, CycleBarRuler, LinearBarRuler, Timeline } from "@audiorective/clock";
 import type { TickSource, TimeSource } from "@audiorective/clock";
 import type { DrumKit, DrumVoiceId } from "./drumKit";
-import { STEPS_PER_BAR } from "./stepFromBar";
+import { DEFAULT_PATTERN_LENGTH, STEPS_PER_BAR } from "./stepFromPattern";
 
-type SequencerRulers = { bar: LinearBarRuler };
+/**
+ * Two rulers, two questions, one timeline — rulers are stateless, so stacking
+ * them costs nothing:
+ *
+ * - `pattern` is the scheduling coordinate. Its cycle length *is* the pattern
+ *   length, so a grid point's `step` indexes the pattern array directly.
+ * - `bar` is the display coordinate: absolute bars counted forever, for the
+ *   `bar : beat` readout, which a cycling ruler deliberately can't give.
+ */
+type SequencerRulers = { bar: LinearBarRuler; pattern: CycleBarRuler };
 
 export interface DrumTrack {
   readonly id: DrumVoiceId;
@@ -18,6 +27,12 @@ export interface DrumMachineOptions {
   audioContext: AudioContext;
   kit: DrumKit;
   bpm?: number;
+  /**
+   * Steps in one pass of the pattern. Drives both the cycle ruler's division
+   * and the pattern array length, so the two can't drift apart — a 32 here
+   * gives a two-bar pattern with no other change.
+   */
+  patternLength?: number;
   /**
    * Where the Timeline reads "now". Defaults to `audioContext` — the whole
    * point of the clock's structural TimeSource is that a test can hand it a
@@ -46,9 +61,9 @@ const DEFAULT_PATTERNS: Record<DrumVoiceId, number[]> = {
   clap: [],
 };
 
-function patternFromSteps(steps: number[]): boolean[] {
-  const pattern = Array<boolean>(STEPS_PER_BAR).fill(false);
-  for (const step of steps) pattern[step] = true;
+function patternFromSteps(steps: number[], length: number): boolean[] {
+  const pattern = Array<boolean>(length).fill(false);
+  for (const step of steps) if (step < length) pattern[step] = true;
   return pattern;
 }
 
@@ -61,20 +76,22 @@ function patternFromSteps(steps: number[]): boolean[] {
  * samplers, and exposes `output` — that consumes a `Clock` on the time axis.
  * Holding a clock is the point; reimplementing one would be the error.
  *
- * The whole scheduling story is the `onTick` handler below: iterate the bar
- * ruler's 16th-note grid, look the step up with `index % 16`, trigger. There
- * are no cursors and nothing to reset on a transport jump, because `index` is
- * derived from position rather than counted.
+ * The whole scheduling story is the `onTick` handler below: iterate the
+ * pattern ruler's grid and trigger. No cursors, no modulo, nothing to reset on
+ * a transport jump — `step` is derived from position rather than counted, and
+ * the ruler folds it into the cycle before handing it over.
  */
 export class DrumMachine extends AudioProcessor {
   readonly tracks: readonly DrumTrack[];
+  /** Steps in one pass — the cycle ruler's division and the pattern length. */
+  readonly patternLength: number;
 
   private readonly _master: GainNode;
   private readonly _timeline: Timeline<SequencerRulers>;
   private readonly _clock: Clock<SequencerRulers>;
 
   constructor(options: DrumMachineOptions) {
-    const { audioContext, kit, bpm = 120, timeSource, tickSource, onStepScheduled } = options;
+    const { audioContext, kit, bpm = 120, patternLength = DEFAULT_PATTERN_LENGTH, timeSource, tickSource, onStepScheduled } = options;
     // No params/cells registry: the reactive surface is per-track (`pattern`,
     // `mute` on each DrumTrack) plus `bpm`/`state`, which belong to the
     // Timeline and Clock respectively.
@@ -83,6 +100,7 @@ export class DrumMachine extends AudioProcessor {
     // Not connected to `destination` here -- the caller wires `output`, so the
     // machine can be routed through an EQ, reverb, or mixer like any processor.
     this._master = new GainNode(audioContext, { gain: 0.8 });
+    this.patternLength = patternLength;
 
     const ids: DrumVoiceId[] = ["kick", "snare", "hat", "clap"];
     this.tracks = ids.map((id) => {
@@ -93,22 +111,26 @@ export class DrumMachine extends AudioProcessor {
         id,
         label: TRACK_LABELS[id],
         sampler,
-        pattern: new Cell(patternFromSteps(DEFAULT_PATTERNS[id])),
+        pattern: new Cell(patternFromSteps(DEFAULT_PATTERNS[id], patternLength)),
         mute: new Param<boolean>({ default: false, label: `${TRACK_LABELS[id]} mute` }),
       };
     });
 
-    this._timeline = new Timeline({ audioContext: timeSource ?? audioContext, bpm }).addRuler(
-      "bar",
-      new LinearBarRuler({ numerator: 4, denominator: 4 }),
-    );
+    // Steps are sixteenths, so the pattern spans `patternLength / STEPS_PER_BAR`
+    // bars -- 16 steps is one bar, 32 is two. The cycle region therefore holds
+    // exactly one pass of the pattern, which is what makes a grid point's
+    // `step` a direct index into it.
+    this._timeline = new Timeline({ audioContext: timeSource ?? audioContext, bpm })
+      .addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }))
+      .addRuler("pattern", new CycleBarRuler({ numerator: 4, denominator: 4, bars: patternLength / STEPS_PER_BAR }));
 
     this._clock = new Clock({
       timeline: this._timeline,
       tickSource,
       onTick: (window) => {
-        for (const { time, index } of window.rulers.bar.grid(STEPS_PER_BAR)) {
-          const step = index % STEPS_PER_BAR;
+        // `step` is already folded into the cycle, so it indexes the pattern
+        // directly -- and it stays in range across the loop wrap and any seek.
+        for (const { time, step } of window.rulers.pattern.grid(patternLength)) {
           for (const track of this.tracks) {
             if (track.mute.value) continue;
             if (!track.pattern.value[step]) continue;
@@ -134,9 +156,14 @@ export class DrumMachine extends AudioProcessor {
     return this._clock.state;
   }
 
-  /** Reactive bar-ruler reading at the playhead — drives the step highlight. */
+  /** Reactive bar-ruler reading at the playhead — drives the `bar : beat` readout. */
   get currentBar() {
     return this._timeline.rulers.bar.current;
+  }
+
+  /** Reactive pattern-ruler reading at the playhead — drives the step highlight. */
+  get currentPattern() {
+    return this._timeline.rulers.pattern.current;
   }
 
   toggleStep(trackId: DrumVoiceId, step: number): void {

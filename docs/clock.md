@@ -110,6 +110,27 @@ Four built-ins, crossed along two axes — **unit** (bar vs. raw time) × **topo
 
 **Looping is a `CycleBarRuler` reading, not transport state.** The beat axis never jumps — a loop region `[from, from + bars*beatsPerBar)` is read modulo its length, so scheduling across the loop boundary needs no special case: `grid()` emits points from both sides of the wrap at their correct axis positions, converting to strictly increasing absolute times. The window reading also exposes `spans` — the window's cycle-relative sub-ranges, each with its own conversion back to absolute time — for note content that isn't grid-snapped (the same cycle position converts to a different absolute time on each pass).
 
+### Linear grids count; cycle grids fold
+
+The two kinds of ruler yield different grid points, and the difference is the whole reason to pick one over the other:
+
+| Ruler            | Grid point                               | `division` means    |
+| ---------------- | ---------------------------------------- | ------------------- |
+| `LinearBarRuler` | `{ beat, time, index }` — counts forever | steps per **bar**   |
+| `CycleBarRuler`  | `{ beat, time, step, cycle }`            | steps per **cycle** |
+
+Pass a pattern's length as `division` on a cycle ruler and `step` indexes that pattern directly — the cycle region holds exactly one pass, so no `% length` is needed at the call site:
+
+```typescript
+for (const { time, step } of window.rulers.pattern.grid(steps.length)) {
+  if (steps[step]) sampler.trigger({ when: time });
+}
+```
+
+`cycle` is per grid point, not per window: a window can straddle the wrap, so points within one callback may belong to different passes. The global count is still recoverable as `cycle * division + step`.
+
+The fold uses floored division rather than `%`. JavaScript's remainder keeps the sign of the dividend, so a hand-written `index % 16` returns `-1` for the step before the origin and reads off the front of a pattern array — reachable, since `seek()` accepts negative beats and `from` may be positive.
+
 **Swing and per-note micro-timing are deliberately not a ruler concern.** They're a transformation of event placement, which is note-content territory — future work for a track/clip primitive that consumes the clock, not something the clock itself models.
 
 Write a custom ruler for anything else (e.g. polyrhythm — one scheduling loop, a different musical grid) by implementing `Ruler<TWindow, TPoint>`:

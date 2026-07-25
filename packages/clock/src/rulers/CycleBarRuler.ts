@@ -1,6 +1,6 @@
 import type { CoreTickWindow } from "../types";
-import { assertFiniteOffset, assertPositiveLength, beatsPerBar, gridPoints } from "./Ruler";
-import type { GridPoint, Ruler, TimelineLike } from "./Ruler";
+import { assertFiniteOffset, assertPositiveLength, beatsPerBar, cycleGridPoints } from "./Ruler";
+import type { CycleGridPoint, Ruler, TimelineLike } from "./Ruler";
 
 export interface CycleBarRulerOptions {
   numerator: number;
@@ -27,8 +27,15 @@ export interface CycleSpan {
 }
 
 export interface CycleBarWindow extends CycleBarPoint {
-  /** Grid points at `division` steps per cycle. Crossing the wrap needs no special case. */
-  grid(division: number): Generator<GridPoint>;
+  /**
+   * Grid points at `division` steps per cycle. Crossing the wrap needs no
+   * special case.
+   *
+   * Each point's `step` is cycle-relative — pass a pattern's length as
+   * `division` and `step` indexes it directly. This is the one place a cycle
+   * ruler's grid differs from a linear ruler's, which counts forever.
+   */
+  grid(division: number): Generator<CycleGridPoint>;
   /**
    * The window's beat range mapped to cycle-relative sub-ranges — usually
    * one, two if the window crosses the loop boundary. For non-grid content
@@ -71,7 +78,7 @@ export class CycleBarRuler implements Ruler<CycleBarWindow, CycleBarPoint> {
     const point = this.at(window.beat.start);
     return {
       ...point,
-      grid: (division: number) => gridPoints(window.beat.start, window.beat.end, this._regionLength / division, this._from, timeline),
+      grid: (division: number) => cycleGridPoints(window.beat.start, window.beat.end, this._regionLength / division, this._from, division, timeline),
       spans: this._spans(window.beat.start, window.beat.end, timeline),
     };
   }

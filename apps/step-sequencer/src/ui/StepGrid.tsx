@@ -1,11 +1,10 @@
+import { useMemo } from "react";
 import { useValue } from "@audiorective/react";
 import { useEngine } from "../audio/engine";
 import type { DrumTrack } from "../audio/DrumMachine";
-import { STEPS_PER_BAR, stepFromBar } from "../audio/stepFromBar";
+import { stepFromPattern } from "../audio/stepFromPattern";
 
-const STEPS = Array.from({ length: STEPS_PER_BAR }, (_, i) => i);
-
-function TrackRow({ track, playhead }: { track: DrumTrack; playhead: number | null }) {
+function TrackRow({ track, steps, playhead }: { track: DrumTrack; steps: number[]; playhead: number | null }) {
   const { machine } = useEngine();
   const pattern = useValue(track.pattern);
   const muted = useValue(track.mute);
@@ -24,7 +23,7 @@ function TrackRow({ track, playhead }: { track: DrumTrack; playhead: number | nu
         </button>
       </div>
       <div className="row__steps">
-        {STEPS.map((step) => (
+        {steps.map((step) => (
           <button
             key={step}
             className={["step", pattern[step] ? "step--on" : "", step === playhead ? "step--playhead" : "", step % 4 === 0 ? "step--downbeat" : ""]
@@ -43,16 +42,18 @@ function TrackRow({ track, playhead }: { track: DrumTrack; playhead: number | nu
 export function StepGrid() {
   const { machine } = useEngine();
   const state = useValue(machine.state);
-  const bar = useValue(machine.currentBar);
-  // one reactive ruler reading drives every row's highlight
-  const playhead = state === "playing" ? stepFromBar(bar) : null;
+  const pattern = useValue(machine.currentPattern);
+  const steps = useMemo(() => Array.from({ length: machine.patternLength }, (_, i) => i), [machine.patternLength]);
+  // one reactive ruler reading drives every row's highlight -- `phase` is the
+  // fraction through one pass, so this needs no time-signature knowledge
+  const playhead = state === "playing" ? stepFromPattern(pattern, machine.patternLength) : null;
 
   return (
     <div className="grid">
       <div className="grid__ruler">
         <div className="row__head" />
         <div className="row__steps">
-          {STEPS.map((step) => (
+          {steps.map((step) => (
             <span key={step} className={`tick${step % 4 === 0 ? " tick--downbeat" : ""}`}>
               {step % 4 === 0 ? step / 4 + 1 : ""}
             </span>
@@ -60,7 +61,7 @@ export function StepGrid() {
         </div>
       </div>
       {machine.tracks.map((track) => (
-        <TrackRow key={track.id} track={track} playhead={playhead} />
+        <TrackRow key={track.id} track={track} steps={steps} playhead={playhead} />
       ))}
     </div>
   );

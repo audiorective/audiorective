@@ -159,6 +159,49 @@ describe("CycleBarRuler", () => {
     }
   });
 
+  test("grid step is cycle-relative, so it indexes a pattern with no modulo", () => {
+    const ruler = new CycleBarRuler({ numerator: 4, denominator: 4, bars: 1 }); // region = 4 beats
+    // 16 steps per cycle => a step every 0.25 beats
+    const points = collect(ruler.read(makeWindow(0, 4), identityTimeline).grid(16));
+    expect(points.map((p) => p.step)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(points.every((p) => p.cycle === 0)).toBe(true);
+
+    // three cycles in: the same 16 steps again, on cycle 3
+    const later = collect(ruler.read(makeWindow(12, 16), identityTimeline).grid(16));
+    expect(later.map((p) => p.step)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(later.every((p) => p.cycle === 3)).toBe(true);
+    // beat 13 is 4 steps into cycle 3 -- the global count is still recoverable
+    const atBeat13 = later.find((p) => p.beat === 13)!;
+    expect(atBeat13.cycle * 16 + atBeat13.step).toBe(52);
+  });
+
+  test("grid carries the cycle per point, not per window, so a wrapping window reports both", () => {
+    const ruler = new CycleBarRuler({ numerator: 4, denominator: 4, bars: 1 }); // region = 4 beats
+    const points = collect(ruler.read(makeWindow(3.5, 4.5), identityTimeline).grid(16));
+    // the window straddles the wrap: last steps of cycle 0, first of cycle 1
+    expect(points.map((p) => [p.cycle, p.step])).toEqual([
+      [0, 14],
+      [0, 15],
+      [1, 0],
+      [1, 1],
+    ]);
+  });
+
+  test("grid step stays in range for beats before the origin (floored, not remainder)", () => {
+    // JS `%` keeps the dividend's sign, so a naive `index % division` would
+    // yield -2 here and read off the front of a pattern array. seek() accepts
+    // negative beats, so this is reachable, not hypothetical.
+    const ruler = new CycleBarRuler({ numerator: 4, denominator: 4, bars: 1 });
+    const points = collect(ruler.read(makeWindow(-0.5, 0.5), identityTimeline).grid(16));
+    expect(points.map((p) => [p.cycle, p.step])).toEqual([
+      [-1, 14],
+      [-1, 15],
+      [0, 0],
+      [0, 1],
+    ]);
+    expect(points.every((p) => p.step >= 0 && p.step < 16)).toBe(true);
+  });
+
   test("spans: a window inside one pass yields a single span", () => {
     const ruler = new CycleBarRuler({ numerator: 4, denominator: 4, bars: 4 });
     const window = makeWindow(3, 5);

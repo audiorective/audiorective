@@ -10,12 +10,11 @@ Press **Play**. Browsers require a user gesture before audio, which `EngineProvi
 
 ## What it demonstrates
 
-1. **`grid()` scheduling** — the whole sequencing logic is one loop over the bar ruler's 16th-note grid, with `index % 16` for pattern lookup. No cursors, no window-bounds bookkeeping, nothing to reset when the transport jumps:
+1. **`grid()` scheduling** — the whole sequencing logic is one loop over the pattern ruler's grid. No cursors, no modulo, no window-bounds bookkeeping, nothing to reset when the transport jumps:
 
    ```ts
    onTick: (window) => {
-     for (const { time, index } of window.rulers.bar.grid(16)) {
-       const step = index % 16;
+     for (const { time, step } of window.rulers.pattern.grid(patternLength)) {
        for (const track of this.tracks) {
          if (!track.mute.value && track.pattern.value[step]) {
            track.sampler.trigger({ when: time });
@@ -25,22 +24,25 @@ Press **Play**. Browsers require a user gesture before audio, which `EngineProvi
    };
    ```
 
-2. **Reactive `current` as the visual-sync surface** — the playhead column and the `bar : beat` readout both come from `timeline.rulers.bar.current`, a `Param` the clock refreshes each tick. No rAF loop, no parallel position state.
-3. **Live tempo** — the slider writes `timeline.bpm.value` mid-playback; the beat axis re-derives from the anchor, so nothing drifts and nothing needs rescheduling by hand.
-4. **Transport** — play / pause / resume / stop, with button state from `useValue(clock.state)`. Resume continues mid-bar; stop returns to step 0.
-5. **Live pattern editing** — toggle steps while playing, including the documented ~`lookAhead` latency when you edit a step whose window is already committed (asserted in the tests rather than hidden).
-6. **The audio/UI split** — `DrumMachine` is headless: it owns the Timeline, the Clock, and four `Sampler`s, and runs entirely inside a unit test with no DOM. React only observes and calls methods.
-7. **Both architectural axes at once** — `DrumMachine` is an `AudioProcessor` on the space axis (master gain + samplers, exposing `output` rather than wiring itself to `destination`, so it can be routed through an EQ or reverb) that consumes a `Clock` on the time axis. Holding a clock is the point; reimplementing one would be the error — see [`docs/architecture.md`](../../docs/architecture.md).
+   The cycle region holds exactly one pass of the pattern, so `step` is already the pattern index — the ruler does the folding, and it stays in range across the wrap and any seek.
+
+2. **Reactive `current` as the visual-sync surface** — the playhead column reads `rulers.pattern.current` (its `phase` maps to a step for any pattern length) and the `bar : beat` readout reads `rulers.bar.current`. Both are `Param`s the clock refreshes each tick: no rAF loop, no parallel position state.
+3. **Two rulers on one timeline** — rulers are stateless, so stacking them is free, and each answers a different question. `pattern` cycles (scheduling and the step highlight); `bar` counts forever (the absolute position readout, which a cycling ruler deliberately can't give).
+4. **Live tempo** — the slider writes `timeline.bpm.value` mid-playback; the beat axis re-derives from the anchor, so nothing drifts and nothing needs rescheduling by hand.
+5. **Transport** — play / pause / resume / stop, with button state from `useValue(clock.state)`. Resume continues mid-bar; stop returns to step 0.
+6. **Live pattern editing** — toggle steps while playing, including the documented ~`lookAhead` latency when you edit a step whose window is already committed (asserted in the tests rather than hidden).
+7. **The audio/UI split** — `DrumMachine` is headless: it owns the Timeline, the Clock, and four `Sampler`s, and runs entirely inside a unit test with no DOM. React only observes and calls methods.
+8. **Both architectural axes at once** — `DrumMachine` is an `AudioProcessor` on the space axis (master gain + samplers, exposing `output` rather than wiring itself to `destination`, so it can be routed through an EQ or reverb) that consumes a `Clock` on the time axis. Holding a clock is the point; reimplementing one would be the error — see [`docs/architecture.md`](../../docs/architecture.md).
 
 ## Structure
 
-| Path                       | Role                                                                       |
-| -------------------------- | -------------------------------------------------------------------------- |
-| `src/audio/DrumMachine.ts` | The headless core — Timeline + Clock + tracks, transport, reactive surface |
-| `src/audio/drumKit.ts`     | Procedurally synthesized kick/snare/hat/clap (no binary assets)            |
-| `src/audio/stepFromBar.ts` | Bar reading → step index; shared by the UI playhead and the tests          |
-| `src/audio/engine.ts`      | `createEngine` + `createEngineContext` — owns the AudioContext             |
-| `src/ui/`                  | React observer layer, reading the machine via `useEngine()`                |
+| Path                           | Role                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `src/audio/DrumMachine.ts`     | The headless core — Timeline + Clock + tracks, transport, reactive surface |
+| `src/audio/drumKit.ts`         | Procedurally synthesized kick/snare/hat/clap (no binary assets)            |
+| `src/audio/stepFromPattern.ts` | Cycle phase → step index; shared by the UI playhead and the tests          |
+| `src/audio/engine.ts`          | `createEngine` + `createEngineContext` — owns the AudioContext             |
+| `src/ui/`                      | React observer layer, reading the machine via `useEngine()`                |
 
 ## Tests
 
@@ -52,6 +54,8 @@ Scheduling is verified deterministically: a `ManualTickSource` plus a plain `{ c
 
 ## Deliberately out of scope
 
-Swing, velocity, and per-note offsets are note-content concerns for a future track/clip primitive, not the clock's job — see the [clock design spec](../../docs/superpowers/specs/2026-07-04-clock-design.md). Looping is likewise absent by design: a 16-step pattern loops via `index % 16` over the infinite grid, which is exactly the sequencer idiom the spec describes (a `CycleBarRuler` loop region is for DAW-style transport loops).
+Swing, velocity, and per-note offsets are note-content concerns for a future track/clip primitive, not the clock's job — see the [clock design spec](../../docs/superpowers/specs/2026-07-04-clock-design.md).
+
+Note that pattern repetition is _not_ out of scope here — it's the `CycleBarRuler`, and it's the same mechanism a DAW transport loop uses. The beat axis never jumps in either case; you read it modulo the region. Treating the two as different things would be a distinction the design doesn't actually make.
 
 Design notes: [`docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md`](../../docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md) · Clock guide: [`docs/clock.md`](../../docs/clock.md)

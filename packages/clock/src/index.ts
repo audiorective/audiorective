@@ -8,8 +8,8 @@ export type { CoreTickWindow, TransportState, TimeSource } from "./types";
 export { WorkerTickSource, IntervalTickSource, ManualTickSource } from "./TickSource";
 export type { TickSource } from "./TickSource";
 
-export type { Ruler, TimelineLike, GridPoint } from "./rulers/Ruler";
-export { gridPoints, beatsPerBar } from "./rulers/Ruler";
+export type { Ruler, TimelineLike, GridPoint, CycleGridPoint } from "./rulers/Ruler";
+export { gridPoints, cycleGridPoints, beatsPerBar } from "./rulers/Ruler";
 
 export { LinearBarRuler } from "./rulers/LinearBarRuler";
 export type { LinearBarRulerOptions, LinearBarPoint, LinearBarWindow } from "./rulers/LinearBarRuler";

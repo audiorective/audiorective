@@ -38,7 +38,14 @@ describe("Clock integration (real AudioContext, default WorkerTickSource)", () =
     const clock = new Clock({
       timeline,
       onTick: (window) => {
-        const scheduledAt = ctx.currentTime;
+        // `window.time.current`, not a fresh ctx.currentTime read: the clock
+        // built this window from that instant, and the question here is whether
+        // it ever handed out a point already in the past *as it saw things*.
+        // Re-reading the clock inside the callback measures something else --
+        // the scheduling delay plus however long the JS thread was starved
+        // between the tick firing and this line -- which under CPU contention
+        // drifts past the look-ahead and fails on a perfectly good point.
+        const scheduledAt = window.time.current;
         for (const point of window.rulers.bar.grid(16)) {
           collected.push({ index: point.index, time: point.time, scheduledAt });
         }

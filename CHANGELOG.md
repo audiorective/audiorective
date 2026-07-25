@@ -23,14 +23,20 @@ predates that API. See the "Version mismatches" note in the skill.
   stateless rulers (`LinearBarRuler`, `CycleBarRuler`, `LinearTimeRuler`,
   `CycleTimeRuler`) with grid iteration, `spans`, and a reactive `current`
   reading for visuals. Looping is expressed as a `CycleBarRuler` reading, not
-  transport state — the beat axis never jumps. See `docs/clock.md` and
+  transport state — the beat axis never jumps. Linear and cycling rulers yield
+  different grid points: linear counts forever (`index`), while a cycle ruler
+  folds into its region (`step`, `cycle`) so a pattern's length can be passed
+  as the division and `step` indexes it directly. See `docs/clock.md` and
   `docs/superpowers/specs/2026-07-04-clock-design.md`.
 - **docs/skill:** `clock.md` — usage guide for the new package; `SKILL.md`
   packages table and read-next table updated accordingly.
 - **apps:** `step-sequencer` — a 4-track × 16-step drum machine demoing the
-  clock end to end: `grid(16)` + `index % 16` scheduling, the bar ruler's
-  reactive `current` driving the playhead, live tempo, transport, and live
-  pattern editing, over a headless `DrumMachine` core.
+  clock end to end: one `grid(patternLength)` loop over a cycle ruler whose
+  region holds exactly one pass of the pattern (so scheduling needs no modulo),
+  two rulers stacked on one timeline (`pattern` for scheduling and the
+  playhead, `bar` for the absolute position readout), live tempo, transport,
+  and live pattern editing, over a headless `DrumMachine` core that is an
+  `AudioProcessor` consuming a `Clock`.
 
 ### Fixed
 

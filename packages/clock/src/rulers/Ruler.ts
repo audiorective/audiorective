@@ -34,7 +34,23 @@ export interface Ruler<TWindow, TPoint> {
 export interface GridPoint {
   beat: number;
   time: number;
+  /** Step number counted from the grid's origin, increasing forever. */
   index: number;
+}
+
+/**
+ * A grid point on a *cycling* ruler. Where a linear ruler counts forever,
+ * a cycle ruler folds into its region: `step` is the position within the
+ * cycle, so it indexes a pattern array directly with no modulo at the call
+ * site. The global count is still recoverable as `cycle * division + step`.
+ */
+export interface CycleGridPoint {
+  beat: number;
+  time: number;
+  /** Position within the cycle, in [0, division). */
+  step: number;
+  /** Which repetition of the region this point falls in. */
+  cycle: number;
 }
 
 /**
@@ -94,5 +110,33 @@ export function* gridPoints(startBeat: number, endBeat: number, stepBeats: numbe
     if (beat >= startBeat) {
       yield { beat, time: timeline.beatToTime(beat), index };
     }
+  }
+}
+
+/**
+ * `gridPoints` with the running index folded into the cycle it belongs to.
+ * `division` is the caller's steps-per-cycle, so `step` lands in
+ * [0, division) and indexes a pattern of that length directly.
+ *
+ * Options that would make `division` unusable (0, negative, non-finite) also
+ * make `stepBeats` unusable, so `gridPoints` has already returned without
+ * yielding by the time the fold below could see them.
+ */
+export function* cycleGridPoints(
+  startBeat: number,
+  endBeat: number,
+  stepBeats: number,
+  originBeat: number,
+  division: number,
+  timeline: TimelineLike,
+): Generator<CycleGridPoint> {
+  for (const { beat, time, index } of gridPoints(startBeat, endBeat, stepBeats, originBeat, timeline)) {
+    // Floored division, not `%`: JS's remainder keeps the sign of the
+    // dividend, so `-1 % 16` is -1, not 15. Indices go negative for beats
+    // before the origin -- legal here, since `from` may be positive and
+    // seek() accepts negative beats -- and a negative step would silently
+    // read past the start of a pattern array.
+    const cycle = Math.floor(index / division);
+    yield { beat, time, step: index - cycle * division, cycle };
   }
 }

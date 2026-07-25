@@ -83,6 +83,16 @@ Four built-ins, crossed along two axes — **unit** (bar vs. raw time) × **topo
 
 `CycleBarRuler` is how **looping** is expressed: the beat axis never jumps — it's read modulo the cycle region, so scheduling across a loop boundary needs no special case. Its window reading exposes `spans` (the window's cycle-relative sub-ranges, for note content that isn't grid-snapped) alongside `grid()`.
 
+Its grid points fold too. A linear ruler yields `{ beat, time, index }` counting forever; a cycle ruler yields `{ beat, time, step, cycle }` where `step` is cycle-relative and `division` means steps _per cycle_. Pass a pattern's length and `step` indexes it directly:
+
+```typescript
+for (const { time, step } of window.rulers.pattern.grid(steps.length)) {
+  if (steps[step]) sampler.trigger({ when: time });
+}
+```
+
+`cycle` rides on each point rather than the window, since a window can straddle the wrap; `cycle * division + step` recovers the global count. The fold is floored, not `%` — JS remainder would return a negative step for beats before the origin.
+
 Write a custom ruler for anything else (polyrhythm, swing) — implement `Ruler<TWindow, TPoint>`:
 
 ```typescript
