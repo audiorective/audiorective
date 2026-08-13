@@ -19,7 +19,7 @@ The system has two independent spans, and a class can sit on one, the other, or 
 
 They compose rather than compete. A processor that needs timing **holds a `Clock`**; it does not become something-other-than-a-processor by doing so. Membership on the space axis is decided by one question only: does this class own `AudioNode`s and produce output?
 
-`apps/step-sequencer`'s `DrumMachine` is the worked example — an `AudioProcessor` (master gain + four `Sampler`s, exposing `output`) that consumes a `Clock` for its scheduling.
+`apps/web/src/demos/sequencer`'s `DrumMachine` is the worked example — an `AudioProcessor` (master gain + four `Sampler`s, exposing `output`) that consumes a `Clock` for its scheduling.
 
 ## What belongs where
 

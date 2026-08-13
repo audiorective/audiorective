@@ -1,0 +1,7 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SequencerApp from '../../demos/sequencer/SequencerApp.tsx';
+---
+<BaseLayout title="Step Sequencer">
+  <SequencerApp client:only="react" />
+</BaseLayout>

@@ -69,3 +69,5 @@ synth.params.volume.linearRampToValueAtTime(0, ctx.currentTime + 2);
 ```
 
 See [Core](/docs/core) for the full API reference.
+
+Sequencing something? Transport, tempo, and look-ahead scheduling live in [`@audiorective/clock`](/docs/clock).

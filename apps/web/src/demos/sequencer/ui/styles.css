@@ -1,4 +1,11 @@
-:root {
+/*
+ * Ported from the standalone step-sequencer app. The variables live on `.app`
+ * rather than `:root` so they can't clobber the site theme (BaseLayout defines
+ * its own --bg / --accent on :root, and SiteNav reads them on this page), and
+ * the old `body` rule is gone — BaseLayout owns the body; the container styles
+ * itself instead.
+ */
+.app {
   --bg: #14161a;
   --panel: #1c1f26;
   --line: #2c313b;
@@ -7,15 +14,10 @@
   --accent: #5ad1a0;
   --accent-dim: #2f7a5e;
   --playhead: #f0c674;
-}
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--bg);
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
   color: var(--text);
   font-family:
     ui-sans-serif,
@@ -25,16 +27,10 @@ body {
     sans-serif;
 }
 
-code {
+.app code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9em;
   color: var(--accent);
-}
-
-.app {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 40px 24px 64px;
 }
 
 .app__title {

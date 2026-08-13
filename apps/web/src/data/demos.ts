@@ -19,6 +19,15 @@ export const demos: Demo[] = [
     packages: ["@audiorective/core", "@audiorective/react", "@audiorective/playcanvas", "three"],
   },
   {
+    slug: "sequencer",
+    title: "Step Sequencer",
+    blurb: "A 4-track × 16-step drum machine: one grid() loop over a cycle ruler schedules the whole pattern, with live tempo and step edits.",
+    thumb: "/showroom/sequencer.jpg",
+    route: "/showroom/sequencer",
+    source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/sequencer",
+    packages: ["@audiorective/clock", "@audiorective/core", "@audiorective/react"],
+  },
+  {
     slug: "pixi",
     title: "Pixi Spectrum Visualizer",
     blurb: "A minimal PixiJS spectrum visualizer built on only the core Analyser — no binding package required.",

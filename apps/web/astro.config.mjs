@@ -30,6 +30,7 @@ export default defineConfig({
           label: "Packages",
           items: [
             { label: "Core", slug: "docs/core" },
+            { label: "Clock", slug: "docs/clock" },
             { label: "React", slug: "docs/react" },
             { label: "Three.js", slug: "docs/threejs" },
             { label: "PlayCanvas", slug: "docs/playcanvas" },

@@ -1,9 +1,10 @@
 # Step Sequencer
 
-A 4-track × 16-step drum machine — the canonical consumer demo for [`@audiorective/clock`](../../packages/clock).
+A 4-track × 16-step drum machine — the canonical consumer demo for [`@audiorective/clock`](../../../../../packages/clock). Lives at `/showroom/sequencer` on the site.
 
 ```bash
-pnpm --filter @audiorective/step-sequencer dev
+pnpm --filter @audiorective/web dev
+# then open /showroom/sequencer
 ```
 
 Press **Play**. Browsers require a user gesture before audio, which `EngineProvider`'s `autoStart` handles on that same click — there is no separate power-on step.
@@ -32,22 +33,23 @@ Press **Play**. Browsers require a user gesture before audio, which `EngineProvi
 5. **Transport** — play / pause / resume / stop, with button state from `useValue(clock.state)`. Resume continues mid-bar; stop returns to step 0.
 6. **Live pattern editing** — toggle steps while playing, including the documented ~`lookAhead` latency when you edit a step whose window is already committed (asserted in the tests rather than hidden).
 7. **The audio/UI split** — `DrumMachine` is headless: it owns the Timeline, the Clock, and four `Sampler`s, and runs entirely inside a unit test with no DOM. React only observes and calls methods.
-8. **Both architectural axes at once** — `DrumMachine` is an `AudioProcessor` on the space axis (master gain + samplers, exposing `output` rather than wiring itself to `destination`, so it can be routed through an EQ or reverb) that consumes a `Clock` on the time axis. Holding a clock is the point; reimplementing one would be the error — see [`docs/architecture.md`](../../docs/architecture.md).
+8. **Both architectural axes at once** — `DrumMachine` is an `AudioProcessor` on the space axis (master gain + samplers, exposing `output` rather than wiring itself to `destination`, so it can be routed through an EQ or reverb) that consumes a `Clock` on the time axis. Holding a clock is the point; reimplementing one would be the error — see [`docs/architecture.md`](../../../../../docs/architecture.md).
 
 ## Structure
 
-| Path                           | Role                                                                       |
-| ------------------------------ | -------------------------------------------------------------------------- |
-| `src/audio/DrumMachine.ts`     | The headless core — Timeline + Clock + tracks, transport, reactive surface |
-| `src/audio/drumKit.ts`         | Procedurally synthesized kick/snare/hat/clap (no binary assets)            |
-| `src/audio/stepFromPattern.ts` | Cycle phase → step index; shared by the UI playhead and the tests          |
-| `src/audio/engine.ts`          | `createEngine` + `createEngineContext` — owns the AudioContext             |
-| `src/ui/`                      | React observer layer, reading the machine via `useEngine()`                |
+| Path                       | Role                                                                       |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `audio/DrumMachine.ts`     | The headless core — Timeline + Clock + tracks, transport, reactive surface |
+| `audio/drumKit.ts`         | Procedurally synthesized kick/snare/hat/clap (no binary assets)            |
+| `audio/stepFromPattern.ts` | Cycle phase → step index; shared by the UI playhead and the tests          |
+| `audio/engine.ts`          | `createEngine` + `createEngineContext` — owns the AudioContext             |
+| `SequencerApp.tsx`         | Astro island entry — mounts the app on `/showroom/sequencer`               |
+| `ui/`                      | React observer layer, reading the machine via `useEngine()`                |
 
 ## Tests
 
 ```bash
-pnpm --filter @audiorective/step-sequencer test -- --run
+pnpm --filter @audiorective/web test -- --run tests/sequencer
 ```
 
 Scheduling is verified deterministically, and `DrumMachine` carries **no test-only constructor options** to make that possible — the seams are mocked instead. "Now" is an own `currentTime` property shadowing the prototype getter on a real context (a `Proxy` would fail Web Audio's brand-check; shadowing the instance doesn't), ticks come from capturing the callback `WorkerTickSource.start` was handed so no Worker spawns, and what got scheduled is read off `Sampler.trigger` itself. That last one is the real gain: the assertions cover the audio call the machine actually made, not a parallel notification that could keep firing after the trigger broke.
@@ -60,4 +62,4 @@ Swing, velocity, and per-note offsets are note-content concerns for a future tra
 
 Note that pattern repetition is _not_ out of scope here — it's the `CycleBarRuler`, and it's the same mechanism a DAW transport loop uses. The beat axis never jumps in either case; you read it modulo the region. Treating the two as different things would be a distinction the design doesn't actually make.
 
-Design notes: [`docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md`](https://github.com/audiorective/audiorective/blob/eaad3df1bf52ec319414b73640d273ae445ecbb2/docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md) · Clock guide: [`docs/clock.md`](../../docs/clock.md)
+Design notes: [`docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md`](https://github.com/audiorective/audiorective/blob/eaad3df1bf52ec319414b73640d273ae445ecbb2/docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md) · Clock guide: [`docs/clock.md`](../../../../../docs/clock.md)

@@ -135,7 +135,7 @@ function SynthUI() {
 
 **`createEngine` does — never a component.** This is the single most important lifecycle rule in the package, and it is easy to drift off because building an `AudioContext` in an `onClick` feels like the obvious way to satisfy the browser's user-gesture requirement.
 
-It isn't necessary. `AudioEngine` creates the context at module scope and holds it for the page's lifetime; `EngineProvider`'s `autoStart` resumes it on the first interaction. So there is nothing to construct in an effect, nothing to `resume()` by hand, and nothing to close on unmount — which is why the entire class of teardown bugs below cannot occur. Both apps in this repo follow it: `apps/showroom/src/audio/engine.ts` and `apps/step-sequencer/src/audio/engine.ts`.
+It isn't necessary. `AudioEngine` creates the context at module scope and holds it for the page's lifetime; `EngineProvider`'s `autoStart` resumes it on the first interaction. So there is nothing to construct in an effect, nothing to `resume()` by hand, and nothing to close on unmount — which is why the entire class of teardown bugs below cannot occur. Both apps in this repo follow it: `apps/web/src/demos/livehouse/audio/engine.ts` and `apps/web/src/demos/sequencer/audio/engine.ts`.
 
 If a host application hands you a context, pass it in rather than reaching for `new AudioContext()`:
 
@@ -208,4 +208,4 @@ function powerOn() {
 
 The early `return` means the pre-power-on render registers no cleanup at all, so the only teardown that ever runs is the real one. Keeping the context in state beside the thing that uses it — rather than in a ref the effect can reach across renders — is what makes that possible.
 
-There is no worked example of this in the repo, deliberately: `apps/step-sequencer` was written this way first, hit exactly this bug, and was rewritten onto `createEngine`. Reach for the pattern above only when `createEngine`'s `context` option genuinely cannot express what you need.
+There is no worked example of this in the repo, deliberately: `apps/web/src/demos/sequencer` was written this way first, hit exactly this bug, and was rewritten onto `createEngine`. Reach for the pattern above only when `createEngine`'s `context` option genuinely cannot express what you need.

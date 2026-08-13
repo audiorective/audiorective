@@ -61,7 +61,7 @@ A reverb fed _post-panner_ tracks the dry and never opens up as you move — a s
 
 ## Worked example: Livehouse PA Simulator
 
-`apps/showroom` — you're the PA tech in a cyber venue; each mixer channel is a drone emitting one instrument, flown in 3D; a React iPad HUD mixes EQ/volume/solo/pan; a headphone toggle monitors dry. Three renderers (PlayCanvas world, React HUD, three.js control widgets) over one engine.
+`apps/web/src/demos/livehouse` — you're the PA tech in a cyber venue; each mixer channel is a drone emitting one instrument, flown in 3D; a React iPad HUD mixes EQ/volume/solo/pan; a headphone toggle monitors dry. Three renderers (PlayCanvas world, React HUD, three.js control widgets) over one engine.
 
 How the principles show up: drone positions, selection, and HUD state are engine `Cell`s observed by all three renderers (P1). The whole engine — `Channel`, `Mixer`, sources, routing, metering — was built and tested headless before any renderer (P2). Five stems use `FilePlayer`, the FX pads use `Sampler`, all behind one source-agnostic `Channel` (P3). `attach` + `bindPanner` wire PlayCanvas to the panners; the three.js EQ/pan widgets are control-only (P4). Reverb is a per-channel pre-panner aux send into a shared convolver, so it stays distance-independent (P5).
 

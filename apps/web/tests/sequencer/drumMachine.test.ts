@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { WorkerTickSource } from "@audiorective/clock";
-import { DrumMachine } from "../src/audio/DrumMachine";
-import { createDrumKit } from "../src/audio/drumKit";
-import type { DrumVoiceId } from "../src/audio/drumKit";
-import { stepFromPattern } from "../src/audio/stepFromPattern";
+import { DrumMachine } from "../../src/demos/sequencer/audio/DrumMachine";
+import { createDrumKit } from "../../src/demos/sequencer/audio/drumKit";
+import type { DrumVoiceId } from "../../src/demos/sequencer/audio/drumKit";
+import { stepFromPattern } from "../../src/demos/sequencer/audio/stepFromPattern";
 
 /**
  * A DrumMachine driven by hand: ticks fire only when we say, and "now" only

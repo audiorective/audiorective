@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
-import { DrumMachine } from "../src/audio/DrumMachine";
-import { createDrumKit } from "../src/audio/drumKit";
-import type { DrumVoiceId } from "../src/audio/drumKit";
+import { DrumMachine } from "../../src/demos/sequencer/audio/DrumMachine";
+import { createDrumKit } from "../../src/demos/sequencer/audio/drumKit";
+import type { DrumVoiceId } from "../../src/demos/sequencer/audio/drumKit";
 
 /**
  * Poll rather than sleep: this runs on the real WorkerTickSource against a

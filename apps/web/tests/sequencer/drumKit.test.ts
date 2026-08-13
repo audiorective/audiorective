@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from "vitest";
-import { createDrumKit } from "../src/audio/drumKit";
-import type { DrumVoiceId } from "../src/audio/drumKit";
+import { createDrumKit } from "../../src/demos/sequencer/audio/drumKit";
+import type { DrumVoiceId } from "../../src/demos/sequencer/audio/drumKit";
 
 const VOICES: DrumVoiceId[] = ["kick", "snare", "hat", "clap"];
 
