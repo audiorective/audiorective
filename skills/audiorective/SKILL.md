@@ -24,6 +24,7 @@ Web Audio's imperative API with UI frameworks.
 | Package                    | Purpose                                                                                                                                      | Reference                  |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`, `Analyser`, `Sampler`, `BufferPlayer`, `FilePlayer`. Required by everything. | `references/core.md`       |
+| `@audiorective/clock`      | Timing/scheduling engine — transport, tempo, look-ahead tick windows, rulers (bars, cycles/loops, seconds).                                  | `references/clock.md`      |
 | `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                                                  | `references/react.md`      |
 | `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                                                          | `references/threejs.md`    |
 | `@audiorective/playcanvas` | PlayCanvas scene bindings (`attach`, `bindPanner`).                                                                                          | `references/playcanvas.md` |
@@ -39,6 +40,7 @@ Then load only what your task actually needs:
 | Designing a whole audio app (multiple sources, multiple UIs, spatial)           | `references/designing-audio-apps.md`           |
 | Choosing a playback primitive (Sampler vs BufferPlayer vs FilePlayer)           | `references/choosing-playback.md`              |
 | Playing a sample / SFX, a beat-locked loop, or streaming a track                | `references/core.md`                           |
+| Sequencing, scheduling, transport, tempo, or a step sequencer/drum machine      | `references/clock.md`                          |
 | Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                   |
 | React UI bound to an engine                                                     | `references/react.md`                          |
 | 3D scene with spatial audio (three.js)                                          | `references/threejs.md` + `architecture.md`    |

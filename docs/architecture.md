@@ -6,6 +6,19 @@ The audio layer must be fully operable without any UI framework. React (or any f
 
 **All audio operations live as methods on `AudioProcessor` subclasses.** UI components call these methods — they never orchestrate audio logic themselves.
 
+## The two axes
+
+The system has two independent spans, and a class can sit on one, the other, or both:
+
+| Axis      | Owned by                        | Answers                                 |
+| --------- | ------------------------------- | --------------------------------------- |
+| **Space** | `AudioProcessor` → `AudioNode`s | what sounds, how it's wired, what it is |
+| **Time**  | `@audiorective/clock`           | when events happen, transport, tempo    |
+
+They compose rather than compete. A processor that needs timing **holds a `Clock`**; it does not become something-other-than-a-processor by doing so. Membership on the space axis is decided by one question only: does this class own `AudioNode`s and produce output?
+
+`apps/step-sequencer`'s `DrumMachine` is the worked example — an `AudioProcessor` (master gain + four `Sampler`s, exposing `output`) that consumes a `Clock` for its scheduling.
+
 ## What belongs where
 
 ### Audio layer (`AudioProcessor` subclasses)
@@ -13,8 +26,15 @@ The audio layer must be fully operable without any UI framework. React (or any f
 - Audio graph construction and wiring
 - Envelope shaping, note triggering
 - Parameter automation sequences (ramps, sweeps, scheduled transitions)
-- Transport logic (start, stop, scheduling loops)
 - Any operation that touches `AudioContext.currentTime` or schedules values on `AudioParam`
+
+Look-ahead scheduling loops (sequencers, drum machines, loopers, transport
+start/stop/seek) belong to **`@audiorective/clock`** — see `docs/clock.md`. An
+`AudioProcessor` must not _reimplement_ them: no timer polling `currentTime`,
+no hand-rolled bar math, no bespoke start/pause/seek state. It delegates to a
+`Clock` and schedules from the `onTick` window it receives.
+
+**Holding a `Clock` is expected; reproducing one is the error.**
 
 ### Structured state (plain classes with `Cell`)
 
@@ -107,6 +127,11 @@ class DrumSequencer {
 ```
 
 `AudioProcessor` is for things that actually process audio (own AudioNodes, use scheduling). If a class just holds data, it's a plain class with `Cell`.
+
+Note what does _not_ decide this: whether the class holds a `Clock`. A pattern
+store that owns no nodes stays a plain class even if it schedules; a drum
+machine that owns samplers is an `AudioProcessor` even though a `Clock` drives
+it. The question is always node ownership — the space axis.
 
 ## Why this matters
 

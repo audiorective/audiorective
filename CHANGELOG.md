@@ -13,6 +13,43 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+### Added
+
+- **clock:** New package `@audiorective/clock` — the timing and scheduling
+  engine. `Clock` (worker-based look-ahead tick loop, transport
+  start/pause/resume/stop/seek, miss detection via `onMiss`) + `Timeline`
+  (beat↔time conversion, anchor, `generation`) + a standalone event-list
+  `TempoParam` (V1: steps only; ramp methods throw, reserved for V2) + four
+  stateless rulers (`LinearBarRuler`, `CycleBarRuler`, `LinearTimeRuler`,
+  `CycleTimeRuler`) with grid iteration, `spans`, and a reactive `current`
+  reading for visuals. Looping is expressed as a `CycleBarRuler` reading, not
+  transport state — the beat axis never jumps. Linear and cycling rulers yield
+  different grid points: linear counts forever (`index`), while a cycle ruler
+  folds into its region (`step`, `cycle`) so a pattern's length can be passed
+  as the division and `step` indexes it directly. See `docs/clock.md` and
+  `docs/superpowers/specs/2026-07-04-clock-design.md`.
+- **docs/skill:** `clock.md` — usage guide for the new package; `SKILL.md`
+  packages table and read-next table updated accordingly.
+- **apps:** `step-sequencer` — a 4-track × 16-step drum machine demoing the
+  clock end to end: one `grid(patternLength)` loop over a cycle ruler whose
+  region holds exactly one pass of the pattern (so scheduling needs no modulo),
+  two rulers stacked on one timeline (`pattern` for scheduling and the
+  playhead, `bar` for the absolute position readout), live tempo, transport,
+  and live pattern editing, over a headless `DrumMachine` core that is an
+  `AudioProcessor` consuming a `Clock`.
+
+### Fixed
+
+- **clock:** `Timeline.addRuler` stored the reading `Param` where the slot
+  object belonged, so `timeline.rulers.<key>.current` was `undefined` at
+  runtime (an `as unknown as` cast hid it from the type checker). Anything
+  binding a UI to a ruler reading would have crashed on mount.
+- **clock:** the published `.d.ts` degraded every consumer's ruler readings to
+  `unknown` — a method generic named `K` collided with the `[K in keyof
+TRulers]` mapped types and the declaration bundler emitted `TRulers[K$1]`.
+  Source-level types were always correct, so only a consumer compiling against
+  the built package saw it.
+
 ## [2.0.0]
 
 ### Changed
