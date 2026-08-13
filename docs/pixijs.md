@@ -1,4 +1,6 @@
-# Pairing PixiJS with audiorective
+---
+title: PixiJS
+---
 
 **There is no `@audiorective/pixijs` package — and you don't need one.** Core
 (`@audiorective/core`) plus `alien-signals` already gives a PixiJS app everything

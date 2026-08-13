@@ -1,0 +1,157 @@
+---
+import type { Demo } from '../data/demos';
+
+interface Props {
+  demo: Demo;
+}
+
+const { demo } = Astro.props;
+---
+
+<article class="demo-card">
+  <a class="thumb-link" href={demo.route}>
+    <img class="thumb" src={demo.thumb} alt={`${demo.title} preview`} loading="lazy" />
+    <div class="scanline"></div>
+  </a>
+  <div class="body">
+    <h2 class="title">{demo.title}</h2>
+    <p class="blurb">{demo.blurb}</p>
+    <ul class="packages">
+      {demo.packages.map((pkg) => (
+        <li class="pkg">{pkg}</li>
+      ))}
+    </ul>
+    <div class="actions">
+      <a class="open" href={demo.route}>Open demo →</a>
+      <a class="source" href={demo.source} target="_blank" rel="noopener noreferrer">View source</a>
+    </div>
+  </div>
+</article>
+
+<style>
+  .demo-card {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #23233a;
+    border-radius: 8px;
+    background: #0f0f18;
+    overflow: hidden;
+    transition:
+      border-color 0.2s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+
+  .demo-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 0 24px -8px var(--accent);
+  }
+
+  .thumb-link {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-bottom: 1px solid #23233a;
+  }
+
+  .thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(1.1) contrast(1.05);
+    transition: transform 0.3s ease;
+  }
+
+  .demo-card:hover .thumb {
+    transform: scale(1.04);
+  }
+
+  .scanline {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 240, 255, 0.06) 0px,
+      rgba(0, 240, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: screen;
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .title {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--fg);
+    letter-spacing: 0.01em;
+  }
+
+  .blurb {
+    margin: 0;
+    color: #a3a3c2;
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .packages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pkg {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(0, 240, 255, 0.08);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #1f1f2e;
+  }
+
+  .open {
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+
+  .open:hover {
+    color: var(--accent-2);
+  }
+
+  .source {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: #8a8aa8;
+    text-decoration: none;
+  }
+
+  .source:hover {
+    color: var(--fg);
+    text-decoration: underline;
+  }
+</style>
