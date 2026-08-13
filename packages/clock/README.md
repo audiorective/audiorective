@@ -124,4 +124,4 @@ Remedy: raise `lookAhead`.
 
 ## Design
 
-See [`docs/superpowers/specs/2026-07-04-clock-design.md`](../../docs/superpowers/specs/2026-07-04-clock-design.md) in the monorepo root for the full design rationale.
+See [`docs/superpowers/specs/2026-07-04-clock-design.md`](https://github.com/audiorective/audiorective/blob/eaad3df1bf52ec319414b73640d273ae445ecbb2/docs/superpowers/specs/2026-07-04-clock-design.md) (kept in git history) for the full design rationale.

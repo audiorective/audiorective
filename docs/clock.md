@@ -228,4 +228,4 @@ Two things to remember when writing assertions:
 
 ## Design
 
-See [`docs/superpowers/specs/2026-07-04-clock-design.md`](superpowers/specs/2026-07-04-clock-design.md) for the full design rationale, including the stress-test findings against step-sequencer/drum-machine/DAW/rhythm-game usage.
+See [`docs/superpowers/specs/2026-07-04-clock-design.md`](https://github.com/audiorective/audiorective/blob/eaad3df1bf52ec319414b73640d273ae445ecbb2/docs/superpowers/specs/2026-07-04-clock-design.md) for the full design rationale, including the stress-test findings against step-sequencer/drum-machine/DAW/rhythm-game usage.

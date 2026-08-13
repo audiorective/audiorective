@@ -22,7 +22,7 @@ What's even better: we also ship an agent skill that teaches LLMs how to use aud
 | [`@audiorective/react`](./packages/react)           | React hooks and context factories                                                                         |
 | [`@audiorective/threejs`](./packages/threejs)       | Three.js bindings — engine glue, spatial transform sync                                                   |
 | [`@audiorective/playcanvas`](./packages/playcanvas) | PlayCanvas bindings — shared AudioContext + pre/post-panner FX on SoundSlot                               |
-| `@audiorective/clock`                               | Timing, scheduling, transport _(planned)_                                                                 |
+| [`@audiorective/clock`](./packages/clock)           | Timing and scheduling engine — transport, tempo, look-ahead tick windows, rulers                          |
 
 Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
@@ -36,6 +36,8 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 ## Examples
 
 [apps/showroom](./apps/showroom) — **Livehouse PA Simulator**, one app built with `@audiorective/core`, `@audiorective/react`, `@audiorective/playcanvas`, and three.js: you're the PA tech in a cyber livehouse. Six audio drones (FilePlayer stems, a synth, and a Sampler for the pads) fly in a PlayCanvas world; walk around to hear the spatial mix shift, mix each channel (EQ / volume / solo / mute / 3D pan) from a React iPad HUD, fire the sampler pads, and hit Headphone to monitor a dry stereo mixdown. Demonstrates the full stack: one `AudioContext`, three renderers, zero duplicated audio state.
+
+[apps/step-sequencer](./apps/step-sequencer) — a 16-step **drum machine** built with `@audiorective/clock`, `@audiorective/core`, and `@audiorective/react`. One `grid(patternLength)` loop over a `CycleBarRuler` schedules the whole pattern; transport, tempo, and live step edits all go through the clock. The reference consumer for [docs/clock.md](./docs/clock.md).
 
 [apps/pixi-visualizer](./apps/pixi-visualizer) — a minimal **PixiJS** spectrum visualizer built with only `@audiorective/core`, `alien-signals`, and `pixi.js`. Shows that a 2D canvas renderer needs no binding package: the core `Analyser` feeds per-frame spectrum bars, an `effect()` drives a signal-reactive glow, and pointer drags write params directly (with the UI-owned `level` kept separate from the ramped `gate` envelope). See [docs/pixijs.md](./docs/pixijs.md).
 
@@ -81,3 +83,5 @@ MIT
 - [@audiorective/core on npm](https://www.npmjs.com/package/@audiorective/core)
 - [@audiorective/react on npm](https://www.npmjs.com/package/@audiorective/react)
 - [@audiorective/threejs on npm](https://www.npmjs.com/package/@audiorective/threejs)
+- [@audiorective/playcanvas on npm](https://www.npmjs.com/package/@audiorective/playcanvas)
+- [@audiorective/clock on npm](https://www.npmjs.com/package/@audiorective/clock)

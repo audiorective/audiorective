@@ -56,8 +56,8 @@ One smoke test runs the real `WorkerTickSource` against a real `AudioContext`, p
 
 ## Deliberately out of scope
 
-Swing, velocity, and per-note offsets are note-content concerns for a future track/clip primitive, not the clock's job — see the [clock design spec](../../docs/superpowers/specs/2026-07-04-clock-design.md).
+Swing, velocity, and per-note offsets are note-content concerns for a future track/clip primitive, not the clock's job — see the [clock design spec](https://github.com/audiorective/audiorective/blob/eaad3df1bf52ec319414b73640d273ae445ecbb2/docs/superpowers/specs/2026-07-04-clock-design.md).
 
 Note that pattern repetition is _not_ out of scope here — it's the `CycleBarRuler`, and it's the same mechanism a DAW transport loop uses. The beat axis never jumps in either case; you read it modulo the region. Treating the two as different things would be a distinction the design doesn't actually make.
 
-Design notes: [`docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md`](../../docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md) · Clock guide: [`docs/clock.md`](../../docs/clock.md)
+Design notes: [`docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md`](https://github.com/audiorective/audiorective/blob/eaad3df1bf52ec319414b73640d273ae445ecbb2/docs/superpowers/specs/2026-07-12-step-sequencer-demo-design.md) · Clock guide: [`docs/clock.md`](../../docs/clock.md)
