@@ -100,7 +100,7 @@ importers:
   packages/clock:
     dependencies:
       '@audiorective/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       alien-signals:
         specifier: ^3.1.2
@@ -162,7 +162,7 @@ importers:
   packages/playcanvas:
     dependencies:
       '@audiorective/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@types/node':
@@ -193,7 +193,7 @@ importers:
   packages/react:
     dependencies:
       '@audiorective/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       alien-signals:
         specifier: ^3.1.2
@@ -230,7 +230,7 @@ importers:
   packages/threejs:
     dependencies:
       '@audiorective/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
     devDependencies:
       '@types/node':

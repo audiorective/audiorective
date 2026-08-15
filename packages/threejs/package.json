@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@audiorective/core": "workspace:*"
+    "@audiorective/core": "workspace:^"
   },
   "peerDependencies": {
     "three": ">=0.150.0"

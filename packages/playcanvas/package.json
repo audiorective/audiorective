@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@audiorective/core": "workspace:*"
+    "@audiorective/core": "workspace:^"
   },
   "peerDependencies": {
     "playcanvas": ">=2.18.1"

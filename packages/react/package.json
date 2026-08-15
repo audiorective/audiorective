@@ -30,7 +30,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@audiorective/core": "workspace:*",
+    "@audiorective/core": "workspace:^",
     "alien-signals": "^3.1.2"
   },
   "peerDependencies": {
