@@ -11,7 +11,7 @@ This file exists so an agent (or human) hitting an "API not found / undefined /
 type error" on a documented API can tell whether the installed package simply
 predates that API. See the "Version mismatches" note in the skill.
 
-## [Unreleased]
+## [2.1.0] - 2026-08-15
 
 ### Added
 
