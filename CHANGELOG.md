@@ -11,6 +11,18 @@ This file exists so an agent (or human) hitting an "API not found / undefined /
 type error" on a documented API can tell whether the installed package simply
 predates that API. See the "Version mismatches" note in the skill.
 
+## [2.1.1] - 2026-08-15
+
+### Fixed
+
+- **clock, react, threejs, playcanvas:** these packages declared an exact
+  version of `@audiorective/core` (`"2.1.0"` rather than `"^2.1.0"`), so a
+  project on a newer core got a second copy of it nested under the binding
+  package instead of sharing one. Two copies break `instanceof AudioProcessor`
+  inside `AudioEngine` for processors built from the other copy, and give a
+  single `AudioContext` two `ParamSync` loops. Upgrading any one binding
+  package to 2.1.1 is enough to deduplicate it.
+
 ## [2.1.0] - 2026-08-15
 
 ### Added
