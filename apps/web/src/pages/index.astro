@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/landing/Hero.astro';
+import Thesis from '../components/landing/Thesis.astro';
+import PainPoints from '../components/landing/PainPoints.astro';
+import Composability from '../components/landing/Composability.astro';
+import AgentSkill from '../components/landing/AgentSkill.astro';
+import SendOff from '../components/landing/SendOff.astro';
+import '../styles/landing.css';
+---
+
+<BaseLayout
+  title="Audiorective"
+  description="Delightful Web Audio primitives that you — and your LLM — actually love to use."
+>
+  <main class="landing">
+    <Hero />
+    <Thesis />
+    <PainPoints />
+    <Composability />
+    <AgentSkill />
+    <SendOff />
+  </main>
+</BaseLayout>

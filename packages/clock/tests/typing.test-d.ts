@@ -12,7 +12,7 @@ import type { LinearBarPoint, LinearBarWindow } from "../src/rulers/LinearBarRul
 // collided with the `[K in keyof TRulers]` mapped types, and the dts bundler
 // emitted `TRulers[K$1]`, degrading every consumer's ruler readings to
 // `unknown` while source-level checks stayed green. What guards the emitted
-// types is `apps/step-sequencer`, which resolves @audiorective/clock through
+// types is `@audiorective/web` (the sequencer demo), which resolves @audiorective/clock through
 // `dist`: CI builds, then typechecks, so a broken declaration fails there.
 
 test("addRuler narrows Timeline.rulers.<key>.current to the ruler's point reading", () => {

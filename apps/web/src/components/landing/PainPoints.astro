@@ -1,0 +1,24 @@
+---
+import Reveal from './Reveal';
+import PainAccordion from './PainAccordion';
+---
+<section class="pain-points">
+  <div class="inner inner--wide">
+    <Reveal client:visible>
+    <p class="eyebrow">Pain points</p>
+    <h2>A few of the most significant pain points</h2>
+
+    <PainAccordion client:visible />
+
+    <div class="bridge">
+      <span class="card-title">Tone.js: you wanted a clock, you adopted a framework.</span>
+      <p>
+        A great library — but it's all-or-nothing: adopt the whole
+        tightly-coupled model, or build from scratch. And even with it, your
+        audio logic ends up fused to whatever UI framework you happen to use.
+        Audiorective lets you take just the piece you need.
+      </p>
+    </div>
+    </Reveal>
+  </div>
+</section>

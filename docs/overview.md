@@ -1,4 +1,6 @@
-# Audiorective — Overview
+---
+title: Overview
+---
 
 Modular toolkit for web audio development. Independent, composable packages that work alone or together.
 

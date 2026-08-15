@@ -1,4 +1,6 @@
-# @audiorective/clock
+---
+title: Clock
+---
 
 Timing and scheduling engine — transport, tempo, look-ahead tick windows, rulers. The temporal pillar of audiorective: `core` answers "what sounds and how," `clock` answers "when." It is not an `AudioProcessor` — it owns no audio nodes and produces no signal.
 
@@ -192,7 +194,7 @@ Every assertion is then exact — no tolerances, no polling, no flake.
 
 ### When you can't inject — testing a type that owns its Clock
 
-The two parameters above are the right approach when the code under test _takes_ a `Timeline` or a `Clock`. A class that builds its own — as `apps/step-sequencer`'s `DrumMachine` does — shouldn't grow constructor options that exist only for tests. Mock the seams instead:
+The two parameters above are the right approach when the code under test _takes_ a `Timeline` or a `Clock`. A class that builds its own — as `apps/web/src/demos/sequencer`'s `DrumMachine` does — shouldn't grow constructor options that exist only for tests. Mock the seams instead:
 
 ```typescript
 // "now": an own property shadowing the prototype getter on a real context

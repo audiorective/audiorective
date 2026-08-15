@@ -1,4 +1,6 @@
-# Pairing PixiJS with audiorective
+---
+title: PixiJS
+---
 
 **There is no `@audiorective/pixijs` package — and you don't need one.** Core
 (`@audiorective/core`) plus `alien-signals` already gives a PixiJS app everything
@@ -154,7 +156,7 @@ engine.core.destroy(); // closes the AudioContext, destroys processors (incl. An
 
 ## Worked example
 
-[`apps/pixi-visualizer`](../apps/pixi-visualizer) is a complete, runnable app: a
+[`apps/web/src/demos/pixi`](../apps/web/src/demos/pixi) is a complete, runnable app: a
 `DroneSynth` (core) visualized as a spectrum via the core `Analyser`, with a
 draggable puck (x → cutoff, y → level) and a signal-driven glow. It splits the
 UI-owned `level` from the envelope-owned `gate` to honor the Gotcha above, and
