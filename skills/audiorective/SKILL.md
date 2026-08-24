@@ -21,13 +21,14 @@ Web Audio's imperative API with UI frameworks.
 
 ## Packages
 
-| Package                    | Purpose                                                                                                                                      | Reference                  |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`, `Analyser`, `Sampler`, `BufferPlayer`, `FilePlayer`. Required by everything. | `references/core.md`       |
-| `@audiorective/clock`      | Timing/scheduling engine — transport, tempo, look-ahead tick windows, rulers (bars, cycles/loops, seconds).                                  | `references/clock.md`      |
-| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                                                  | `references/react.md`      |
-| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                                                          | `references/threejs.md`    |
-| `@audiorective/playcanvas` | PlayCanvas scene bindings (`attach`, `bindPanner`).                                                                                          | `references/playcanvas.md` |
+| Package                    | Purpose                                                                                                                                      | Reference                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`, `Analyser`, `Sampler`, `BufferPlayer`, `FilePlayer`. Required by everything. | `references/core.md`            |
+| `@audiorective/clock`      | Timing/scheduling engine — transport, tempo, look-ahead tick windows, rulers (bars, cycles/loops, seconds).                                  | `references/clock.md`           |
+| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                                                  | `references/react.md`           |
+| _(any framework)_          | Client-only boundary for server-rendered apps (Next.js, Remix, Astro) and the `EngineEnvironmentError` it prevents.                          | `references/client-boundary.md` |
+| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                                                          | `references/threejs.md`         |
+| `@audiorective/playcanvas` | PlayCanvas scene bindings (`attach`, `bindPanner`).                                                                                          | `references/playcanvas.md`      |
 
 ## What to read next
 
@@ -43,6 +44,8 @@ Then load only what your task actually needs:
 | Sequencing, scheduling, transport, tempo, or a step sequencer/drum machine      | `references/clock.md`                          |
 | Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                   |
 | React UI bound to an engine                                                     | `references/react.md`                          |
+| Next.js / Remix / Astro / any app that renders on a server                      | `references/client-boundary.md`                |
+| Hitting `EngineEnvironmentError`, or "AudioContext is not defined" in a build   | `references/client-boundary.md`                |
 | 3D scene with spatial audio (three.js)                                          | `references/threejs.md` + `architecture.md`    |
 | 3D scene with spatial audio (PlayCanvas)                                        | `references/playcanvas.md` + `architecture.md` |
 | PixiJS (2D) audio visualizer or interactive canvas                              | `references/pixijs.md`                         |
@@ -67,6 +70,22 @@ the installed package predates the docs. Then:
 3. If the API postdates the installed version, tell the user to upgrade the npm
    package (e.g. `npm i @audiorective/core@latest`) before continuing — don't
    work around it by hand-rolling the missing API.
+
+## audiorective is client-only
+
+**Never let an engine module be evaluated on the server.** `createEngine` builds a real
+`AudioContext`; there is none in Node, and there is no SSR mode to enable — this is a
+design decision, not a gap.
+
+In Next.js, Remix, or Astro, mount the audio subtree behind a client-only boundary —
+`next/dynamic(..., { ssr: false })` or `client:only` — and keep `createEngine` at module
+scope **inside** that subtree, which is correct and canonical there. `'use client'` is not
+a boundary: it bundles the module for the client but the server still evaluates it.
+
+Seeing **`EngineEnvironmentError`** means an audio module leaked across the boundary. Do not
+work around it with a lazy accessor, a nullable engine, or a `typeof window` guard — find the
+import path that reaches the engine module and move it inside the island. Read
+`references/client-boundary.md`.
 
 ## The one rule that always applies
 

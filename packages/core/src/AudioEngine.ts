@@ -1,5 +1,6 @@
 import { signal, effect } from "alien-signals";
 import { AudioProcessor } from "./AudioProcessor";
+import { assertAudioContextAvailable } from "./errors";
 import type { EngineState, SignalAccessor } from "./types";
 
 const DEFAULT_AUTO_START_EVENTS = ["click", "keydown", "touchstart"] as const;
@@ -11,6 +12,7 @@ export class AudioEngine {
   private _cachedPromise: Promise<void> | null = null;
 
   constructor(existingContext?: AudioContext) {
+    if (existingContext === undefined) assertAudioContextAvailable();
     this._context = existingContext ?? new AudioContext();
     this._context.onstatechange = () => {
       if (this._state() === "destroyed") return;
