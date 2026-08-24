@@ -137,6 +137,8 @@ function SynthUI() {
 
 It isn't necessary. `AudioEngine` creates the context at module scope and holds it for the page's lifetime; `EngineProvider`'s `autoStart` resumes it on the first interaction. So there is nothing to construct in an effect, nothing to `resume()` by hand, and nothing to close on unmount — which is why the entire class of teardown bugs below cannot occur. Both apps in this repo follow it: `apps/web/src/demos/livehouse/audio/engine.ts` and `apps/web/src/demos/sequencer/audio/engine.ts`.
 
+audiorective is client-only, so this rule has a corollary in server-rendered frameworks: the engine module must never be evaluated on the server. Module-scope `createEngine` stays the canonical pattern there — it is correct _inside_ a client-only island, because the island guarantees the module only ever loads in a browser. Reaching for a lazy accessor or a nullable engine to survive SSR is the wrong fix. See [Server-rendered frameworks](/docs/client-boundary/).
+
 If a host application hands you a context, pass it in rather than reaching for `new AudioContext()`:
 
 ```typescript

@@ -120,6 +120,14 @@ function Sequencer() {
 }
 ```
 
+## Server rendering
+
+audiorective is client-only. `createEngine` builds a real `AudioContext`, so an engine module evaluated on a server throws `EngineEnvironmentError`.
+
+In Next.js, Remix, or Astro, mount the audio subtree through a client-only boundary — `next/dynamic(..., { ssr: false })` or Astro's `client:only` — and keep `createEngine` at module scope _inside_ it. `'use client'` alone is not enough: it puts the module in the client bundle but does not stop the server from evaluating it.
+
+See the [Server-rendered frameworks guide](https://audiorective.dev/docs/client-boundary/).
+
 ## License
 
 MIT — [GitHub](https://github.com/audiorective/audiorective)

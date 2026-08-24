@@ -782,6 +782,8 @@ vol.destroy(); // cleanup when done
 
 `AudioEngine` manages the top-level audio system lifecycle. The `AudioContext` is created eagerly at construction time (browser suspends it automatically via autoplay policy). Processors are registered via `register()` and wired up in the `createEngine` setup callback.
 
+Because the context is created eagerly, construction requires a browser. In an environment with no `AudioContext` constructor the engine throws [`EngineEnvironmentError`](#engineenvironmenterror) instead of building a half-formed graph.
+
 ```
 createEngine() / new Engine()  →  context created (suspended)               →  'idle'
 .core.start()                  →  context.resume() (needs user gesture)      →  'running'
@@ -838,6 +840,19 @@ detach();
 engine.core.autoStart(canvas, { events: ["pointerdown"] });
 ```
 
+### `EngineEnvironmentError`
+
+```typescript
+class EngineEnvironmentError extends Error {}
+```
+
+Thrown by the `AudioEngine` constructor — and therefore by `createEngine` — when no `AudioContext` constructor exists and no context was supplied. It replaces a bare `ReferenceError: AudioContext is not defined`, and its message names the fix for the environment it landed in:
+
+- **No `window`** (a server or build-time render): audiorective is client-only. Render the audio subtree client-only so its modules are never evaluated on the server — see [Server-rendered frameworks](/docs/client-boundary/).
+- **A `window` but no Web Audio** (jsdom, for instance): pass a context explicitly, or run in a browser.
+
+---
+
 ### `createEngine(setup, options?)`
 
 Vue setup-style factory that replaces subclassing for the common case. User-defined properties are top-level; engine lifecycle is accessed via `.core`.
@@ -850,6 +865,8 @@ function createEngine<T extends Record<string, unknown>>(
 ```
 
 Auto-registers all `AudioProcessor` instances from the returned object. Only one reserved key: `"core"` — using it in the returned object is a compile-time type error and a runtime throw.
+
+Throws [`EngineEnvironmentError`](#engineenvironmenterror) if the environment has no `AudioContext` constructor. Passing your own context — `createEngine(setup, { context })` — bypasses the check entirely, which is how you run against a mock or a host-provided context. The throw happens before `setup` runs, so a failed call never leaves a partly built graph behind.
 
 ```typescript
 const engine = createEngine((ctx) => {
