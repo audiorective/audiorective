@@ -1,6 +1,6 @@
 {
   "name": "@audiorective/core",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Reactive primitives for Web Audio — Param, AudioProcessor, AudioEngine",
   "type": "module",
   "license": "MIT",

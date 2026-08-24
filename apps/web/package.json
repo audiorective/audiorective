@@ -2,7 +2,7 @@
   "name": "@audiorective/web",
   "private": true,
   "type": "module",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "engines": {
     "node": ">=22.12.0"
   },
