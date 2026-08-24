@@ -11,6 +11,29 @@ This file exists so an agent (or human) hitting an "API not found / undefined /
 type error" on a documented API can tell whether the installed package simply
 predates that API. See the "Version mismatches" note in the skill.
 
+## [2.2.0] - 2026-08-24
+
+### Added
+
+- **core:** `EngineEnvironmentError` — thrown by the `AudioEngine` constructor
+  (and therefore by `createEngine`) when the environment has no `AudioContext`
+  constructor, instead of a bare `ReferenceError: AudioContext is not defined`.
+  The message names the fix for the environment it landed in: on a server or
+  build-time render it points at the client-only boundary
+  (`next/dynamic` with `ssr: false`, Astro `client:only`); in a DOM without Web
+  Audio (jsdom) it points at passing a context. Supplying one —
+  `createEngine(setup, { context })` or `new AudioEngine(ctx)` — never triggers
+  it, and the check runs before `setup`, so a failed call leaves no half-built
+  graph.
+
+### Changed
+
+- **docs, skill:** audiorective is documented as officially client-only. New
+  guide "Server-rendered frameworks" (`docs/client-boundary.md`) covers the
+  boundary pattern for Next.js/Remix/Astro, why `'use client'` is not a
+  boundary, how to choose the seam, and troubleshooting. The agent skill gained
+  a matching top-level rule.
+
 ## [2.1.1] - 2026-08-15
 
 ### Fixed
