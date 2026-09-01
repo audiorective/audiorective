@@ -93,7 +93,9 @@ const nodes = defineNodes({
 ```
 
 - Accepts a record whose values are `AudioNode | AudioProcessor`. Returns the
-  same record, typed, so every key is known at compile time.
+  same record, typed, so every key is known at compile time. The keys `input`,
+  `output` and `destination` are reserved for edge endpoints (1.3, 1.5) and are
+  a type error as node names.
 - `AudioWorkletNode` is rejected at the type level (structurally: a value with
   `port` and `parameters`) and at runtime (`instanceof` throws). Its latency is
   unknowable from outside; wrap it in a processor that declares.
