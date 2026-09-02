@@ -375,6 +375,8 @@ engine.getPathLatency(proc: AudioProcessor): number; // samples from proc's outp
 
 `perceivedTime` is what a visualizer or a record-quantize step should compare against instead of `ctx.currentTime`. `getPathLatency(proc)` throws [`LatencyUnknownError`](#latencyunknownerror) when `proc` has never appeared in a `defineGraph` — a processor built but never wired has no path to measure.
 
+See the [Latency Lab demo](../apps/web/src/demos/latency-lab) for compensation, bypass, a runtime-adjustable worklet latency, and `perceivedTime`-driven UI sync working together.
+
 ### `LatencyUnknownError`
 
 ```typescript
