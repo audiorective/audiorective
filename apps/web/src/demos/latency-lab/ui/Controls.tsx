@@ -51,7 +51,10 @@ export function Controls() {
           onChange={(e) => {
             if (!limiter) return;
             const ms = Number(e.target.value);
-            limiter.latency.value = Math.round((ms / 1000) * core.context.sampleRate);
+            const samples = Math.round((ms / 1000) * core.context.sampleRate);
+            const min = limiter.latency.min ?? 1;
+            const max = limiter.latency.max ?? core.context.sampleRate;
+            limiter.latency.value = Math.min(Math.max(samples, min), max);
           }}
         />
         <span className="controls__slider-value">{Math.round(lookaheadMs)} ms</span>
