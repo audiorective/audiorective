@@ -98,7 +98,8 @@ internal.
 
 ### 2.2 `LookaheadLimiter`
 
-- Demo-local worklet (`limiter.worklet.ts`): a ring-buffer delay of
+- Demo-local worklet (`apps/web/public/worklets/lookahead-limiter.js`, a plain
+  ES module loaded with `ctx.audioWorklet.addModule`): a ring-buffer delay of
   `lookahead` samples plus a peak-tracking gain computer applied to the
   delayed signal — simple, real DSP whose latency is exactly the ring
   buffer length.
@@ -107,9 +108,11 @@ internal.
   lookahead slider (5–100 ms) writes that Param; a bind effect forwards the
   sample count to the worklet through its message port. Moving the slider
   therefore re-solves the graph live.
-- Ships with an `@audiorective/devtools` `assertLatency` pin test. If
-  `apps/web` has no browser-mode vitest harness, the test gets a minimal
-  `vitest.config.ts` beside it mirroring `packages/core`'s.
+- Ships with a latency pin test at 44.1 k and 48 k. `assertLatency` takes a
+  synchronous `build(ctx)` and owns its `OfflineAudioContext`, but a worklet
+  module must be added to the exact context that renders, so the test
+  reproduces the impulse measurement with a pre-loaded offline context
+  instead of calling `assertLatency` directly.
 
 ### 2.3 Root graph
 
