@@ -15,17 +15,24 @@ function Hint() {
 
 function Ready() {
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void engine.ready.then(() => {
-      if (!cancelled) setReady(true);
-    });
+    engine.ready.then(
+      () => {
+        if (!cancelled) setReady(true);
+      },
+      (err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      },
+    );
     return () => {
       cancelled = true;
     };
   }, []);
 
+  if (error) return <p className="app__hint">Limiter failed to load: {error}</p>;
   if (!ready) return <p className="app__hint">Loading limiter…</p>;
 
   return (

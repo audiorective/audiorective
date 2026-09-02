@@ -38,7 +38,10 @@ export class LookaheadLimiter extends AudioProcessor<{ ceiling: SchedulableParam
       params: {
         ceiling: param({ default: opts.ceiling ?? 0.9, bind: node.parameters.get("ceiling")! }),
       },
-      latency: param({ default: Math.round(lookaheadSeconds * ctx.sampleRate), min: 1, max: ctx.sampleRate }),
+      // Capped a block (128 samples) below `ctx.sampleRate`: the worklet's ring buffer is
+      // sized to `sampleRate` samples, and a lookahead within one block of that reads back
+      // into the block the processor just wrote, rather than genuinely older audio.
+      latency: param({ default: Math.round(lookaheadSeconds * ctx.sampleRate), min: 1, max: ctx.sampleRate - 128 }),
     }));
 
     this._node = node;

@@ -1,4 +1,5 @@
 import { AudioProcessor, Cell, type Param } from "@audiorective/core";
+import type { TickWindow } from "./tick";
 
 /** Oldest-dropped ring size for `ticks`. */
 const MAX_TICKS = 64;
@@ -8,15 +9,6 @@ const FREQUENCY_HZ = 1000;
 const ATTACK_SECONDS = 0.001;
 const DECAY_SECONDS = 0.03;
 const BURST_SECONDS = 0.04;
-
-/** The slice of a tick window `schedule()` reads: the pattern ruler's grid. */
-export interface ClickTickWindow {
-  rulers: {
-    pattern: {
-      grid(division: number): Iterable<{ time: number; step: number }>;
-    };
-  };
-}
 
 /**
  * Output-only metronome: a fresh oscillator burst per beat, gated by `enabled`.
@@ -44,7 +36,7 @@ export class Click extends AudioProcessor<{ enabled: Param<boolean> }> {
     return this._output;
   }
 
-  schedule(window: ClickTickWindow): void {
+  schedule(window: TickWindow): void {
     if (!this.enabled.value) return;
     for (const { time } of window.rulers.pattern.grid(4)) {
       this._burst(time);

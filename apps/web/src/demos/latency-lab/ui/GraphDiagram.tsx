@@ -94,11 +94,15 @@ export function GraphDiagram() {
 
   const sampleRate = core.context.sampleRate;
   const latencyMs = (latency / sampleRate) * 1000;
+  // Read fresh on every render — cheapest way to keep it current without a
+  // requestAnimationFrame loop, since a render already happens on every solve
+  // (`solveTick` above) and every latency/PDC change.
+  const perceivedTime = core.perceivedTime;
 
   return (
     <div className="diagram">
       <div className="diagram__header">
-        engine.latency: {latency} samples ({latencyMs.toFixed(1)} ms) · PDC {pdcEnabled ? "on" : "off"}
+        engine.latency: {latency} samples ({latencyMs.toFixed(1)} ms) · perceived: {perceivedTime.toFixed(3)} s · PDC {pdcEnabled ? "on" : "off"}
       </div>
       <svg className="diagram__svg" viewBox="0 0 760 240" role="img" aria-label="Audio graph diagram">
         <defs>

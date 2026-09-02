@@ -1,5 +1,6 @@
 import { AudioProcessor, Cell, Sampler } from "@audiorective/core";
 import type { DrumKit } from "../../sequencer/audio/drumKit";
+import type { TickWindow } from "./tick";
 
 type BeatVoiceId = "kick" | "snare" | "hat";
 
@@ -15,15 +16,6 @@ const MAX_HITS = 64;
 
 export interface BeatOptions {
   kit: DrumKit;
-}
-
-/** The slice of a tick window `schedule()` reads: the pattern ruler's grid. */
-export interface BeatTickWindow {
-  rulers: {
-    pattern: {
-      grid(division: number): Iterable<{ time: number; step: number }>;
-    };
-  };
 }
 
 /**
@@ -57,7 +49,7 @@ export class Beat extends AudioProcessor {
     return this._output;
   }
 
-  schedule(window: BeatTickWindow): void {
+  schedule(window: TickWindow): void {
     for (const { time, step } of window.rulers.pattern.grid(16)) {
       for (const voice of Object.keys(PATTERN_STEPS) as BeatVoiceId[]) {
         if (!PATTERN_STEPS[voice].includes(step)) continue;

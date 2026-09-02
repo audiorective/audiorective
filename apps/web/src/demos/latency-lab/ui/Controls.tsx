@@ -11,7 +11,9 @@ export function Controls() {
   const bypassed = useValue(lab.limiterBypassed);
   const clickEnabled = useValue(click.enabled);
   const limiter = lab.limiter;
-  const lookaheadMs = limiter ? (limiter.latency.value / core.context.sampleRate) * 1000 : LOOKAHEAD_MIN_MS;
+  if (!limiter) throw new Error("Controls mounted before the limiter was attached — it should only render once `engine.ready` resolves.");
+  const latencySamples = useValue(limiter.latency);
+  const lookaheadMs = (latencySamples / core.context.sampleRate) * 1000;
 
   const playing = state === "playing";
 
@@ -46,10 +48,8 @@ export function Controls() {
           max={LOOKAHEAD_MAX_MS}
           step={1}
           defaultValue={lookaheadMs}
-          disabled={!limiter}
           aria-label="Lookahead"
           onChange={(e) => {
-            if (!limiter) return;
             const ms = Number(e.target.value);
             const samples = Math.round((ms / 1000) * core.context.sampleRate);
             const min = limiter.latency.min ?? 1;

@@ -30,12 +30,15 @@ function buildLabResult(ctx: AudioContext, defineGraph: DefineGraph, coreRef: { 
   // bypassed — since the worklet it needs loads asynchronously.
   const lab = new Lab(ctx, { beat, click, split, dry, master }, defineGraph);
 
+  // Rejects if the worklet module fails to load (e.g. a 404 or a syntax error
+  // in it) — callers must handle that instead of waiting on it forever.
   const ready = loadLimiterWorklet(ctx).then(() => {
     const limiter = new LookaheadLimiter(ctx);
     lab.attach(limiter);
     // Registered here rather than by `createEngine`'s scan of the setup's
     // return value: the limiter doesn't exist until after that scan has run.
-    coreRef.current?.register(limiter);
+    if (!coreRef.current) throw new Error("createLabSetup: attach(core) must be called before `ready` resolves.");
+    coreRef.current.register(limiter);
   });
 
   return { beat, click, split, dry, master, timeline, clock, lab, ready };

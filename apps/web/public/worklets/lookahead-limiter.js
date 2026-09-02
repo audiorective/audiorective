@@ -11,6 +11,9 @@ class LookaheadLimiterProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this._maxLookahead = Math.round(sampleRate * MAX_LOOKAHEAD_SECONDS);
+    // Matches `LookaheadLimiter.ts`'s own default; overwritten by the first
+    // `port.onmessage` the Param's constructor effect sends right after this node
+    // is created, so this value is only ever heard for the first render quantum.
     this._lookahead = Math.round(0.02 * sampleRate);
     this._rings = [];
     this._writeHead = 0;

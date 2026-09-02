@@ -43,6 +43,6 @@ export const demos: Demo[] = [
     thumb: "/showroom/latency-lab.jpg",
     route: "/showroom/latency-lab",
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/latency-lab",
-    packages: ["@audiorective/core", "@audiorective/clock", "@audiorective/react", "@audiorective/devtools"],
+    packages: ["@audiorective/core", "@audiorective/clock", "@audiorective/react"],
   },
 ];
