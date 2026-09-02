@@ -131,10 +131,11 @@ this.graph = defineGraph(() => [
 - Returns a handle with `dispose()`; `AudioProcessor.destroy()` disposes any
   graph the processor created. The graph is discovered from the edges — nodes
   appear by being connected; `defineGraph` never invents nodes.
-- Available as a build helper alongside `param`/`cell` (owned by the
-  processor under construction) and as a standalone export,
-  `defineGraph(fn, { context, compensate? })`, for graphs owned by no
-  processor (the engine's root graph uses this form internally).
+- Available as a protected instance method, `this.defineGraph(fn, opts?)`,
+  used after `super()` like `effect()`/`computed()` (the edge callback reads
+  `this.params`, which does not exist during the build callback), and as a
+  standalone export `defineGraph(fn, { context, compensate? })` for graphs
+  owned by no processor (the engine's root graph uses this form internally).
 
 ### 1.4 Compensation
 
@@ -188,11 +189,13 @@ const engine = createEngine(({ ctx, defineGraph }) => {
 - The root graph's sink is `ctx.destination`, referenced directly — no
   reserved name. It is the one graph the engine owns; compensation at the
   destination join works exactly as in 1.4.
-- `engine.latency: Param<number>` — samples, longest path into the destination.
-- `engine.perceivedTime` — `ctx.currentTime + engine.latency / sampleRate + ctx.outputLatency`
+- Queries live on `AudioEngine` (so `engine.core.latency` for a
+  `createEngine` consumer): `latency: Param<number>` — samples, longest path
+  into the destination.
+- `perceivedTime` — `ctx.currentTime + engine.latency / sampleRate + ctx.outputLatency`
   (`outputLatency` read as 0 where unsupported). What visualizers and
   record-quantize should compare against instead of `currentTime`.
-- `engine.getPathLatency(proc)` — samples from `proc`'s output to the
+- `getPathLatency(proc)` — samples from `proc`'s output to the
   destination: `proc`'s owning graph knows `arrival(output)` for it, plus the
   owning processor's own path, recursively. Every processor records the graph
   that owns it when it is placed in one; a processor in no graph throws
