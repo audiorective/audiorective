@@ -24,21 +24,33 @@ Three deliverables:
 
 ## Background
 
-- The Notion pages "Latency Compensation (PDC)", "@audiorective/effects" and the
-  "Graph Helpers (not yet implemented)" section of "@audiorective/core" describe
-  the intent. This spec merges the first and third: the graph helper's edge list
-  is the topology PDC needs, so compensation is a feature of the graph helper
-  rather than a separate subsystem.
-- The tmc-cl1 field report (2026-08-24) evidences the need: a hand-tuned
-  `LATENCY_COMPENSATION = 0.1` starts a dry metronome late to line up with pads
-  routed through a pitch-shift chain, and subtracts the same constant back out
-  in record quantization. Both uses collapse into `latency` + `getPathLatency`.
-- `AGENTS.md` lists `defineNodes`/`connectNodes` as a design rule and the
-  Notion core page sketches a two-phase `defineNodes` + `defineGraph` API;
-  neither exists in `packages/core/src`. This spec supersedes both with a
-  single `defineGraph` over direct references: edges name nodes by variable,
-  so the typed-key map (`defineNodes`) has nothing left to add — reference
-  safety comes from the language.
+- **The problem.** Web Audio's connection API is imperative (`connect`/
+  `disconnect` with no diffing, no cleanup, no introspection), and it exposes
+  no latency information: there is no way to ask a node how many samples it
+  delays its output. Processors that buffer internally (worklet lookahead,
+  FFT hops) therefore knock parallel paths out of alignment, and every app
+  that mixes a buffered path with a dry one ends up hand-tuning offsets.
+  DAWs solved this decades ago with declared latency + plugin delay
+  compensation (JUCE `setLatencySamples`, VST `kLatencyChanged`); no web
+  audio library provides either.
+- **Why one mechanism.** Compensation needs the graph topology, and a
+  declarative wiring helper _has_ the topology — its edge list. So graph
+  wiring and PDC ship as one feature: `defineGraph` diffs connections
+  reactively and re-solves latency in the same pass, rather than as two
+  subsystems that must agree.
+- **Evidence from a real consumer (tmc-cl1, cassette-machine app,
+  2026-08-24 audit).** The app hand-tunes `LATENCY_COMPENSATION = 0.1`:
+  its dry metronome is started 0.1 s late so it lines up with pads routed
+  through a pitch-shift chain, and the same constant is subtracted back out
+  when quantizing recorded taps. Both uses collapse into `latency` +
+  `getPathLatency`.
+- What does and doesn't cause latency: Web Audio renders the whole graph
+  synchronously per 128-sample quantum, so every native node — including
+  `ConvolverNode` and `DelayNode` (whose delay is intentional) — adds zero
+  signal-path latency. Real latency comes from processors that buffer beyond
+  the quantum, plus system output latency (`baseLatency`/`outputLatency`,
+  queryable). Hence declared latency, not measurement at runtime — and a
+  dev-time measurement tool to keep declarations honest.
 
 ## Decisions (locked)
 
@@ -47,7 +59,7 @@ Three deliverables:
 | Compensation model            | Local: solved per graph at join points; nested graphs compose through each processor's single `latency` number                                                                      |
 | Compensated scope             | Only edges declared through `defineGraph`. Raw `.connect()` is neither tracked nor compensated                                                                                      |
 | Node types                    | Edge endpoints are direct references: native `AudioNode`s (latency 0), `AudioProcessor`s (their `latency`), `AudioParam`/`SchedulableParam` sinks; bare `AudioWorkletNode` rejected |
-| Node naming                   | No `defineNodes`, no string keys. Optional per-edge `label` for error messages                                                                                                      |
+| Node naming                   | Direct references only — no string keys, no node registry. Optional per-edge `label` for error messages                                                                             |
 | Native-node wrapper           | None. A worklet is wrapped by writing the `AudioProcessor` that declares its latency                                                                                                |
 | Latency unit                  | Samples. Converted to seconds only when writing a compensating `DelayNode`                                                                                                          |
 | Latency source on a processor | Derived from its own graph when it uses `defineGraph`; a value declared in the build callback overrides the derived one                                                             |
@@ -88,9 +100,8 @@ modulation) is not latency; those effects declare 0.
 ### 1.2 `defineGraph`
 
 Edges reference nodes directly — the variables and fields the processor
-already holds — not string keys. There is no `defineNodes` and no node map;
-reference safety comes from the language (a nonexistent node cannot be named),
-and autocomplete and rename work natively.
+already holds. Reference safety comes from the language (a nonexistent node
+cannot be named), and autocomplete and rename work natively.
 
 ```ts
 // locals before super(), per the existing convention
@@ -217,8 +228,8 @@ show the `defineGraph` version.
   section gains the `latency` reading.
 - `docs/architecture.md`: the audio-layer list adds "graph wiring via
   `defineGraph`; raw `.connect()` only for leaf nodes inside a processor".
-- `AGENTS.md`: design rule 6 corrected from `defineNodes`/`connectNodes` to
-  `defineGraph`.
+- `AGENTS.md`: design rule 6 names graph helpers that were never built;
+  rewrite it to describe `defineGraph`.
 - `skills/audiorective/`: rule and reference for graph helpers and latency.
 - `CHANGELOG.md` entry.
 
