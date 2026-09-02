@@ -125,4 +125,12 @@ describe("assertLatency", () => {
   it("a compensated composite passes with tolerance 0", async () => {
     await expect(assertLatency((ctx) => new Wet(ctx), { tolerance: 0 })).resolves.toBeUndefined();
   });
+
+  it("fits neither model when runs disagree beyond both constant and scaling tolerance", async () => {
+    // 100 samples @44100 and 700 samples @48000 fit neither a constant-samples
+    // nor a rate-scaling model, so neither branch of formatMismatch applies.
+    const uneven = latent((rate) => (rate === 48000 ? 700 : 100), 100);
+    await expect(assertLatency(uneven)).rejects.toThrow(/fits neither a samples nor a time model/);
+    await expect(assertLatency(uneven)).rejects.not.toThrow(/latency:/);
+  });
 });
