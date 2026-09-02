@@ -16,5 +16,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests/graph.types.ts"]
+  "include": ["src", "tests"]
 }

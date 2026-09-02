@@ -1,15 +1,89 @@
 import { signal, effect } from "alien-signals";
 import { AudioProcessor } from "./AudioProcessor";
-import { assertAudioContextAvailable } from "./errors";
+import { assertAudioContextAvailable, LatencyUnknownError } from "./errors";
+import { defineGraph as defineGraphFn, _graphRegistry, NodeNotInSolveError } from "./graph";
+import type { EdgeList, GraphHandle, GraphOptions } from "./graph";
+import { Param } from "./Param";
 import type { EngineState, SignalAccessor } from "./types";
 
 const DEFAULT_AUTO_START_EVENTS = ["click", "keydown", "touchstart"] as const;
+
+// Samples from `proc`'s output to the destination of the graph that (transitively)
+// owns it. Recurses through a nested processor's own graph via a registration's
+// `owner` link, so a processor several composites deep still resolves.
+//
+// `proc` may hold a live registration in more than one graph at once (e.g. wired into
+// two engine-owned graphs). Each is tried independently — one whose path doesn't
+// currently resolve (a stale registration, or an owner whose own path doesn't
+// resolve) is skipped rather than failing the whole query. Among the ones that do
+// resolve, a root registration (no `owner` — an engine-owned or otherwise ownerless
+// graph) is preferred over a nested composite's own graph, since that's the direct
+// path; ties (including among non-root registrations) go to the longest resolved
+// path, matching `latency`'s "longest path into the destination" semantics.
+function resolvePathLatency(proc: AudioProcessor): number {
+  const regs = _graphRegistry.get(proc);
+  if (!regs || regs.size === 0) {
+    throw new LatencyUnknownError(proc.constructor.name);
+  }
+
+  let best: number | undefined;
+  let bestIsRoot = false;
+  for (const [handle, { owner, sink }] of regs) {
+    // `proc` may sit in a graph component that never reaches this registration's
+    // sink (a disconnected branch of the same graph) — its solved arrival numbers
+    // are real but unrelated, so subtracting them would fabricate a latency.
+    if (!handle.reaches(proc, sink)) continue;
+
+    let pathLatency: number;
+    try {
+      pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
+    } catch (err) {
+      if (!(err instanceof NodeNotInSolveError)) throw err;
+      // This registration is stale (its graph re-solved without `proc`, or without
+      // `sink`) — try the next one instead of failing the whole query.
+      continue;
+    }
+    // Reachability should already rule this out; guard anyway so a fabricated
+    // negative number is never returned.
+    if (pathLatency < 0) continue;
+
+    let total: number;
+    if (owner) {
+      try {
+        total = pathLatency + resolvePathLatency(owner);
+      } catch (err) {
+        if (!(err instanceof LatencyUnknownError)) throw err;
+        continue;
+      }
+    } else {
+      total = pathLatency;
+    }
+
+    const isRoot = owner === undefined;
+    if (best === undefined || (isRoot && !bestIsRoot) || (isRoot === bestIsRoot && total > best)) {
+      best = total;
+      bestIsRoot = isRoot;
+    }
+  }
+
+  if (best === undefined || best < 0) {
+    throw new LatencyUnknownError(proc.constructor.name);
+  }
+  return best;
+}
 
 export class AudioEngine {
   private readonly _context: AudioContext;
   private _processors: AudioProcessor[] = [];
   private _state: SignalAccessor<EngineState> = signal<EngineState>("idle");
   private _cachedPromise: Promise<void> | null = null;
+  private _graphs: GraphHandle[] = [];
+  // Each engine-owned graph's most recent destination arrival, keyed by an identity
+  // token private to that graph — not the graph itself, so a graph whose own last
+  // solve didn't touch the destination just keeps its prior entry (or none) instead
+  // of clobbering it with `undefined`. `latency` is always the max across this map.
+  private _graphLatency = new Map<object, number>();
+  readonly latency: Param<number> = new Param({ default: 0 });
 
   constructor(existingContext?: AudioContext) {
     if (existingContext === undefined) assertAudioContextAvailable();
@@ -28,6 +102,64 @@ export class AudioEngine {
 
   get state(): SignalAccessor<EngineState> {
     return this._state;
+  }
+
+  /** `currentTime` advanced by the root graph's compensated latency and the context's output latency. */
+  get perceivedTime(): number {
+    const ctx = this._context;
+    const outputLatency = "outputLatency" in ctx && typeof ctx.outputLatency === "number" ? ctx.outputLatency : 0;
+    return ctx.currentTime + this.latency.value / ctx.sampleRate + outputLatency;
+  }
+
+  defineGraph(fn: () => EdgeList, opts?: Omit<GraphOptions, "context">): GraphHandle {
+    const token = {};
+    const inner = defineGraphFn(fn, {
+      ...opts,
+      context: this._context,
+      onSolve: (h) => {
+        // A graph contributes only while its last solve actually reaches the
+        // destination — one that no longer does drops its entry instead of
+        // keeping a stale arrival.
+        try {
+          this._graphLatency.set(token, h.arrivalOf(this._context.destination));
+        } catch (err) {
+          if (!(err instanceof NodeNotInSolveError)) throw err;
+          this._graphLatency.delete(token);
+        }
+        this._recomputeLatency();
+        opts?.onSolve?.(h);
+      },
+    });
+    const handle: GraphHandle = {
+      dispose: () => {
+        inner.dispose();
+        this._graphLatency.delete(token);
+        this._recomputeLatency();
+        // Otherwise a disposed-and-rebuilt graph (e.g. every `setPdc` toggle)
+        // leaves a dead handle behind, and `_graphs` grows without bound.
+        const idx = this._graphs.indexOf(handle);
+        if (idx !== -1) this._graphs.splice(idx, 1);
+      },
+      arrivalOf: (node) => inner.arrivalOf(node),
+      snapshot: () => inner.snapshot(),
+      idOf: (endpoint) => inner.idOf(endpoint),
+      reaches: (from, to) => inner.reaches(from, to),
+    };
+    this._graphs.push(handle);
+    return handle;
+  }
+
+  // `latency` is the longest path into the destination across every engine-owned
+  // graph currently live — not just whichever one solved most recently.
+  private _recomputeLatency(): void {
+    let max = 0;
+    for (const v of this._graphLatency.values()) if (v > max) max = v;
+    this.latency.value = max;
+  }
+
+  /** Samples from `proc`'s output to `ctx.destination`, following its graph ownership chain. */
+  getPathLatency(proc: AudioProcessor): number {
+    return resolvePathLatency(proc);
   }
 
   untilReady(): Promise<void> {
@@ -118,8 +250,14 @@ export class AudioEngine {
 
   destroy(): void {
     if (this._state() === "destroyed") return;
+    // Copy first: each `dispose()` splices itself out of `_graphs`, which
+    // would skip entries if this loop iterated the live array directly.
+    for (const graph of [...this._graphs]) graph.dispose();
+    this._graphs = [];
+    this._graphLatency.clear();
     for (const p of this._processors) p.destroy();
     this._processors = [];
+    this.latency.destroy();
     this._context.close();
     this._state("destroyed");
     this._cachedPromise = null;
@@ -132,12 +270,16 @@ type ValidSetupReturn<T> = {
   [K in keyof T]: K extends "core" ? never : T[K];
 };
 
+export interface EngineSetupHelpers {
+  defineGraph: AudioEngine["defineGraph"];
+}
+
 export function createEngine<T extends Record<string, unknown>>(
-  setup: (context: AudioContext) => ValidSetupReturn<T>,
+  setup: (context: AudioContext, helpers: EngineSetupHelpers) => ValidSetupReturn<T>,
   options?: { context?: AudioContext },
 ): T & { core: AudioEngine } {
   const engine = new AudioEngine(options?.context);
-  const result = setup(engine.context);
+  const result = setup(engine.context, { defineGraph: (fn, o) => engine.defineGraph(fn, o) });
 
   if ("core" in result) {
     throw new Error('createEngine: setup returned reserved key "core"');

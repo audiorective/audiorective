@@ -36,4 +36,13 @@ export const demos: Demo[] = [
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/pixi",
     packages: ["@audiorective/core", "pixi.js"],
   },
+  {
+    slug: "latency-lab",
+    title: "Latency Lab",
+    blurb: "A drum kit split into a lookahead-limited path and a dry path: watch defineGraph rewire live and PDC snap the two into sample alignment.",
+    thumb: "/showroom/latency-lab.jpg",
+    route: "/showroom/latency-lab",
+    source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/latency-lab",
+    packages: ["@audiorective/core", "@audiorective/clock", "@audiorective/react"],
+  },
 ];

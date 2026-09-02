@@ -3,6 +3,8 @@ import type { ParamBind, ParamOptions, ComputedAccessor } from "./types";
 import { Param } from "./Param";
 import { SchedulableParam } from "./SchedulableParam";
 import { Cell } from "./Cell";
+import { defineGraph as defineGraphFn } from "./graph";
+import type { EdgeList, GraphHandle, ValidateEdges } from "./graph";
 
 // Registry constraints use `any` rather than `unknown` because Param<T>/Cell<T> have
 // T in both reader and writer position, making them invariant in T. Subclasses still
@@ -24,18 +26,25 @@ type Undeclared<Msg extends string> = { [K in Msg]: never };
 export type BuildResult<P extends ParamRegistry, C extends CellRegistry> = (string extends keyof P
   ? { params?: Undeclared<"Error: params not declared — add a P type parameter to AudioProcessor"> }
   : { params: P }) &
-  (string extends keyof C ? { cells?: Undeclared<"Error: cells not declared — add a C type parameter to AudioProcessor"> } : { cells: C });
+  (string extends keyof C ? { cells?: Undeclared<"Error: cells not declared — add a C type parameter to AudioProcessor"> } : { cells: C }) & {
+    latency?: number | Param<number>;
+  };
 
 export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C extends CellRegistry = CellRegistry> {
-  readonly context: AudioContext;
+  readonly context: BaseAudioContext;
   readonly params: Readonly<P>;
   readonly cells: Readonly<C>;
+  readonly latency: Param<number>;
+  /** Whether the build callback supplied `latency` itself, rather than defaulting to 0. */
+  readonly declaredLatency: boolean;
 
   private readonly _silencer: GainNode;
+  private readonly _ownsLatency: boolean;
   private _constantSources = new Set<ConstantSourceNode>();
   private _effects: (() => void)[] = [];
+  private _graphs: GraphHandle[] = [];
 
-  protected constructor(context: AudioContext, build: (helpers: BuildHelpers) => BuildResult<P, C>) {
+  protected constructor(context: BaseAudioContext, build: (helpers: BuildHelpers) => BuildResult<P, C>) {
     this.context = context;
 
     this._silencer = new GainNode(context);
@@ -87,6 +96,11 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
     const result = build(helpers);
     this.params = Object.freeze("params" in result ? result.params : {}) as Readonly<P>;
     this.cells = Object.freeze("cells" in result ? result.cells : {}) as Readonly<C>;
+
+    const declared = "latency" in result ? (result as { latency?: number | Param<number> }).latency : undefined;
+    this.declaredLatency = declared !== undefined;
+    this._ownsLatency = !(declared instanceof Param);
+    this.latency = declared instanceof Param ? declared : new Param({ default: declared ?? 0 });
   }
 
   abstract get output(): AudioNode | undefined;
@@ -105,7 +119,19 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
     return stop;
   }
 
+  protected defineGraph<const E extends EdgeList>(fn: () => readonly [...ValidateEdges<E>], opts?: { compensate?: boolean }): GraphHandle;
+  protected defineGraph(fn: () => EdgeList, opts?: { compensate?: boolean }): GraphHandle {
+    const handle = defineGraphFn(fn, { context: this.context, compensate: opts?.compensate, owner: this });
+    this._graphs.push(handle);
+    return handle;
+  }
+
   destroy(): void {
+    for (const graph of this._graphs) {
+      graph.dispose();
+    }
+    this._graphs = [];
+
     for (const stop of this._effects) {
       stop();
     }
@@ -113,6 +139,12 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
 
     for (const param of Object.values(this.params)) {
       param.destroy();
+    }
+
+    // A caller-supplied Param belongs to their own params registry (or their own
+    // ownership) and is destroyed there; only the one we created ourselves is ours to stop.
+    if (this._ownsLatency) {
+      this.latency.destroy();
     }
 
     for (const source of this._constantSources) {

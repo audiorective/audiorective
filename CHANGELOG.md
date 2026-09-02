@@ -11,6 +11,94 @@ This file exists so an agent (or human) hitting an "API not found / undefined /
 type error" on a documented API can tell whether the installed package simply
 predates that API. See the "Version mismatches" note in the skill.
 
+## [Unreleased]
+
+### Added
+
+- **core:** `defineGraph` — a declarative, reactive audio graph helper. Edges
+  reference nodes and processors directly (`[from, to]`, an options bag for
+  multi-channel connections and a debug `label`, or a falsy entry to skip),
+  diff against the previous render on every re-run, and connect through a
+  processor's `input`/`output`. Available as `this.defineGraph(fn, opts?)`
+  (protected, after `super()`) and as the standalone `defineGraph(fn, {
+context, compensate? })` for a graph owned by no processor. A bare
+  `AudioWorkletNode` is rejected as an edge endpoint — wrap it in an
+  `AudioProcessor` that declares its latency.
+- **core:** `AudioProcessor.latency: Param<number>` — every processor's
+  processing latency in samples, defaulting to `0`. Declared as a fixed
+  number, a `Param<number>` (for a latency that changes at runtime), or a
+  time-based sample count (`Math.round(0.01 * ctx.sampleRate)`); derived
+  automatically from a processor's own `defineGraph` when left undeclared.
+  Plugin delay compensation runs on every `defineGraph` re-solve, splicing a
+  `DelayNode` into any branch that arrives at a join early so every incoming
+  edge lands in step.
+- **core:** engine latency queries — `AudioEngine.latency: Param<number>`
+  (longest path into `ctx.destination` across every engine-owned graph),
+  `AudioEngine.perceivedTime` (`ctx.currentTime` adjusted for latency and
+  `ctx.outputLatency`), and `AudioEngine.getPathLatency(proc)` (samples from
+  a processor's output to the destination). `createEngine`'s setup callback
+  gains a second `{ defineGraph }` argument for wiring the root graph; the
+  existing one-argument form still works.
+- **core:** `LatencyUnknownError` — thrown by `getPathLatency(proc)` when
+  `proc` has never appeared in a `defineGraph`, naming the processor instead
+  of silently returning `0`.
+- **core:** `GraphHandle.snapshot()` and `GraphHandle.idOf(endpoint)` — a
+  point-in-time view of a graph's last solve (`GraphSnapshot`: `solveId`,
+  `nodes` with `kind`/`label`/`latency`/`arrival`, `edges` with
+  `kind`/`compensationSamples`) and the stable id `snapshot()` assigns an
+  endpoint, for building diagrams or devtools off the solver's own state.
+  `GraphOptions.onSolve` is now documented as a public hook, called with the
+  handle after every solve.
+- **devtools:** new package, `@audiorective/devtools` — dev-only impulse
+  latency validator for `@audiorective/core` processors. `measureLatency`
+  renders a single-sample impulse through a processor offline at each
+  configured sample rate and reports where it arrives; `assertLatency` checks
+  that against the processor's declared `latency` and throws a message that
+  carries the `latency: ...` line to paste when it doesn't match.
+
+### Changed
+
+- **core:** `AudioProcessor.context` widens from `AudioContext` to
+  `BaseAudioContext`, so processors can be constructed against an
+  `OfflineAudioContext` for offline measurement. Existing code that passes
+  `proc.context` where an `AudioContext` is expected needs its own
+  `AudioContext` reference, or a cast, at that call site.
+- **core:** `Sampler` and `BufferPlayer` constructors widen their `ctx`
+  parameter from `AudioContext` to `BaseAudioContext` — neither uses any
+  `AudioContext`-only member, so both now build against an
+  `OfflineAudioContext` too.
+
+### Fixed
+
+- **core:** an engine-owned graph that stops reaching `ctx.destination` (an
+  edge condition turns false, the graph is disposed) drops its contribution
+  to `engine.core.latency` instead of leaving the last value it solved.
+- **core:** `getPathLatency` now always throws `LatencyUnknownError` for a
+  processor that isn't part of the current solve — one dropped from the edge
+  list, one whose owning graph was disposed, or one that only feeds an
+  `AudioParam` — instead of leaking `defineGraph`'s internal "not present in
+  the last solve" error for the first two cases.
+- **core:** a processor wired into more than one live graph no longer loses
+  `getPathLatency` when one of those graphs disposes or drops it — the
+  internal graph registry now keeps one registration per graph a processor
+  belongs to (instead of a single entry the most recently solved graph
+  overwrote), so `getPathLatency` keeps resolving through whichever
+  registration is still live.
+- **core:** `AudioEngine` no longer leaks a dead graph handle on every
+  dispose-and-rebuild (e.g. each `setPdc` toggle in the Latency Lab demo) —
+  a disposed handle now removes itself from the engine's internal graph
+  list, and `destroy()` iterates a copy of that list since each `dispose()`
+  mutates it mid-loop.
+- **devtools:** `measureLatency` destroys each per-sample-rate processor it
+  builds after rendering, instead of leaking one `OfflineAudioContext`-scoped
+  processor per configured rate.
+- **core:** `getPathLatency` no longer fabricates a latency for a processor
+  sitting in a disconnected component of the same graph (e.g. a branch that
+  feeds nothing reaching the destination, while another branch of the same
+  graph does) — it now throws `LatencyUnknownError` for that case instead of
+  subtracting two unrelated solved arrivals. `GraphHandle` gains
+  `reaches(from, to)` to answer the reachability check.
+
 ## [2.1.2] - 2026-08-24
 
 ### Added

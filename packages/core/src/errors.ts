@@ -5,6 +5,16 @@ export class EngineEnvironmentError extends Error {
   }
 }
 
+export class LatencyUnknownError extends Error {
+  constructor(processorName: string) {
+    super(
+      `${processorName}'s path latency is unknown: it hasn't appeared in a defineGraph. ` +
+        `Place it in a defineGraph — either its own processor's or the engine's — to make its path latency known.`,
+    );
+    this.name = "LatencyUnknownError";
+  }
+}
+
 /** Internal — not exported from the package index. */
 export function assertAudioContextAvailable(): void {
   if (typeof AudioContext !== "undefined") return;

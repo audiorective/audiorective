@@ -8,6 +8,8 @@ The audio layer must be fully operable without any UI framework. React (or any f
 
 **All audio operations live as methods on `AudioProcessor` subclasses.** UI components call these methods — they never orchestrate audio logic themselves.
 
+For how to write the class itself — skeleton, state, graph wiring, latency, lifecycle, tests — see [`authoring-processors.md`](./authoring-processors.md).
+
 ## The two axes
 
 The system has two independent spans, and a class can sit on one, the other, or both:
@@ -25,7 +27,7 @@ They compose rather than compete. A processor that needs timing **holds a `Clock
 
 ### Audio layer (`AudioProcessor` subclasses)
 
-- Audio graph construction and wiring
+- Audio graph construction and wiring — via `defineGraph`; raw `.connect()`/`.disconnect()` only for leaf nodes inside a processor
 - Envelope shaping, note triggering
 - Parameter automation sequences (ramps, sweeps, scheduled transitions)
 - Any operation that touches `AudioContext.currentTime` or schedules values on `AudioParam`
