@@ -3,7 +3,7 @@ export { SchedulableParam } from "./SchedulableParam";
 export { ParamSync, DEFAULT_SYNC_INTERVAL_MS } from "./ParamSync";
 export { AudioProcessor } from "./AudioProcessor";
 export { AudioEngine, createEngine } from "./AudioEngine";
-export { EngineEnvironmentError } from "./errors";
+export { EngineEnvironmentError, LatencyUnknownError } from "./errors";
 export { Cell, cell } from "./Cell";
 export { Spatial } from "./Spatial";
 export type { SpatialOptions } from "./Spatial";

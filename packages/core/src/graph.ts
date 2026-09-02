@@ -37,6 +37,8 @@ export interface GraphOptions {
   context: BaseAudioContext;
   compensate?: boolean;
   owner?: AudioProcessor;
+  /** Called after each solve completes — engine-internal, drives `AudioEngine.latency`. */
+  onSolve?: (handle: GraphHandle) => void;
 }
 
 export interface GraphHandle {
@@ -57,8 +59,10 @@ interface Wire {
 
 // Engine-internal: maps every AudioProcessor that has appeared as a graph endpoint to the
 // graph it last resolved in, so devtools (Task 4) can walk a processor to its solve state
-// without the caller threading handles through.
-export const _graphRegistry = new WeakMap<AudioProcessor, { handle: GraphHandle; owner?: AudioProcessor }>();
+// without the caller threading handles through. `sink` is the graph's own join point for
+// path-latency queries — the owner's output for a processor-owned graph, or the context's
+// destination for an engine-owned (ownerless) one.
+export const _graphRegistry = new WeakMap<AudioProcessor, { handle: GraphHandle; owner?: AudioProcessor; sink: GraphSource }>();
 
 function assertNotWorklet(node: AudioNode): void {
   if (typeof AudioWorkletNode !== "undefined" && node instanceof AudioWorkletNode) {
@@ -365,6 +369,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     // add a virtual `input → output` edge so arrival chains across it even though the
     // real connection lives inside the processor's own (separate) defineGraph.
     const seenProcessors = new Set<AudioProcessor>();
+    const sink: GraphSource = options.owner ?? options.context.destination;
     for (const e of edges) {
       if (!e) continue;
       const [from, to, opts] = e;
@@ -373,11 +378,11 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
       if (from instanceof AudioProcessor) {
         owners.set(fromNode, from);
         seenProcessors.add(from);
-        _graphRegistry.set(from, { handle, owner: options.owner });
+        _graphRegistry.set(from, { handle, owner: options.owner, sink });
       }
       if (to instanceof AudioProcessor) {
         seenProcessors.add(to);
-        _graphRegistry.set(to, { handle, owner: options.owner });
+        _graphRegistry.set(to, { handle, owner: options.owner, sink });
       }
       const wire: Wire = { fromNode, to: toEndpoint, output: opts?.output ?? 0, input: opts?.input ?? 0 };
       next.set(`${idOf(wire.fromNode)}>${idOf(wire.to)}@${wire.output},${wire.input}`, wire);
@@ -428,6 +433,8 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
         }
       }
     }
+
+    options.onSolve?.(handle);
   };
 
   const stop = effect(() => apply(fn()));

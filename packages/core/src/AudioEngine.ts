@@ -1,15 +1,33 @@
 import { signal, effect } from "alien-signals";
 import { AudioProcessor } from "./AudioProcessor";
-import { assertAudioContextAvailable } from "./errors";
+import { assertAudioContextAvailable, LatencyUnknownError } from "./errors";
+import { defineGraph as defineGraphFn, _graphRegistry } from "./graph";
+import type { EdgeList, GraphHandle, GraphOptions } from "./graph";
+import { Param } from "./Param";
 import type { EngineState, SignalAccessor } from "./types";
 
 const DEFAULT_AUTO_START_EVENTS = ["click", "keydown", "touchstart"] as const;
+
+// Samples from `proc`'s output to the destination of the graph that (transitively)
+// owns it. Recurses through a nested processor's own graph via the registry's
+// `owner` link, so a processor several composites deep still resolves.
+function resolvePathLatency(proc: AudioProcessor): number {
+  const entry = _graphRegistry.get(proc);
+  if (!entry) {
+    throw new LatencyUnknownError(proc.constructor.name);
+  }
+  const { handle, owner, sink } = entry;
+  const pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
+  return owner ? pathLatency + resolvePathLatency(owner) : pathLatency;
+}
 
 export class AudioEngine {
   private readonly _context: AudioContext;
   private _processors: AudioProcessor[] = [];
   private _state: SignalAccessor<EngineState> = signal<EngineState>("idle");
   private _cachedPromise: Promise<void> | null = null;
+  private _graphs: GraphHandle[] = [];
+  readonly latency: Param<number> = new Param({ default: 0 });
 
   constructor(existingContext?: AudioContext) {
     if (existingContext === undefined) assertAudioContextAvailable();
@@ -28,6 +46,35 @@ export class AudioEngine {
 
   get state(): SignalAccessor<EngineState> {
     return this._state;
+  }
+
+  /** `currentTime` advanced by the root graph's compensated latency and the context's output latency. */
+  get perceivedTime(): number {
+    const ctx = this._context;
+    const outputLatency = "outputLatency" in ctx && typeof ctx.outputLatency === "number" ? ctx.outputLatency : 0;
+    return ctx.currentTime + this.latency.value / ctx.sampleRate + outputLatency;
+  }
+
+  defineGraph(fn: () => EdgeList, opts?: Omit<GraphOptions, "context">): GraphHandle {
+    const handle = defineGraphFn(fn, {
+      ...opts,
+      context: this._context,
+      onSolve: (h) => {
+        try {
+          this.latency.value = h.arrivalOf(this._context.destination);
+        } catch {
+          // The destination didn't participate in this solve — leave latency as-is.
+        }
+        opts?.onSolve?.(h);
+      },
+    });
+    this._graphs.push(handle);
+    return handle;
+  }
+
+  /** Samples from `proc`'s output to `ctx.destination`, following its graph ownership chain. */
+  getPathLatency(proc: AudioProcessor): number {
+    return resolvePathLatency(proc);
   }
 
   untilReady(): Promise<void> {
@@ -118,8 +165,11 @@ export class AudioEngine {
 
   destroy(): void {
     if (this._state() === "destroyed") return;
+    for (const graph of this._graphs) graph.dispose();
+    this._graphs = [];
     for (const p of this._processors) p.destroy();
     this._processors = [];
+    this.latency.destroy();
     this._context.close();
     this._state("destroyed");
     this._cachedPromise = null;
@@ -132,12 +182,16 @@ type ValidSetupReturn<T> = {
   [K in keyof T]: K extends "core" ? never : T[K];
 };
 
+export interface EngineSetupHelpers {
+  defineGraph: AudioEngine["defineGraph"];
+}
+
 export function createEngine<T extends Record<string, unknown>>(
-  setup: (context: AudioContext) => ValidSetupReturn<T>,
+  setup: (context: AudioContext, helpers: EngineSetupHelpers) => ValidSetupReturn<T>,
   options?: { context?: AudioContext },
 ): T & { core: AudioEngine } {
   const engine = new AudioEngine(options?.context);
-  const result = setup(engine.context);
+  const result = setup(engine.context, { defineGraph: (fn, o) => engine.defineGraph(fn, o) });
 
   if ("core" in result) {
     throw new Error('createEngine: setup returned reserved key "core"');
