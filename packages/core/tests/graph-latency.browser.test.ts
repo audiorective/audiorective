@@ -18,6 +18,28 @@ class FakeLatent extends AudioProcessor {
   }
 }
 
+// Same idea as FakeLatent, but input and output are distinct nodes wired internally by a
+// plain .connect() — the stand-in for a composite processor (in ≠ out) whose own internal
+// path isn't a wire in whatever graph it's used in.
+class FakeLatentDistinct extends AudioProcessor {
+  private readonly inGain: GainNode;
+  private readonly delay: DelayNode;
+  constructor(ctx: BaseAudioContext, samples: number) {
+    const inGain = new GainNode(ctx);
+    const delay = new DelayNode(ctx, { delayTime: samples / ctx.sampleRate, maxDelayTime: 1 });
+    super(ctx, () => ({ latency: samples }));
+    inGain.connect(delay);
+    this.inGain = inGain;
+    this.delay = delay;
+  }
+  override get input() {
+    return this.inGain;
+  }
+  get output() {
+    return this.delay;
+  }
+}
+
 // Renders `seconds` through an OfflineAudioContext after `wire` runs; returns channel 0.
 async function render(seconds: number, wire: (ctx: OfflineAudioContext) => void): Promise<Float32Array> {
   const ctx = new OfflineAudioContext(1, Math.ceil(seconds * 44100), 44100);
@@ -159,6 +181,60 @@ describe("latency compensation", () => {
     expect(handle.arrivalOf(join)).toBe(100);
     slow.latency.value = 250;
     expect(handle.arrivalOf(join)).toBe(250);
+  });
+
+  it("chains latency across a distinct-in/out processor's invisible internal path", async () => {
+    // Two 300-sample processors in series, each with input !== output: the parent
+    // graph never sees a wire between either processor's own input and output, so
+    // the arrival at the end must still accumulate both — 600, not 300.
+    class SerialOwner extends AudioProcessor {
+      constructor(ctx: BaseAudioContext) {
+        const inGain = new GainNode(ctx);
+        const outGain = new GainNode(ctx);
+        super(ctx, () => ({}));
+        const a = new FakeLatentDistinct(ctx, 300);
+        const b = new FakeLatentDistinct(ctx, 300);
+        this._in = inGain;
+        this._out = outGain;
+        this.defineGraph(() => [
+          [inGain, a],
+          [a, b],
+          [b, outGain],
+        ]);
+      }
+      private _in!: GainNode;
+      private _out!: GainNode;
+      override get input() {
+        return this._in;
+      }
+      get output() {
+        return this._out;
+      }
+    }
+    const ctx = new OfflineAudioContext(1, 44100, 44100);
+    const owner = new SerialOwner(ctx);
+    expect(owner.latency.value).toBe(600);
+  });
+
+  it("aligns a join across a chain of distinct-in/out processors", async () => {
+    const data = await render(0.1, (ctx) => {
+      const src = dirac(ctx);
+      const slow = new FakeLatentDistinct(ctx, 500);
+      const wetLike = new FakeLatentDistinct(ctx, 300);
+      const join = new GainNode(ctx);
+      defineGraph(
+        () => [
+          [src, slow],
+          [slow, wetLike],
+          [wetLike, join],
+          [src, join], // dry branch
+          [join, ctx.destination],
+        ],
+        { context: ctx },
+      );
+    });
+    expect(firstArrival(data)).toBe(800);
+    expect(data.slice(0, 800).every((v) => Math.abs(v) < 1e-4)).toBe(true);
   });
 
   it("excludes back-edges from latency", async () => {

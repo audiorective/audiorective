@@ -319,7 +319,15 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
 
   const apply = (edges: EdgeList) => {
     const next = new Map<string, Wire>();
+    // Latency is attributed only at the node that is a processor's OUTPUT — the node
+    // that is read as some wire's `from`. A sink-side registration would wrongly charge
+    // the processor's latency to its input node (and race with whichever processor last
+    // claims a shared node), so `to instanceof AudioProcessor` never writes here.
     const owners = new Map<AudioNode, AudioProcessor>();
+    // Every processor seen as an edge endpoint, input/output node pair — used below to
+    // add a virtual `input → output` edge so arrival chains across it even though the
+    // real connection lives inside the processor's own (separate) defineGraph.
+    const seenProcessors = new Set<AudioProcessor>();
     for (const e of edges) {
       if (!e) continue;
       const [from, to, opts] = e;
@@ -327,10 +335,11 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
       const toEndpoint = resolveTo(to);
       if (from instanceof AudioProcessor) {
         owners.set(fromNode, from);
+        seenProcessors.add(from);
         _graphRegistry.set(from, { handle, owner: options.owner });
       }
       if (to instanceof AudioProcessor) {
-        owners.set(toEndpoint as AudioNode, to);
+        seenProcessors.add(to);
         _graphRegistry.set(to, { handle, owner: options.owner });
       }
       const wire: Wire = { fromNode, to: toEndpoint, output: opts?.output ?? 0, input: opts?.input ?? 0 };
@@ -342,10 +351,26 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     current = next;
     nodeOwner = owners;
 
+    // A processor whose input and output are different nodes has no wire in *this*
+    // graph connecting them — that path lives inside its own defineGraph. Without a
+    // stand-in edge, its output node would look like an entry point (arrival 0) and
+    // discard whatever arrival built up before its input. The virtual edge carries zero
+    // latency itself (nodeLatency(input) is 0 — inputs are never registered as owners
+    // above), so it only forwards arrival; the processor's own latency is still charged
+    // once, at its output, by whichever wire reads from it next.
+    const virtualWires: Wire[] = [];
+    for (const proc of seenProcessors) {
+      const input = proc.input;
+      const output = proc.output;
+      if (input && output && input !== output) {
+        virtualWires.push({ fromNode: input, to: output, output: 0, input: 0 });
+      }
+    }
+
     // Reading `.latency.value` here (via nodeLatency, inside solve) is what makes this
     // effect re-run when any member processor's latency changes.
     const nodeLatency = (n: AudioNode) => owners.get(n)?.latency.value ?? 0;
-    const solved = solve([...current.values()], nodeLatency, options.owner?.input);
+    const solved = solve([...current.values(), ...virtualWires], nodeLatency, options.owner?.input);
     arrival = solved.arrival;
 
     if (options.compensate !== false) {
