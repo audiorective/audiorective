@@ -93,6 +93,12 @@ in flight through the old graph is interrupted.
 pnpm --filter @audiorective/web test -- --run src/demos/latency-lab
 ```
 
-All three test files run under the project's shared headless-Chromium vitest config — required
-for `LookaheadLimiter.test.ts`'s real `OfflineAudioContext` and worklet support, and shared by
-`graph.test.ts` and `flashTime.test.ts` for consistency.
+All five test files run under the project's shared headless-Chromium vitest config — required for
+`LookaheadLimiter.test.ts`'s real `OfflineAudioContext` and worklet support, and shared by the
+rest for consistency.
+
+- `Beat.test.ts` — the fixed kick/snare/hat pattern triggers the right samplers on schedule and records the hits, including against an `OfflineAudioContext`.
+- `Click.test.ts` — one metronome tick per `grid(4)` point while `enabled`, none while disabled.
+- `flashTime.test.ts` — `flashDelayMs` converts hit time + path latency + output latency into a forward-looking delay, clamped to 0 when arrival is already past.
+- `graph.test.ts` — the whole root graph rendered offline: PDC on aligns the two branches at one onset, PDC off leaves the dry onset unshifted and the wet-only residue delayed, bypass removes the wet branch with no doubled signal, and `engine.core.latency` tracks the limiter's latency.
+- `LookaheadLimiter.test.ts` — the worklet's declared latency matches where an impulse actually arrives, at both 44.1 kHz and 48 kHz, and a mono impulse reaches every output channel.
