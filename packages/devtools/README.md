@@ -6,6 +6,10 @@ measurement.
 This is a dev dependency: install it in `devDependencies`, never import it from application
 code. It depends only on `@audiorective/core`.
 
+In this monorepo, devtools tests exercise `@audiorective/core`'s built `dist` — run
+`pnpm --filter @audiorective/core build` after changing core, or stale-dist failures will
+look like devtools bugs.
+
 ## `assertLatency`
 
 `assertLatency` sends a single-sample impulse into a processor's `input`, renders it offline

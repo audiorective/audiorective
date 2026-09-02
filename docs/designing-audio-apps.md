@@ -29,7 +29,29 @@ Turn the feature list into a feature→primitive table before coding — gaps an
 - `Sampler` / `Voice` — one-shots and short loops (SFX, hits, pads).
 - An `AudioProcessor` synth — generated parts.
 
-Unify them behind a **source-agnostic channel strip** — a `Channel` that accepts anything exposing `{ output }` — so EQ / fader / meter / spatial / routing are identical regardless of source. Tradeoff on the clock: `FilePlayer` runs on the media clock, so it won't sample-lock to ctx-clocked sources (fine for independent stems, not for tight multi-source sync); reach for `BufferPlayer` when several sources must stay phase-locked. See `choosing-playback.md` for the full decision.
+Unify them behind a **source-agnostic channel strip** — a `Channel` that accepts anything exposing `{ output }` — so EQ / fader / meter / spatial / routing are identical regardless of source. `Channel` is not a core primitive; it's a small `AudioProcessor` you write on top of `defineGraph`:
+
+```typescript
+class Channel extends AudioProcessor<{ volume: SchedulableParam }> {
+  private readonly _fader: GainNode;
+
+  constructor(ctx: AudioContext, source: { output: AudioNode }, eq: BiquadFilterNode) {
+    const fader = new GainNode(ctx);
+    super(ctx, ({ param }) => ({ params: { volume: param({ default: 1, bind: fader.gain }) } }));
+    this._fader = fader;
+    this.defineGraph(() => [
+      [source.output, eq],
+      [eq, fader],
+    ]);
+  }
+
+  get output() {
+    return this._fader;
+  }
+}
+```
+
+Any `{ output }` — `FilePlayer`, `BufferPlayer`, `Sampler`, a synth — slots into the same `source` position; wiring the eq/fader/spatial chain past `channel.output` is the same `defineGraph` call at the mixer/bus level. Tradeoff on the clock: `FilePlayer` runs on the media clock, so it won't sample-lock to ctx-clocked sources (fine for independent stems, not for tight multi-source sync); reach for `BufferPlayer` when several sources must stay phase-locked. See `choosing-playback.md` for the full decision.
 
 ### 4. Integrate renderers via the binding packages
 

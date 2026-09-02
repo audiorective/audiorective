@@ -250,17 +250,19 @@ abstract class AudioProcessor<
   P extends Record<string, Param<any>> = Record<string, Param<any>>,
   C extends Record<string, Cell<any>> = Record<string, Cell<any>>,
 > {
-  readonly context: AudioContext;
+  readonly context: BaseAudioContext; // widened so processors can build against an OfflineAudioContext
   readonly params: Readonly<P>; // frozen, fully typed
   readonly cells: Readonly<C>; // frozen, fully typed
+  readonly latency: Param<number>; // samples — see Latency (PDC)
 
-  protected constructor(context: AudioContext, build: (helpers: BuildHelpers) => { params?: P; cells?: C });
+  protected constructor(context: BaseAudioContext, build: (helpers: BuildHelpers) => { params?: P; cells?: C; latency?: number | Param<number> });
 
   abstract get output(): AudioNode | undefined;
   get input(): AudioNode | undefined; // default: undefined
 
   protected computed<T>(fn: () => T): ComputedAccessor<T>;
   protected effect(fn: () => void): () => void;
+  protected defineGraph(fn: () => EdgeList, opts?: { compensate?: boolean }): GraphHandle;
 
   destroy(): void;
 }
@@ -278,6 +280,107 @@ interface BuildHelpers {
 **`destroy()`** stops all effects, calls `destroy()` on every param in the registry (cleaning up bind effects and `ParamSync` registrations), and disconnects any internally-created `ConstantSourceNode`s. Cells are not destroyed automatically — they're plain reactive containers with no audio-graph resources.
 
 **Effects vs instruments — the `.input` convention.** A processor that **transforms** incoming audio (EQ, compressor, reverb, distortion) declares both `input` and `output`. A processor that **produces** audio from scratch (synth, sampler, oscillator) declares only `output`; `input` returns `undefined` from the base class. There are no `EffectProcessor`/`InstrumentProcessor` subclasses — the convention is purely about which getters a processor exposes. Downstream code that needs to insert a processor as an effect (e.g. `bindEffect` in `@audiorective/playcanvas`) checks `processor.input !== undefined`. Spatial's `input` getter is the prototype: it returns the entry `GainNode` that connects into the underlying `PannerNode`.
+
+Every processor also exposes `readonly latency: Param<number>` — see [Latency (PDC)](#latency-pdc) below.
+
+### Graph helpers (`defineGraph`)
+
+`defineGraph` wires an audio graph declaratively from a reactive edge list, instead of hand-rolled `.connect()`/`.disconnect()` calls. Edges reference nodes and processors directly — no string keys, no registry — so a nonexistent node cannot be named and rename/autocomplete work natively.
+
+```typescript
+import { AudioProcessor, type Param } from "@audiorective/core";
+
+class Layered extends AudioProcessor<{ useShifter: Param<boolean> }> {
+  private readonly _out: GainNode;
+
+  constructor(ctx: AudioContext, shifter: AudioProcessor) {
+    // locals before super(), per the build-callback convention
+    const osc = new OscillatorNode(ctx);
+    const filter = new BiquadFilterNode(ctx);
+    const lfo = new OscillatorNode(ctx, { frequency: 5 });
+    const out = new GainNode(ctx);
+
+    super(ctx, ({ param }) => ({
+      params: { useShifter: param({ default: false }) },
+    }));
+
+    osc.start();
+    lfo.start();
+    this._out = out;
+
+    this.defineGraph(() => [
+      [osc, filter],
+      [filter, this.params.useShifter.value ? shifter : out],
+      this.params.useShifter.value && [shifter, out], // falsy entries are skipped
+      [lfo, filter.frequency], // AudioParam sink — no options bag
+    ]);
+  }
+
+  get output() {
+    return this._out;
+  }
+}
+```
+
+- **Edge forms:** `[from, to]`, `[from, to, { output?, input?, label? }]` for multi-channel connections and a debug `label` used in error messages, or a falsy value (`false`/`null`/`undefined`) to skip the edge — so branches can be written inline with `condition && [from, to]`.
+- **Endpoints:** `from` is an `AudioNode` or an `AudioProcessor` (connects from its `output`); `to` additionally accepts an `AudioParam` or `SchedulableParam` (resolves to its backing `AudioParam`), like `[lfo, filter.frequency]`. `AudioParam` sinks carry no latency and don't participate in compensation.
+- **Worklet rejection.** A bare `AudioWorkletNode` is rejected both at the type level (`readonly latency: Param<number>` and `port`/`parameters` narrow it to `never`) and at runtime (`instanceof AudioWorkletNode` throws) — its latency can't be known from outside. Wrap it in an `AudioProcessor` that declares `latency` instead.
+- **`this.defineGraph(fn, opts?)`** is the protected instance method, used after `super()` (like `effect()`/`computed()`) so the edge callback can read `this.params`. **`defineGraph(fn, { context, compensate? })`** is the standalone export for a graph owned by no processor — the engine's root graph uses this form (see [`AudioEngine`](#audioengine) below).
+- The edge function runs inside an `effect()`; every re-run diffs the new edge list against the current one (keyed by endpoint identity) and applies only the minimal `connect`/`disconnect` calls, then re-solves compensation.
+- `defineGraph(fn, { compensate: false })` keeps the diffing but turns off compensating delays for that graph.
+- Returns a `GraphHandle` with `dispose()`. `AudioProcessor.destroy()` disposes every graph the processor created.
+
+### Latency (PDC)
+
+Every processor exposes `readonly latency: Param<number>` — its processing latency in samples: the fixed delay before the earliest output for an impulse at the input. Intentional musical delay (a delay line, a reverb tail, chorus modulation) is not latency; those effects declare `0`. Web Audio renders every node synchronously per quantum, so a native node — `ConvolverNode` and `DelayNode` included — never adds signal-path latency on its own; real latency only comes from a processor that buffers beyond the quantum (worklet lookahead, an FFT hop).
+
+`latency` defaults to `0`. Declare it in the build callback three ways:
+
+```typescript
+super(ctx, ({ param }) => ({
+  params: {
+    /* ... */
+  },
+  latency: 512, // fixed sample count
+}));
+
+super(ctx, ({ param }) => ({
+  params: { lookahead: param({ default: 512 }) },
+  latency: param({ default: 512 }), // changes at runtime, e.g. a limiter's lookahead
+}));
+
+super(ctx, ({ param }) => ({
+  params: {
+    /* ... */
+  },
+  // time-based: derive from the context so it survives a sample-rate change
+  latency: Math.round(0.01 * ctx.sampleRate),
+}));
+```
+
+A `latency` created with the `param()` helper but not also placed in the returned `params` registry has nothing to destroy it — `AudioProcessor.destroy()` only destroys params it owns via `params`. Track a param-backed `latency` in `params` yourself, or declare a plain number when it never changes at runtime.
+
+When a processor calls `this.defineGraph(...)` and declares no `latency`, it's **derived**: the longest path in samples from `input` to `output` through its own graph. A processor that declares a value and also has a `defineGraph` uses the declared value (a worklet-backed processor may still use `defineGraph` for its surrounding wiring).
+
+Compensation runs on every re-solve of a `defineGraph`: at any join with two or more incoming edges, the branches that arrive early get a helper-owned `DelayNode` so every branch lands in step with the latest one. Only edges declared through `defineGraph` are tracked and compensated — a raw `.connect()` is invisible to it.
+
+**Engine queries** (on `AudioEngine`, so `engine.core.latency` for a `createEngine` consumer):
+
+```typescript
+engine.latency: Param<number>;              // samples — longest path into ctx.destination across every engine-owned graph
+engine.perceivedTime: number;                // ctx.currentTime + latency/sampleRate + ctx.outputLatency (0 where unsupported)
+engine.getPathLatency(proc: AudioProcessor): number; // samples from proc's output to ctx.destination
+```
+
+`perceivedTime` is what a visualizer or a record-quantize step should compare against instead of `ctx.currentTime`. `getPathLatency(proc)` throws [`LatencyUnknownError`](#latencyunknownerror) when `proc` has never appeared in a `defineGraph` — a processor built but never wired has no path to measure.
+
+### `LatencyUnknownError`
+
+```typescript
+class LatencyUnknownError extends Error {}
+```
+
+Thrown by `engine.getPathLatency(proc)` when `proc` hasn't appeared in any `defineGraph` (its own or the engine's), naming the processor. This is a loud failure rather than a silent `0`.
 
 ### Spatial
 
@@ -808,6 +911,8 @@ class AudioEngine {
 
   get context(): AudioContext;
   get state(): SignalAccessor<EngineState>;
+  readonly latency: Param<number>; // samples — see Latency (PDC)
+  get perceivedTime(): number;
   untilReady(): Promise<void>; // resolves when state becomes 'running'
 
   start(): Promise<void>; // context.resume(), requires user gesture
@@ -816,6 +921,8 @@ class AudioEngine {
   destroy(): void; // terminal — cannot restart
 
   register<T extends AudioProcessor>(processor: T): T;
+  defineGraph(fn: () => EdgeList, opts?: Omit<GraphOptions, "context">): GraphHandle; // root graph, sink = ctx.destination
+  getPathLatency(proc: AudioProcessor): number; // throws LatencyUnknownError
 
   autoStart(
     target: EventTarget,
@@ -859,20 +966,29 @@ Vue setup-style factory that replaces subclassing for the common case. User-defi
 
 ```typescript
 function createEngine<T extends Record<string, unknown>>(
-  setup: (context: AudioContext) => T,
+  setup: (context: AudioContext, helpers: EngineSetupHelpers) => T,
   options?: { context?: AudioContext },
 ): T & { core: AudioEngine };
+
+interface EngineSetupHelpers {
+  defineGraph: AudioEngine["defineGraph"];
+}
 ```
 
 Auto-registers all `AudioProcessor` instances from the returned object. Only one reserved key: `"core"` — using it in the returned object is a compile-time type error and a runtime throw.
 
 Throws [`EngineEnvironmentError`](#engineenvironmenterror) if the environment has no `AudioContext` constructor. Passing your own context — `createEngine(setup, { context })` — bypasses the check entirely, which is how you run against a mock or a host-provided context. The throw happens before `setup` runs, so a failed call never leaves a partly built graph behind.
 
+The `setup` callback's original one-argument form (`createEngine((ctx) => …)`) still works — `helpers` is a second argument, so no existing consumer breaks.
+
 ```typescript
-const engine = createEngine((ctx) => {
+const engine = createEngine((ctx, { defineGraph }) => {
   const synth = new Synth(ctx);
-  synth.output.connect(ctx.destination);
   const sequencer = new Sequencer(synth, ctx);
+
+  // root graph — its sink is ctx.destination, referenced directly, no reserved name
+  defineGraph(() => [[synth, ctx.destination]]);
+
   return { synth, sequencer };
 });
 
@@ -880,6 +996,9 @@ engine.synth; // Synth — fully typed, no ! assertion
 engine.sequencer; // Sequencer
 engine.core.start(); // resume AudioContext
 engine.core.state(); // EngineState
+engine.core.latency.value; // samples — longest path into ctx.destination
+engine.core.perceivedTime; // ctx.currentTime, adjusted for latency + output latency
+engine.core.getPathLatency(synth); // samples from synth.output to ctx.destination
 engine.core.destroy(); // cleanup
 engine.core.context; // AudioContext
 ```
@@ -909,9 +1028,10 @@ signals/src/
 export { Param, SchedulableParam, ParamSync, AudioProcessor, AudioEngine, Cell, Spatial, Analyser };
 export { Sampler, BufferPlayer, FilePlayer, Voice };
 export { AudioBufferCache };
+export { EngineEnvironmentError, LatencyUnknownError };
 
 // Factories
-export { createEngine, cell };
+export { createEngine, cell, defineGraph };
 export { loadAudioBuffer };
 
 // Constants
@@ -934,5 +1054,12 @@ export type {
   BufferPlayerOptions,
   VoiceOptions,
   FilePlayerOptions,
+  GraphEdge,
+  EdgeList,
+  EdgeOptions,
+  GraphHandle,
+  GraphOptions,
+  GraphSource,
+  GraphSink,
 };
 ```

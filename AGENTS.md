@@ -97,7 +97,7 @@ The `schedulableParam` helper (without `bind`) creates a `SchedulableParam` back
 3. **Method-based API** — `param()`, not decorators. Clear, type-safe, discoverable
 4. **Automatic dependency tracking** — no manual dep arrays. Effects/computed auto-track
 5. **`reactiveParam` for standalone use** — same `.value` API without AudioProcessor inheritance
-6. **Graph helpers** — `defineNodes`/`connectNodes` for declarative, type-safe audio routing
+6. **Graph helpers** — `defineGraph` wires an audio graph from a reactive edge list of direct node/processor references (no string keys), diffs it on every change, and compensates join-point latency automatically (PDC)
 7. **Framework agnostic** — core works in Node.js, React, Vue, Svelte, vanilla
 8. **No state duplication** — AudioProcessor owns all state. UI frameworks observe/mutate directly. No separate store.
 9. **Unified SchedulableParam** — one type regardless of backing. `bind` with AudioParam is an internal optimization, not a type distinction.

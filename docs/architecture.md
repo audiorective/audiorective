@@ -25,7 +25,7 @@ They compose rather than compete. A processor that needs timing **holds a `Clock
 
 ### Audio layer (`AudioProcessor` subclasses)
 
-- Audio graph construction and wiring
+- Audio graph construction and wiring — via `defineGraph`; raw `.connect()`/`.disconnect()` only for leaf nodes inside a processor
 - Envelope shaping, note triggering
 - Parameter automation sequences (ramps, sweeps, scheduled transitions)
 - Any operation that touches `AudioContext.currentTime` or schedules values on `AudioParam`

@@ -11,6 +11,47 @@ This file exists so an agent (or human) hitting an "API not found / undefined /
 type error" on a documented API can tell whether the installed package simply
 predates that API. See the "Version mismatches" note in the skill.
 
+## [Unreleased]
+
+### Added
+
+- **core:** `defineGraph` — a declarative, reactive audio graph helper. Edges
+  reference nodes and processors directly (`[from, to]`, an options bag for
+  multi-channel connections and a debug `label`, or a falsy entry to skip),
+  diff against the previous render on every re-run, and connect through a
+  processor's `input`/`output`. Available as `this.defineGraph(fn, opts?)`
+  (protected, after `super()`) and as the standalone `defineGraph(fn, {
+context, compensate? })` for a graph owned by no processor. A bare
+  `AudioWorkletNode` is rejected as an edge endpoint — wrap it in an
+  `AudioProcessor` that declares its latency.
+- **core:** `AudioProcessor.latency: Param<number>` — every processor's
+  processing latency in samples, defaulting to `0`. Declared as a fixed
+  number, a `Param<number>` (for a latency that changes at runtime), or a
+  time-based sample count (`Math.round(0.01 * ctx.sampleRate)`); derived
+  automatically from a processor's own `defineGraph` when left undeclared.
+  Plugin delay compensation runs on every `defineGraph` re-solve, splicing a
+  `DelayNode` into any branch that arrives at a join early so every incoming
+  edge lands in step.
+- **core:** `AudioProcessor.context` widens from `AudioContext` to
+  `BaseAudioContext`, so processors can be constructed against an
+  `OfflineAudioContext` for offline measurement.
+- **core:** engine latency queries — `AudioEngine.latency: Param<number>`
+  (longest path into `ctx.destination` across every engine-owned graph),
+  `AudioEngine.perceivedTime` (`ctx.currentTime` adjusted for latency and
+  `ctx.outputLatency`), and `AudioEngine.getPathLatency(proc)` (samples from
+  a processor's output to the destination). `createEngine`'s setup callback
+  gains a second `{ defineGraph }` argument for wiring the root graph; the
+  existing one-argument form still works.
+- **core:** `LatencyUnknownError` — thrown by `getPathLatency(proc)` when
+  `proc` has never appeared in a `defineGraph`, naming the processor instead
+  of silently returning `0`.
+- **devtools:** new package, `@audiorective/devtools` — dev-only impulse
+  latency validator for `@audiorective/core` processors. `measureLatency`
+  renders a single-sample impulse through a processor offline at each
+  configured sample rate and reports where it arrives; `assertLatency` checks
+  that against the processor's declared `latency` and throws a message that
+  carries the `latency: ...` line to paste when it doesn't match.
+
 ## [2.1.2] - 2026-08-24
 
 ### Added
