@@ -82,4 +82,19 @@ export class Lab {
   snapshot(): GraphSnapshot {
     return this.handle.snapshot();
   }
+
+  /** Maps each known node's `snapshot()` id to a short role name, for the diagram's static layout. */
+  roles(): Map<number, string> {
+    const { beat, click, split, dry, master } = this._nodes;
+    const roles = new Map<number, string>([
+      [this.handle.idOf(beat), "beat"],
+      [this.handle.idOf(click), "click"],
+      [this.handle.idOf(split), "split"],
+      [this.handle.idOf(dry), "dry"],
+      [this.handle.idOf(master), "master"],
+      [this.handle.idOf(this._ctx.destination), "destination"],
+    ]);
+    if (this.limiter) roles.set(this.handle.idOf(this.limiter), "limiter");
+    return roles;
+  }
 }
