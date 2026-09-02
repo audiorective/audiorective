@@ -94,6 +94,33 @@ describe("measureLatency", () => {
     expect(destroyed).toEqual([44100, 48000]);
   });
 
+  it("destroys a processor that fails the input/output guard", async () => {
+    const destroyed: boolean[] = [];
+    class OutputOnly extends AudioProcessor {
+      readonly n: GainNode;
+      constructor(ctx: BaseAudioContext) {
+        const n = new GainNode(ctx);
+        super(ctx, () => ({}));
+        this.n = n;
+      }
+      get output() {
+        return this.n;
+      }
+    }
+    await expect(
+      measureLatency((ctx) => {
+        const p = new OutputOnly(ctx);
+        const original = p.destroy.bind(p);
+        p.destroy = () => {
+          destroyed.push(true);
+          original();
+        };
+        return p;
+      }),
+    ).rejects.toThrow("measureLatency: processor must expose input and output");
+    expect(destroyed).toEqual([true]);
+  });
+
   it("a waveshaper measures 0", async () => {
     const report = await measureLatency((ctx) => {
       class Shaper extends AudioProcessor {

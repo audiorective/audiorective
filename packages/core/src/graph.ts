@@ -47,6 +47,17 @@ export interface GraphHandle {
   arrivalOf(node: GraphSource): number;
 }
 
+// Module-internal: `arrivalOf` throws this — never a bare `Error` — when the queried
+// node didn't participate in the graph's last solve, so a caller distinguishing this
+// specific condition (AudioEngine, translating it to `LatencyUnknownError`) doesn't
+// have to catch-all and risk masking an unrelated bug. Not exported from index.ts.
+export class NodeNotInSolveError extends Error {
+  constructor() {
+    super("defineGraph: node not present in the last solve");
+    this.name = "NodeNotInSolveError";
+  }
+}
+
 type Endpoint = AudioNode | AudioParam;
 
 // One physical connection, keyed for diffing by identity + channel indices.
@@ -367,7 +378,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     arrivalOf(node: GraphSource): number {
       const resolved = node instanceof AudioProcessor ? node.output : node;
       if (!resolved || !arrival.has(resolved)) {
-        throw new Error("defineGraph: node not present in the last solve");
+        throw new NodeNotInSolveError();
       }
       return (arrival.get(resolved) ?? 0) + (nodeOwner.get(resolved)?.latency.value ?? 0);
     },

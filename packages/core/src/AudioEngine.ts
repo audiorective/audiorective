@@ -1,7 +1,7 @@
 import { signal, effect } from "alien-signals";
 import { AudioProcessor } from "./AudioProcessor";
 import { assertAudioContextAvailable, LatencyUnknownError } from "./errors";
-import { defineGraph as defineGraphFn, _graphRegistry } from "./graph";
+import { defineGraph as defineGraphFn, _graphRegistry, NodeNotInSolveError } from "./graph";
 import type { EdgeList, GraphHandle, GraphOptions } from "./graph";
 import { Param } from "./Param";
 import type { EngineState, SignalAccessor } from "./types";
@@ -20,7 +20,8 @@ function resolvePathLatency(proc: AudioProcessor): number {
   let pathLatency: number;
   try {
     pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
-  } catch {
+  } catch (err) {
+    if (!(err instanceof NodeNotInSolveError)) throw err;
     // The registry entry is stale (its graph re-solved without `proc`, or without
     // `sink`) — translate the internal "not in the last solve" error into the one
     // error the public query is allowed to throw.
@@ -79,7 +80,8 @@ export class AudioEngine {
         // keeping a stale arrival.
         try {
           this._graphLatency.set(token, h.arrivalOf(this._context.destination));
-        } catch {
+        } catch (err) {
+          if (!(err instanceof NodeNotInSolveError)) throw err;
           this._graphLatency.delete(token);
         }
         this._recomputeLatency();

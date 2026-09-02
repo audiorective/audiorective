@@ -40,12 +40,13 @@ async function measureLatencyDetailed(build: (ctx: BaseAudioContext) => AudioPro
   for (const sampleRate of sampleRates) {
     const ctx = new OfflineAudioContext(channels, Math.ceil(windowSeconds * sampleRate), sampleRate);
     const proc = build(ctx);
-    if (!proc.input || !proc.output) {
-      throw new Error("measureLatency: processor must expose input and output");
-    }
-    declared = proc.latency.value;
 
     try {
+      if (!proc.input || !proc.output) {
+        throw new Error("measureLatency: processor must expose input and output");
+      }
+      declared = proc.latency.value;
+
       const buffer = new AudioBuffer({ length: 1, sampleRate });
       buffer.getChannelData(0)[0] = 1;
       const src = new AudioBufferSourceNode(ctx, { buffer });
