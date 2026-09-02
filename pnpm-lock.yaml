@@ -75,6 +75,9 @@ importers:
         specifier: ^0.182.0
         version: 0.182.0
     devDependencies:
+      '@audiorective/devtools':
+        specifier: workspace:^
+        version: link:../../packages/devtools
       '@types/three':
         specifier: ^0.182.0
         version: 0.182.0
