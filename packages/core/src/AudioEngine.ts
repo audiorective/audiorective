@@ -17,7 +17,15 @@ function resolvePathLatency(proc: AudioProcessor): number {
     throw new LatencyUnknownError(proc.constructor.name);
   }
   const { handle, owner, sink } = entry;
-  const pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
+  let pathLatency: number;
+  try {
+    pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
+  } catch {
+    // The registry entry is stale (its graph re-solved without `proc`, or without
+    // `sink`) — translate the internal "not in the last solve" error into the one
+    // error the public query is allowed to throw.
+    throw new LatencyUnknownError(proc.constructor.name);
+  }
   return owner ? pathLatency + resolvePathLatency(owner) : pathLatency;
 }
 

@@ -281,6 +281,10 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
   const compDelayMax = new Map<DelayNode, number>();
   let arrival = new Map<AudioNode, number>();
   let nodeOwner = new Map<AudioNode, AudioProcessor>();
+  // Processors this graph currently owns an entry for in `_graphRegistry` — diffed each
+  // render so a processor that leaves the edge list (or the graph itself disposes) has
+  // its entry removed instead of going stale.
+  let registeredProcessors = new Set<AudioProcessor>();
 
   // Tears down `from → delay → to` for a spliced wire and forgets the delay node.
   function removeCompDelay(key: string, w: Wire, delay: DelayNode): void {
@@ -354,6 +358,11 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
       current = new Map();
       arrival = new Map();
       nodeOwner = new Map();
+      for (const proc of registeredProcessors) {
+        const entry = _graphRegistry.get(proc);
+        if (entry && entry.handle === handle) _graphRegistry.delete(proc);
+      }
+      registeredProcessors = new Set();
     },
     arrivalOf(node: GraphSource): number {
       const resolved = node instanceof AudioProcessor ? node.output : node;
@@ -375,24 +384,39 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     // add a virtual `input → output` edge so arrival chains across it even though the
     // real connection lives inside the processor's own (separate) defineGraph.
     const seenProcessors = new Set<AudioProcessor>();
+    // Processors that actually join the node solve (as opposed to a `from` whose only
+    // edge feeds an AudioParam, which never becomes an arrival node) — the registry
+    // should only ever answer for a processor whose path latency the solve can compute.
+    const memberProcessors = new Set<AudioProcessor>();
     const sink: GraphSource = options.owner ?? options.context.destination;
     for (const e of edges) {
       if (!e) continue;
       const [from, to, opts] = e;
       const fromNode = resolveFrom(from, opts?.label);
       const toEndpoint = resolveTo(to, opts?.label);
+      const isParamSink = toEndpoint instanceof AudioParam;
       if (from instanceof AudioProcessor) {
         owners.set(fromNode, from);
         seenProcessors.add(from);
-        _graphRegistry.set(from, { handle, owner: options.owner, sink });
+        if (!isParamSink) memberProcessors.add(from);
       }
       if (to instanceof AudioProcessor) {
         seenProcessors.add(to);
-        _graphRegistry.set(to, { handle, owner: options.owner, sink });
+        memberProcessors.add(to);
       }
       const wire: Wire = { fromNode, to: toEndpoint, output: opts?.output ?? 0, input: opts?.input ?? 0 };
       next.set(`${idOf(wire.fromNode)}>${idOf(wire.to)}@${wire.output},${wire.input}`, wire);
     }
+
+    for (const proc of memberProcessors) _graphRegistry.set(proc, { handle, owner: options.owner, sink });
+    for (const proc of registeredProcessors) {
+      if (memberProcessors.has(proc)) continue;
+      const entry = _graphRegistry.get(proc);
+      // Only clear an entry this graph still owns — another graph may have since
+      // claimed the same processor.
+      if (entry && entry.handle === handle) _graphRegistry.delete(proc);
+    }
+    registeredProcessors = memberProcessors;
 
     for (const [k, w] of current) if (!next.has(k)) disconnectPhysical(k, w);
     for (const [k, w] of next) if (!current.has(k)) connectWire(w);

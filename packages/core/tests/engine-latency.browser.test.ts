@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AudioProcessor, LatencyUnknownError, Param, createEngine } from "../src";
+import type { GraphHandle } from "../src";
 
 // Same class as in graph-latency.browser.test.ts.
 class FakeLatent extends AudioProcessor {
@@ -124,5 +125,41 @@ describe("engine latency queries", () => {
     expect(engine.core.latency.value).toBe(400);
     connected.value = false;
     expect(engine.core.latency.value).toBe(0);
+  });
+
+  it("getPathLatency throws LatencyUnknownError after a conditional edge removes the processor", () => {
+    const on = new Param<boolean>({ default: true });
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const slow = new FakeLatent(ctx, 400);
+      defineGraph(() => [on.value && [slow, ctx.destination]]);
+      return { slow };
+    });
+    expect(engine.core.getPathLatency(engine.slow)).toBe(0);
+    on.value = false;
+    expect(() => engine.core.getPathLatency(engine.slow)).toThrow(LatencyUnknownError);
+  });
+
+  it("getPathLatency throws LatencyUnknownError after the owning graph is disposed", () => {
+    let handle!: GraphHandle;
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const slow = new FakeLatent(ctx, 400);
+      handle = defineGraph(() => [[slow, ctx.destination]]);
+      return { slow };
+    });
+    handle.dispose();
+    expect(() => engine.core.getPathLatency(engine.slow)).toThrow(LatencyUnknownError);
+  });
+
+  it("getPathLatency throws LatencyUnknownError for a processor that only feeds an AudioParam", () => {
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const lfo = new FakeLatent(ctx, 0);
+      const carrier = new GainNode(ctx);
+      defineGraph(() => [
+        [lfo, carrier.gain],
+        [carrier, ctx.destination],
+      ]);
+      return { lfo };
+    });
+    expect(() => engine.core.getPathLatency(engine.lfo)).toThrow(LatencyUnknownError);
   });
 });
