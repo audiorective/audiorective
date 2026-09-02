@@ -45,6 +45,15 @@ export interface GraphHandle {
   dispose(): void;
   /** Arrival time, in samples, at `node`'s output edge in the last solve. */
   arrivalOf(node: GraphSource): number;
+  /** A point-in-time view of the last solve — nodes, edges, and per-edge compensation. */
+  snapshot(): GraphSnapshot;
+  /**
+   * The id `snapshot()` uses for `endpoint`, stable across solves as long as the
+   * underlying object doesn't change. For an `AudioProcessor` this is the id of its
+   * OUTPUT node — the node it appears as when it's a `from` in `snapshot()`'s edges; the
+   * input side, when it differs, is reachable from there via a `"virtual"` edge.
+   */
+  idOf(endpoint: GraphSource | AudioParam): number;
 }
 
 // Module-internal: `arrivalOf` throws this — never a bare `Error` — when the queried
@@ -66,6 +75,13 @@ interface Wire {
   to: Endpoint;
   output: number;
   input: number;
+  label?: string;
+}
+
+export interface GraphSnapshot {
+  solveId: number;
+  nodes: { id: number; kind: "native" | "processor"; label: string; latency: number; arrival: number }[];
+  edges: { from: number; to: number; label?: string; kind: "audio" | "param" | "virtual" | "back"; compensationSamples: number }[];
 }
 
 // Engine-internal: maps every AudioProcessor that has appeared as a graph endpoint to the
@@ -132,6 +148,7 @@ function pushWire(map: Map<AudioNode, Wire[]>, key: AudioNode, wire: Wire): void
 interface SolveResult {
   arrival: Map<AudioNode, number>;
   diffs: Map<Wire, number>;
+  backEdges: Set<Wire>;
 }
 
 // Longest-path latency solve over the resolved wire graph.
@@ -270,7 +287,7 @@ function solve(wires: Wire[], virtualWires: Wire[], nodeLatency: (n: AudioNode) 
     }
   }
 
-  return { arrival, diffs };
+  return { arrival, diffs, backEdges };
 }
 
 /**
@@ -292,6 +309,13 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
   const compDelayMax = new Map<DelayNode, number>();
   let arrival = new Map<AudioNode, number>();
   let nodeOwner = new Map<AudioNode, AudioProcessor>();
+  // Input node → owning processor, kept alongside `nodeOwner` (output node → processor)
+  // so `snapshot()` can classify a processor's input node as "processor" too.
+  let inputNodeOwner = new Map<AudioNode, AudioProcessor>();
+  let lastVirtualWires: Wire[] = [];
+  let lastBackEdges = new Set<Wire>();
+  let lastDiffs = new Map<Wire, number>();
+  let solveId = 0;
   // Processors this graph currently owns an entry for in `_graphRegistry` — diffed each
   // render so a processor that leaves the edge list (or the graph itself disposes) has
   // its entry removed instead of going stale.
@@ -369,6 +393,10 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
       current = new Map();
       arrival = new Map();
       nodeOwner = new Map();
+      inputNodeOwner = new Map();
+      lastVirtualWires = [];
+      lastBackEdges = new Set();
+      lastDiffs = new Map();
       for (const proc of registeredProcessors) {
         const entry = _graphRegistry.get(proc);
         if (entry && entry.handle === handle) _graphRegistry.delete(proc);
@@ -381,6 +409,57 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
         throw new NodeNotInSolveError();
       }
       return (arrival.get(resolved) ?? 0) + (nodeOwner.get(resolved)?.latency.value ?? 0);
+    },
+    snapshot(): GraphSnapshot {
+      const nodes = new Map<number, GraphSnapshot["nodes"][number]>();
+      const edges: GraphSnapshot["edges"] = [];
+      const nodeLatency = (n: AudioNode) => nodeOwner.get(n)?.latency.value ?? 0;
+
+      const registerNode = (n: AudioNode): number => {
+        const id = idOf(n);
+        if (nodes.has(id)) return id;
+        const proc = nodeOwner.get(n) ?? inputNodeOwner.get(n);
+        nodes.set(id, {
+          id,
+          kind: proc ? "processor" : "native",
+          label: (proc ?? n).constructor.name,
+          latency: nodeLatency(n),
+          arrival: arrival.get(n) ?? 0,
+        });
+        return id;
+      };
+
+      for (const w of current.values()) {
+        const fromId = registerNode(w.fromNode);
+        if (w.to instanceof AudioParam) {
+          const toId = idOf(w.to);
+          if (!nodes.has(toId)) {
+            nodes.set(toId, { id: toId, kind: "native", label: "AudioParam", latency: 0, arrival: 0 });
+          }
+          edges.push({ from: fromId, to: toId, label: w.label, kind: "param", compensationSamples: 0 });
+          continue;
+        }
+        const toId = registerNode(w.to);
+        const kind = lastBackEdges.has(w) ? "back" : "audio";
+        const compensationSamples = kind === "audio" && options.compensate !== false ? (lastDiffs.get(w) ?? 0) : 0;
+        edges.push({ from: fromId, to: toId, label: w.label, kind, compensationSamples });
+      }
+
+      for (const w of lastVirtualWires) {
+        const fromId = registerNode(w.fromNode);
+        const toId = registerNode(w.to as AudioNode);
+        edges.push({ from: fromId, to: toId, kind: "virtual", compensationSamples: 0 });
+      }
+
+      return { solveId, nodes: [...nodes.values()], edges };
+    },
+    idOf(endpoint: GraphSource | AudioParam): number {
+      if (endpoint instanceof AudioProcessor) {
+        const out = endpoint.output;
+        if (!out) throw new Error(`defineGraph: ${endpoint.constructor.name} has no output`);
+        return idOf(out);
+      }
+      return idOf(endpoint);
     },
   };
 
@@ -415,7 +494,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
         seenProcessors.add(to);
         memberProcessors.add(to);
       }
-      const wire: Wire = { fromNode, to: toEndpoint, output: opts?.output ?? 0, input: opts?.input ?? 0 };
+      const wire: Wire = { fromNode, to: toEndpoint, output: opts?.output ?? 0, input: opts?.input ?? 0, label: opts?.label };
       next.set(`${idOf(wire.fromNode)}>${idOf(wire.to)}@${wire.output},${wire.input}`, wire);
     }
 
@@ -442,9 +521,11 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     // above), so it only forwards arrival; the processor's own latency is still charged
     // once, at its output, by whichever wire reads from it next.
     const virtualWires: Wire[] = [];
+    const inputOwners = new Map<AudioNode, AudioProcessor>();
     for (const proc of seenProcessors) {
       const input = proc.input;
       const output = proc.output;
+      if (input) inputOwners.set(input, proc);
       if (input && output && input !== output) {
         virtualWires.push({ fromNode: input, to: output, output: 0, input: 0 });
       }
@@ -455,6 +536,11 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     const nodeLatency = (n: AudioNode) => owners.get(n)?.latency.value ?? 0;
     const solved = solve([...current.values()], virtualWires, nodeLatency, options.owner?.input);
     arrival = solved.arrival;
+    inputNodeOwner = inputOwners;
+    lastVirtualWires = virtualWires;
+    lastBackEdges = solved.backEdges;
+    lastDiffs = solved.diffs;
+    solveId++;
 
     if (options.compensate !== false) {
       spliceCompensation(current, solved.diffs);

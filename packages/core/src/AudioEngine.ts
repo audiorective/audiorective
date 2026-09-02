@@ -95,6 +95,8 @@ export class AudioEngine {
         this._recomputeLatency();
       },
       arrivalOf: (node) => inner.arrivalOf(node),
+      snapshot: () => inner.snapshot(),
+      idOf: (endpoint) => inner.idOf(endpoint),
     };
     this._graphs.push(handle);
     return handle;

@@ -42,6 +42,13 @@ context, compensate? })` for a graph owned by no processor. A bare
 - **core:** `LatencyUnknownError` — thrown by `getPathLatency(proc)` when
   `proc` has never appeared in a `defineGraph`, naming the processor instead
   of silently returning `0`.
+- **core:** `GraphHandle.snapshot()` and `GraphHandle.idOf(endpoint)` — a
+  point-in-time view of a graph's last solve (`GraphSnapshot`: `solveId`,
+  `nodes` with `kind`/`label`/`latency`/`arrival`, `edges` with
+  `kind`/`compensationSamples`) and the stable id `snapshot()` assigns an
+  endpoint, for building diagrams or devtools off the solver's own state.
+  `GraphOptions.onSolve` is now documented as a public hook, called with the
+  handle after every solve.
 - **devtools:** new package, `@audiorective/devtools` — dev-only impulse
   latency validator for `@audiorective/core` processors. `measureLatency`
   renders a single-sample impulse through a processor offline at each
