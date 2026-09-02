@@ -21,9 +21,16 @@ export interface EdgeOptions {
 export type GraphEdge = readonly [GraphSource, GraphSink] | readonly [GraphSource, GraphSink, EdgeOptions];
 export type EdgeList = ReadonlyArray<GraphEdge | false | null | undefined>;
 
-// Rewrites each edge's inferred endpoint types through NotWorklet, so passing a concrete
-// AudioWorkletNode as either endpoint resolves that position to `never` and fails to typecheck.
-type ValidateEdge<E> = E extends readonly [infer From, infer To, ...infer Rest] ? readonly [NotWorklet<From>, NotWorklet<To>, ...Rest] : E;
+// A sink-position AudioProcessor must narrow `input` to a concrete AudioNode — the base
+// class types it `AudioNode | undefined`, which fails the structural check below — so an
+// output-only processor (or a bare AudioProcessor-typed reference) is rejected here rather
+// than only at the `resolveTo` runtime throw.
+type ValidateSink<T> = T extends AudioProcessor ? (T extends { input: AudioNode } ? T : never) : NotWorklet<T>;
+
+// Rewrites each edge's inferred endpoint types through the checks above, so passing a
+// concrete AudioWorkletNode, or a processor with no usable input, as either endpoint
+// resolves that position to `never` and fails to typecheck.
+type ValidateEdge<E> = E extends readonly [infer From, infer To, ...infer Rest] ? readonly [NotWorklet<From>, ValidateSink<To>, ...Rest] : E;
 type ValidateEdges<E extends EdgeList> = { [K in keyof E]: E[K] extends GraphEdge ? ValidateEdge<E[K]> : E[K] };
 
 export interface GraphOptions {
