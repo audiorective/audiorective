@@ -127,6 +127,10 @@ export class AudioEngine {
         inner.dispose();
         this._graphLatency.delete(token);
         this._recomputeLatency();
+        // Otherwise a disposed-and-rebuilt graph (e.g. every `setPdc` toggle)
+        // leaves a dead handle behind, and `_graphs` grows without bound.
+        const idx = this._graphs.indexOf(handle);
+        if (idx !== -1) this._graphs.splice(idx, 1);
       },
       arrivalOf: (node) => inner.arrivalOf(node),
       snapshot: () => inner.snapshot(),
@@ -237,7 +241,9 @@ export class AudioEngine {
 
   destroy(): void {
     if (this._state() === "destroyed") return;
-    for (const graph of this._graphs) graph.dispose();
+    // Copy first: each `dispose()` splices itself out of `_graphs`, which
+    // would skip entries if this loop iterated the live array directly.
+    for (const graph of [...this._graphs]) graph.dispose();
     this._graphs = [];
     this._graphLatency.clear();
     for (const p of this._processors) p.destroy();

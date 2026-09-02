@@ -1,7 +1,7 @@
 import { createEngine, Sampler } from "@audiorective/core";
 import { describe, expect, it } from "vitest";
 import { createDrumKit } from "../../sequencer/audio/drumKit";
-import { createLabSetup } from "./engine";
+import { createLabSetup } from "./labSetup";
 
 const SAMPLE_RATE = 48000;
 const HIT_TIME = 0.05;
@@ -87,7 +87,7 @@ describe("latency-lab root graph", () => {
     expect(firstAboveThreshold(wetOnly)).toBe(wetIndex);
   });
 
-  it("bypass on: the wet copy is gone and the dry onset keeps PDC's zero-diff position — no shift", async () => {
+  it("bypass on: the wet copy is gone entirely (no doubled dry) and the dry onset stays unshifted", async () => {
     const data = await renderLab((engine) => {
       engine.lab.limiterBypassed.value = true;
     });
@@ -95,6 +95,13 @@ describe("latency-lab root graph", () => {
     const hitIndex = Math.round(HIT_TIME * SAMPLE_RATE);
     expect(isSilentBefore(data, hitIndex)).toBe(true);
     expect(firstAboveThreshold(data)).toBe(hitIndex);
+
+    // Bypass must not add a second split->master copy alongside dry->master —
+    // subtracting the solo dry render should leave an all-zero residue, not a
+    // doubled (+6 dB) signal.
+    const dry = await renderSoloDryKick();
+    const residue = Float32Array.from(data, (v, i) => v - (dry[i] ?? 0));
+    for (const v of residue) expect(Math.abs(v)).toBeLessThan(1e-6);
   });
 
   it("keeps engine.core.latency following the limiter's latency as it changes", async () => {

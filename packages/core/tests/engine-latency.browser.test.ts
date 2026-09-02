@@ -198,6 +198,29 @@ describe("engine latency queries", () => {
     expect(() => engine.core.getPathLatency(engine.shared)).toThrow(LatencyUnknownError);
   });
 
+  it("destroy() after a graph disposes doesn't double-dispose or throw", () => {
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const slow = new FakeLatent(ctx, 400);
+      const handle = defineGraph(() => [[slow, ctx.destination]]);
+      return { slow, handle };
+    });
+    engine.handle.dispose();
+    // A disposed handle is spliced out of the engine's own graph list, so
+    // destroy() must not try to dispose it again.
+    expect(() => engine.core.destroy()).not.toThrow();
+  });
+
+  it("disposing the same graph handle twice is harmless", () => {
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const slow = new FakeLatent(ctx, 400);
+      const handle = defineGraph(() => [[slow, ctx.destination]]);
+      return { slow, handle };
+    });
+    engine.handle.dispose();
+    expect(() => engine.handle.dispose()).not.toThrow();
+    expect(engine.core.latency.value).toBe(0);
+  });
+
   it("getPathLatency throws LatencyUnknownError for a processor that only feeds an AudioParam", () => {
     const engine = createEngine((ctx, { defineGraph }) => {
       const lfo = new FakeLatent(ctx, 0);

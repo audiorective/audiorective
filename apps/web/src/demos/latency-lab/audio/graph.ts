@@ -47,12 +47,13 @@ export class Lab {
     return this._defineGraph(
       () => {
         const limiter = this.limiter;
-        const bypassed = this.limiterBypassed.value || !limiter;
+        // Bypass removes the wet branch outright — it adds no direct split->master
+        // edge, since dry->master is always present and a second copy would double
+        // the signal (+6 dB) rather than actually bypass anything.
         return [
           [beat, split],
-          limiter && !bypassed && [split, limiter, { label: "wet" }],
-          limiter && !bypassed && [limiter, master],
-          bypassed && [split, master, { label: "bypass" }],
+          limiter && !this.limiterBypassed.value && [split, limiter, { label: "wet" }],
+          limiter && !this.limiterBypassed.value && [limiter, master],
           [split, dry, { label: "dry" }],
           [dry, master],
           [click, master, { label: "click" }],
@@ -72,6 +73,7 @@ export class Lab {
 
   /** Disposes the current root graph and rebuilds it with compensation on/off. */
   setPdc(enabled: boolean): void {
+    if (enabled === this.pdcEnabled.value) return;
     this.handle.dispose();
     this.handle = this._build(enabled);
     this.pdcEnabled.value = enabled;
