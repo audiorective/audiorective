@@ -92,6 +92,12 @@ context, compensate? })` for a graph owned by no processor. A bare
 - **devtools:** `measureLatency` destroys each per-sample-rate processor it
   builds after rendering, instead of leaking one `OfflineAudioContext`-scoped
   processor per configured rate.
+- **core:** `getPathLatency` no longer fabricates a latency for a processor
+  sitting in a disconnected component of the same graph (e.g. a branch that
+  feeds nothing reaching the destination, while another branch of the same
+  graph does) — it now throws `LatencyUnknownError` for that case instead of
+  subtracting two unrelated solved arrivals. `GraphHandle` gains
+  `reaches(from, to)` to answer the reachability check.
 
 ## [2.1.2] - 2026-08-24
 

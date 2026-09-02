@@ -221,6 +221,24 @@ describe("engine latency queries", () => {
     expect(engine.core.latency.value).toBe(0);
   });
 
+  it("getPathLatency throws LatencyUnknownError for a processor in a disconnected component of the same graph", () => {
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const slow = new FakeLatent(ctx, 400);
+      const src2 = new GainNode(ctx);
+      const orphan = new FakeLatent(ctx, 50);
+      // One graph, two components: [slow → destination] reaches; [src2 → orphan]
+      // feeds nothing that does. `orphan` still gets a solved arrival number, but
+      // it must never be read as a path latency into `destination`.
+      defineGraph(() => [
+        [slow, ctx.destination],
+        [src2, orphan],
+      ]);
+      return { slow, orphan };
+    });
+    expect(engine.core.getPathLatency(engine.slow)).toBe(0);
+    expect(() => engine.core.getPathLatency(engine.orphan)).toThrow(LatencyUnknownError);
+  });
+
   it("getPathLatency throws LatencyUnknownError for a processor that only feeds an AudioParam", () => {
     const engine = createEngine((ctx, { defineGraph }) => {
       const lfo = new FakeLatent(ctx, 0);

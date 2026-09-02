@@ -29,6 +29,11 @@ function resolvePathLatency(proc: AudioProcessor): number {
   let best: number | undefined;
   let bestIsRoot = false;
   for (const [handle, { owner, sink }] of regs) {
+    // `proc` may sit in a graph component that never reaches this registration's
+    // sink (a disconnected branch of the same graph) — its solved arrival numbers
+    // are real but unrelated, so subtracting them would fabricate a latency.
+    if (!handle.reaches(proc, sink)) continue;
+
     let pathLatency: number;
     try {
       pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
@@ -38,6 +43,9 @@ function resolvePathLatency(proc: AudioProcessor): number {
       // `sink`) — try the next one instead of failing the whole query.
       continue;
     }
+    // Reachability should already rule this out; guard anyway so a fabricated
+    // negative number is never returned.
+    if (pathLatency < 0) continue;
 
     let total: number;
     if (owner) {
@@ -58,7 +66,7 @@ function resolvePathLatency(proc: AudioProcessor): number {
     }
   }
 
-  if (best === undefined) {
+  if (best === undefined || best < 0) {
     throw new LatencyUnknownError(proc.constructor.name);
   }
   return best;
@@ -135,6 +143,7 @@ export class AudioEngine {
       arrivalOf: (node) => inner.arrivalOf(node),
       snapshot: () => inner.snapshot(),
       idOf: (endpoint) => inner.idOf(endpoint),
+      reaches: (from, to) => inner.reaches(from, to),
     };
     this._graphs.push(handle);
     return handle;

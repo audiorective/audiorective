@@ -58,6 +58,12 @@ export interface GraphHandle {
    * input side, when it differs, is reachable from there via a `"virtual"` edge.
    */
   idOf(endpoint: GraphSource | AudioParam): number;
+  /**
+   * Whether `from`'s output forward-connects to `to` in the last solve (following real
+   * non-back-edge wires and virtual processor-internal wires). `false` when either side
+   * didn't participate in the last solve.
+   */
+  reaches(from: GraphSource, to: GraphSource): boolean;
 }
 
 // Module-internal: `arrivalOf` throws this — never a bare `Error` — when the queried
@@ -162,6 +168,7 @@ interface SolveResult {
   arrival: Map<AudioNode, number>;
   diffs: Map<Wire, number>;
   backEdges: Set<Wire>;
+  forwardAdj: Map<AudioNode, AudioNode[]>;
 }
 
 // Longest-path latency solve over the resolved wire graph.
@@ -300,7 +307,15 @@ function solve(wires: Wire[], virtualWires: Wire[], nodeLatency: (n: AudioNode) 
     }
   }
 
-  return { arrival, diffs, backEdges };
+  const forwardAdj = new Map<AudioNode, AudioNode[]>();
+  for (const [n, ws] of fwdOutgoing) {
+    forwardAdj.set(
+      n,
+      ws.map((w) => w.to as AudioNode),
+    );
+  }
+
+  return { arrival, diffs, backEdges, forwardAdj };
 }
 
 /**
@@ -328,6 +343,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
   let lastVirtualWires: Wire[] = [];
   let lastBackEdges = new Set<Wire>();
   let lastDiffs = new Map<Wire, number>();
+  let lastForwardAdj = new Map<AudioNode, AudioNode[]>();
   let solveId = 0;
   // Processors this graph currently owns an entry for in `_graphRegistry` — diffed each
   // render so a processor that leaves the edge list (or the graph itself disposes) has
@@ -410,6 +426,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
       lastVirtualWires = [];
       lastBackEdges = new Set();
       lastDiffs = new Map();
+      lastForwardAdj = new Map();
       for (const proc of registeredProcessors) {
         _graphRegistry.get(proc)?.delete(handle);
       }
@@ -472,6 +489,25 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
         return idOf(out);
       }
       return idOf(endpoint);
+    },
+    reaches(from: GraphSource, to: GraphSource): boolean {
+      const fromNode = from instanceof AudioProcessor ? from.output : from;
+      const toNode = to instanceof AudioProcessor ? to.output : to;
+      if (!fromNode || !toNode) return false;
+      if (fromNode === toNode) return true;
+      const visited = new Set<AudioNode>([fromNode]);
+      const stack: AudioNode[] = [fromNode];
+      while (stack.length > 0) {
+        const n = stack.pop()!;
+        for (const next of lastForwardAdj.get(n) ?? []) {
+          if (next === toNode) return true;
+          if (!visited.has(next)) {
+            visited.add(next);
+            stack.push(next);
+          }
+        }
+      }
+      return false;
     },
   };
 
@@ -558,6 +594,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     lastVirtualWires = virtualWires;
     lastBackEdges = solved.backEdges;
     lastDiffs = solved.diffs;
+    lastForwardAdj = solved.forwardAdj;
     solveId++;
 
     if (options.compensate !== false) {
