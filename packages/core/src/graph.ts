@@ -64,31 +64,37 @@ interface Wire {
 // destination for an engine-owned (ownerless) one.
 export const _graphRegistry = new WeakMap<AudioProcessor, { handle: GraphHandle; owner?: AudioProcessor; sink: GraphSource }>();
 
-function assertNotWorklet(node: AudioNode): void {
+// Errors identify an endpoint by its edge `label` when the caller gave one, else by the
+// endpoint's constructor name.
+const nameOf = (v: object, label?: string): string => label ?? v.constructor.name;
+
+function assertNotWorklet(node: AudioNode, label?: string): void {
   if (typeof AudioWorkletNode !== "undefined" && node instanceof AudioWorkletNode) {
-    throw new Error("defineGraph: a bare AudioWorkletNode has unknowable latency — wrap it in an AudioProcessor that declares latency");
+    throw new Error(
+      `defineGraph: ${nameOf(node, label)} is a bare AudioWorkletNode — it has unknowable latency; wrap it in an AudioProcessor that declares latency`,
+    );
   }
 }
 
-const resolveFrom = (v: GraphSource): AudioNode => {
+const resolveFrom = (v: GraphSource, label?: string): AudioNode => {
   if (v instanceof AudioProcessor) {
     const out = v.output;
-    if (!out) throw new Error("defineGraph: processor used as source has no output");
+    if (!out) throw new Error(`defineGraph: ${nameOf(v, label)} used as source has no output`);
     return out;
   }
-  assertNotWorklet(v);
+  assertNotWorklet(v, label);
   return v;
 };
 
-const resolveTo = (v: GraphSink): Endpoint => {
+const resolveTo = (v: GraphSink, label?: string): Endpoint => {
   if (v instanceof AudioProcessor) {
     const inp = v.input;
-    if (!inp) throw new Error("defineGraph: processor used as sink has no input");
+    if (!inp) throw new Error(`defineGraph: ${nameOf(v, label)} used as sink has no input`);
     return inp;
   }
   if (v instanceof SchedulableParam) return v.audioParam;
   if (v instanceof AudioParam) return v;
-  assertNotWorklet(v);
+  assertNotWorklet(v, label);
   return v;
 };
 
@@ -373,8 +379,8 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     for (const e of edges) {
       if (!e) continue;
       const [from, to, opts] = e;
-      const fromNode = resolveFrom(from);
-      const toEndpoint = resolveTo(to);
+      const fromNode = resolveFrom(from, opts?.label);
+      const toEndpoint = resolveTo(to, opts?.label);
       if (from instanceof AudioProcessor) {
         owners.set(fromNode, from);
         seenProcessors.add(from);

@@ -111,4 +111,16 @@ describe("defineGraph wiring", () => {
     const fake = Object.create(AudioWorkletNode.prototype) as AudioWorkletNode;
     expect(() => defineGraph(() => [[fake, ctx.destination]], { context: ctx })).toThrow(/AudioWorkletNode/);
   });
+
+  it("names the rejected endpoint by its edge label when one is given", () => {
+    const ctx = new AudioContext();
+    const fake = Object.create(AudioWorkletNode.prototype) as AudioWorkletNode;
+    expect(() => defineGraph(() => [[fake, ctx.destination, { label: "reverbTail" }]], { context: ctx })).toThrow(/reverbTail/);
+  });
+
+  it("falls back to the constructor name when no edge label is given", () => {
+    const ctx = new AudioContext();
+    const fake = Object.create(AudioWorkletNode.prototype) as AudioWorkletNode;
+    expect(() => defineGraph(() => [[fake, ctx.destination]], { context: ctx })).toThrow(/AudioWorkletNode/);
+  });
 });
