@@ -32,9 +32,6 @@ context, compensate? })` for a graph owned by no processor. A bare
   Plugin delay compensation runs on every `defineGraph` re-solve, splicing a
   `DelayNode` into any branch that arrives at a join early so every incoming
   edge lands in step.
-- **core:** `AudioProcessor.context` widens from `AudioContext` to
-  `BaseAudioContext`, so processors can be constructed against an
-  `OfflineAudioContext` for offline measurement.
 - **core:** engine latency queries — `AudioEngine.latency: Param<number>`
   (longest path into `ctx.destination` across every engine-owned graph),
   `AudioEngine.perceivedTime` (`ctx.currentTime` adjusted for latency and
@@ -51,6 +48,14 @@ context, compensate? })` for a graph owned by no processor. A bare
   configured sample rate and reports where it arrives; `assertLatency` checks
   that against the processor's declared `latency` and throws a message that
   carries the `latency: ...` line to paste when it doesn't match.
+
+### Changed
+
+- **core:** `AudioProcessor.context` widens from `AudioContext` to
+  `BaseAudioContext`, so processors can be constructed against an
+  `OfflineAudioContext` for offline measurement. Existing code that passes
+  `proc.context` where an `AudioContext` is expected needs its own
+  `AudioContext` reference, or a cast, at that call site.
 
 ## [2.1.2] - 2026-08-24
 
