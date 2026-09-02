@@ -5,7 +5,7 @@ import { ParamSync } from "./ParamSync";
 export interface SchedulableParamOptions extends ParamOptions<number> {
   syncInterval?: number;
   audioParam: AudioParam;
-  audioContext: AudioContext;
+  audioContext: BaseAudioContext;
 }
 
 /**

@@ -24,18 +24,24 @@ type Undeclared<Msg extends string> = { [K in Msg]: never };
 export type BuildResult<P extends ParamRegistry, C extends CellRegistry> = (string extends keyof P
   ? { params?: Undeclared<"Error: params not declared — add a P type parameter to AudioProcessor"> }
   : { params: P }) &
-  (string extends keyof C ? { cells?: Undeclared<"Error: cells not declared — add a C type parameter to AudioProcessor"> } : { cells: C });
+  (string extends keyof C ? { cells?: Undeclared<"Error: cells not declared — add a C type parameter to AudioProcessor"> } : { cells: C }) & {
+    latency?: number | Param<number>;
+  };
 
 export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C extends CellRegistry = CellRegistry> {
-  readonly context: AudioContext;
+  readonly context: BaseAudioContext;
   readonly params: Readonly<P>;
   readonly cells: Readonly<C>;
+  readonly latency: Param<number>;
+  /** Whether the build callback supplied `latency` itself, rather than defaulting to 0. */
+  readonly declaredLatency: boolean;
 
   private readonly _silencer: GainNode;
+  private readonly _ownsLatency: boolean;
   private _constantSources = new Set<ConstantSourceNode>();
   private _effects: (() => void)[] = [];
 
-  protected constructor(context: AudioContext, build: (helpers: BuildHelpers) => BuildResult<P, C>) {
+  protected constructor(context: BaseAudioContext, build: (helpers: BuildHelpers) => BuildResult<P, C>) {
     this.context = context;
 
     this._silencer = new GainNode(context);
@@ -87,6 +93,11 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
     const result = build(helpers);
     this.params = Object.freeze("params" in result ? result.params : {}) as Readonly<P>;
     this.cells = Object.freeze("cells" in result ? result.cells : {}) as Readonly<C>;
+
+    const declared = "latency" in result ? (result as { latency?: number | Param<number> }).latency : undefined;
+    this.declaredLatency = declared !== undefined;
+    this._ownsLatency = !(declared instanceof Param);
+    this.latency = declared instanceof Param ? declared : new Param({ default: declared ?? 0 });
   }
 
   abstract get output(): AudioNode | undefined;
@@ -113,6 +124,12 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
 
     for (const param of Object.values(this.params)) {
       param.destroy();
+    }
+
+    // A caller-supplied Param belongs to their own params registry (or their own
+    // ownership) and is destroyed there; only the one we created ourselves is ours to stop.
+    if (this._ownsLatency) {
+      this.latency.destroy();
     }
 
     for (const source of this._constantSources) {
