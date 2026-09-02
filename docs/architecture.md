@@ -8,6 +8,8 @@ The audio layer must be fully operable without any UI framework. React (or any f
 
 **All audio operations live as methods on `AudioProcessor` subclasses.** UI components call these methods — they never orchestrate audio logic themselves.
 
+For how to write the class itself — skeleton, state, graph wiring, latency, lifecycle, tests — see [`authoring-processors.md`](./authoring-processors.md).
+
 ## The two axes
 
 The system has two independent spans, and a class can sit on one, the other, or both:
