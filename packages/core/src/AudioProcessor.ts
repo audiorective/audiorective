@@ -4,7 +4,7 @@ import { Param } from "./Param";
 import { SchedulableParam } from "./SchedulableParam";
 import { Cell } from "./Cell";
 import { defineGraph as defineGraphFn } from "./graph";
-import type { EdgeList, GraphHandle } from "./graph";
+import type { EdgeList, GraphHandle, ValidateEdges } from "./graph";
 
 // Registry constraints use `any` rather than `unknown` because Param<T>/Cell<T> have
 // T in both reader and writer position, making them invariant in T. Subclasses still
@@ -119,6 +119,7 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
     return stop;
   }
 
+  protected defineGraph<const E extends EdgeList>(fn: () => readonly [...ValidateEdges<E>], opts?: { compensate?: boolean }): GraphHandle;
   protected defineGraph(fn: () => EdgeList, opts?: { compensate?: boolean }): GraphHandle {
     const handle = defineGraphFn(fn, { context: this.context, compensate: opts?.compensate, owner: this });
     this._graphs.push(handle);

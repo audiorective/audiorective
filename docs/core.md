@@ -250,7 +250,7 @@ abstract class AudioProcessor<
   P extends Record<string, Param<any>> = Record<string, Param<any>>,
   C extends Record<string, Cell<any>> = Record<string, Cell<any>>,
 > {
-  readonly context: BaseAudioContext; // widened so processors can build against an OfflineAudioContext
+  readonly context: BaseAudioContext; // processors also build against an OfflineAudioContext
   readonly params: Readonly<P>; // frozen, fully typed
   readonly cells: Readonly<C>; // frozen, fully typed
   readonly latency: Param<number>; // samples — see Latency (PDC)
@@ -324,7 +324,7 @@ class Layered extends AudioProcessor<{ useShifter: Param<boolean> }> {
 
 - **Edge forms:** `[from, to]`, `[from, to, { output?, input?, label? }]` for multi-channel connections and a debug `label` used in error messages, or a falsy value (`false`/`null`/`undefined`) to skip the edge — so branches can be written inline with `condition && [from, to]`.
 - **Endpoints:** `from` is an `AudioNode` or an `AudioProcessor` (connects from its `output`); `to` additionally accepts an `AudioParam` or `SchedulableParam` (resolves to its backing `AudioParam`), like `[lfo, filter.frequency]`. `AudioParam` sinks carry no latency and don't participate in compensation.
-- **Worklet rejection.** A bare `AudioWorkletNode` is rejected both at the type level (`readonly latency: Param<number>` and `port`/`parameters` narrow it to `never`) and at runtime (`instanceof AudioWorkletNode` throws) — its latency can't be known from outside. Wrap it in an `AudioProcessor` that declares `latency` instead.
+- **Worklet rejection.** A bare `AudioWorkletNode` is rejected both at the type level (structurally: any value with `port`/`parameters` narrows to `never` at that edge position, in both `this.defineGraph` and the standalone `defineGraph`) and at runtime (`instanceof AudioWorkletNode` throws) — its latency can't be known from outside. Wrap it in an `AudioProcessor` that declares `latency` instead.
 - **`this.defineGraph(fn, opts?)`** is the protected instance method, used after `super()` (like `effect()`/`computed()`) so the edge callback can read `this.params`. **`defineGraph(fn, { context, compensate? })`** is the standalone export for a graph owned by no processor — the engine's root graph uses this form (see [`AudioEngine`](#audioengine) below).
 - The edge function runs inside an `effect()`; every re-run diffs the new edge list against the current one (keyed by endpoint identity) and applies only the minimal `connect`/`disconnect` calls, then re-solves compensation.
 - `defineGraph(fn, { compensate: false })` keeps the diffing but turns off compensating delays for that graph.

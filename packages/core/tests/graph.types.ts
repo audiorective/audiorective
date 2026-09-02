@@ -29,3 +29,18 @@ class OutputOnly extends AudioProcessor {
 declare const outputOnly: OutputOnly;
 // @ts-expect-error
 defineGraph(() => [[node, outputOnly]], { context: ctx });
+
+// The protected instance method carries the same generic validation as the standalone
+// export — a bare AudioWorkletNode through `this.defineGraph` is a compile error too.
+class UsesGraph extends AudioProcessor {
+  get output(): AudioNode | undefined {
+    return node;
+  }
+
+  wire(): void {
+    // @ts-expect-error
+    this.defineGraph(() => [[node, worklet]]);
+  }
+}
+declare const usesGraph: UsesGraph;
+void usesGraph;

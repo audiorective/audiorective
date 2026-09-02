@@ -31,7 +31,7 @@ type ValidateSink<T> = T extends AudioProcessor ? (T extends { input: AudioNode 
 // concrete AudioWorkletNode, or a processor with no usable input, as either endpoint
 // resolves that position to `never` and fails to typecheck.
 type ValidateEdge<E> = E extends readonly [infer From, infer To, ...infer Rest] ? readonly [NotWorklet<From>, ValidateSink<To>, ...Rest] : E;
-type ValidateEdges<E extends EdgeList> = { [K in keyof E]: E[K] extends GraphEdge ? ValidateEdge<E[K]> : E[K] };
+export type ValidateEdges<E extends EdgeList> = { [K in keyof E]: E[K] extends GraphEdge ? ValidateEdge<E[K]> : E[K] };
 
 export interface GraphOptions {
   context: BaseAudioContext;
