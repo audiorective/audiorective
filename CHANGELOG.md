@@ -77,6 +77,12 @@ context, compensate? })` for a graph owned by no processor. A bare
 - **devtools:** `measureLatency` destroys each per-sample-rate processor it
   builds after rendering, instead of leaking one `OfflineAudioContext`-scoped
   processor per configured rate.
+- **core:** a processor wired into more than one live graph no longer loses
+  `getPathLatency` when one of those graphs disposes or drops it — the
+  internal graph registry now keeps one registration per graph a processor
+  belongs to (instead of a single entry the most recently solved graph
+  overwrote), so `getPathLatency` keeps resolving through whichever
+  registration is still live.
 
 ## [2.1.2] - 2026-08-24
 

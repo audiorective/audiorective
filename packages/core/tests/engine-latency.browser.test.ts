@@ -150,6 +150,54 @@ describe("engine latency queries", () => {
     expect(() => engine.core.getPathLatency(engine.slow)).toThrow(LatencyUnknownError);
   });
 
+  it("getPathLatency resolves through a processor's other graph after one graph disposes", () => {
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const shared = new FakeLatent(ctx, 400);
+      const dry = new FakeLatent(ctx, 0);
+      const handleA = defineGraph(() => [[shared, ctx.destination]]);
+      defineGraph(() => [
+        [shared, dry],
+        [dry, ctx.destination],
+      ]);
+      return { shared, dry, handleA };
+    });
+    expect(engine.core.getPathLatency(engine.shared)).toBe(0); // handleA: direct to destination
+    engine.handleA.dispose();
+    expect(engine.core.getPathLatency(engine.shared)).toBe(0); // the other graph still reaches destination through dry
+  });
+
+  it("getPathLatency stays resolvable after a conditional edge drops the processor from one of its two graphs", () => {
+    const on = new Param<boolean>({ default: true });
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const shared = new FakeLatent(ctx, 400);
+      const dry = new FakeLatent(ctx, 0);
+      defineGraph(() => [on.value && [shared, ctx.destination]]);
+      defineGraph(() => [
+        [shared, dry],
+        [dry, ctx.destination],
+      ]);
+      return { shared, dry };
+    });
+    expect(engine.core.getPathLatency(engine.shared)).toBe(0);
+    on.value = false;
+    expect(engine.core.getPathLatency(engine.shared)).toBe(0);
+  });
+
+  it("getPathLatency throws once a processor's last graph is gone", () => {
+    const on = new Param<boolean>({ default: true });
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const shared = new FakeLatent(ctx, 400);
+      const dry = new FakeLatent(ctx, 0);
+      const handleA = defineGraph(() => [[shared, ctx.destination]]);
+      defineGraph(() => [on.value && [shared, dry], [dry, ctx.destination]]);
+      return { shared, dry, handleA };
+    });
+    expect(engine.core.getPathLatency(engine.shared)).toBe(0);
+    engine.handleA.dispose();
+    on.value = false;
+    expect(() => engine.core.getPathLatency(engine.shared)).toThrow(LatencyUnknownError);
+  });
+
   it("getPathLatency throws LatencyUnknownError for a processor that only feeds an AudioParam", () => {
     const engine = createEngine((ctx, { defineGraph }) => {
       const lfo = new FakeLatent(ctx, 0);

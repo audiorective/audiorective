@@ -37,7 +37,11 @@ export interface GraphOptions {
   context: BaseAudioContext;
   compensate?: boolean;
   owner?: AudioProcessor;
-  /** Called after each solve completes — engine-internal, drives `AudioEngine.latency`. */
+  /**
+   * Called with the handle after each solve completes. `AudioEngine` uses this to keep
+   * `AudioEngine.latency` current; any caller can use it the same way to react to a fresh
+   * solve — e.g. re-read `snapshot()`.
+   */
   onSolve?: (handle: GraphHandle) => void;
 }
 
@@ -84,12 +88,20 @@ export interface GraphSnapshot {
   edges: { from: number; to: number; label?: string; kind: "audio" | "param" | "virtual" | "back"; compensationSamples: number }[];
 }
 
-// Engine-internal: maps every AudioProcessor that has appeared as a graph endpoint to the
-// graph it last resolved in, so devtools (Task 4) can walk a processor to its solve state
-// without the caller threading handles through. `sink` is the graph's own join point for
-// path-latency queries — the owner's output for a processor-owned graph, or the context's
-// destination for an engine-owned (ownerless) one.
-export const _graphRegistry = new WeakMap<AudioProcessor, { handle: GraphHandle; owner?: AudioProcessor; sink: GraphSource }>();
+interface GraphRegistration {
+  owner?: AudioProcessor;
+  sink: GraphSource;
+}
+
+// Engine-internal: maps every AudioProcessor that has appeared as a graph endpoint to
+// every live graph handle it currently belongs to, so devtools (Task 4) can walk a
+// processor to its solve state without the caller threading handles through, and so a
+// processor wired into more than one graph keeps a resolvable entry for each — one
+// graph disposing or dropping the processor only clears that graph's own registration.
+// `sink` is a graph's own join point for path-latency queries — the owner's output for
+// a processor-owned graph, or the context's destination for an engine-owned (ownerless)
+// one.
+export const _graphRegistry = new WeakMap<AudioProcessor, Map<GraphHandle, GraphRegistration>>();
 
 // Errors identify an endpoint by its edge `label` when the caller gave one, else by the
 // endpoint's constructor name.
@@ -398,8 +410,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
       lastBackEdges = new Set();
       lastDiffs = new Map();
       for (const proc of registeredProcessors) {
-        const entry = _graphRegistry.get(proc);
-        if (entry && entry.handle === handle) _graphRegistry.delete(proc);
+        _graphRegistry.get(proc)?.delete(handle);
       }
       registeredProcessors = new Set();
     },
@@ -498,13 +509,19 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
       next.set(`${idOf(wire.fromNode)}>${idOf(wire.to)}@${wire.output},${wire.input}`, wire);
     }
 
-    for (const proc of memberProcessors) _graphRegistry.set(proc, { handle, owner: options.owner, sink });
+    for (const proc of memberProcessors) {
+      let regs = _graphRegistry.get(proc);
+      if (!regs) {
+        regs = new Map();
+        _graphRegistry.set(proc, regs);
+      }
+      regs.set(handle, { owner: options.owner, sink });
+    }
     for (const proc of registeredProcessors) {
       if (memberProcessors.has(proc)) continue;
-      const entry = _graphRegistry.get(proc);
-      // Only clear an entry this graph still owns — another graph may have since
-      // claimed the same processor.
-      if (entry && entry.handle === handle) _graphRegistry.delete(proc);
+      // Only this graph's own registration is removed — another graph the processor
+      // still belongs to keeps its own entry.
+      _graphRegistry.get(proc)?.delete(handle);
     }
     registeredProcessors = memberProcessors;
 

@@ -9,25 +9,59 @@ import type { EngineState, SignalAccessor } from "./types";
 const DEFAULT_AUTO_START_EVENTS = ["click", "keydown", "touchstart"] as const;
 
 // Samples from `proc`'s output to the destination of the graph that (transitively)
-// owns it. Recurses through a nested processor's own graph via the registry's
+// owns it. Recurses through a nested processor's own graph via a registration's
 // `owner` link, so a processor several composites deep still resolves.
+//
+// `proc` may hold a live registration in more than one graph at once (e.g. wired into
+// two engine-owned graphs). Each is tried independently — one whose path doesn't
+// currently resolve (a stale registration, or an owner whose own path doesn't
+// resolve) is skipped rather than failing the whole query. Among the ones that do
+// resolve, a root registration (no `owner` — an engine-owned or otherwise ownerless
+// graph) is preferred over a nested composite's own graph, since that's the direct
+// path; ties (including among non-root registrations) go to the longest resolved
+// path, matching `latency`'s "longest path into the destination" semantics.
 function resolvePathLatency(proc: AudioProcessor): number {
-  const entry = _graphRegistry.get(proc);
-  if (!entry) {
+  const regs = _graphRegistry.get(proc);
+  if (!regs || regs.size === 0) {
     throw new LatencyUnknownError(proc.constructor.name);
   }
-  const { handle, owner, sink } = entry;
-  let pathLatency: number;
-  try {
-    pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
-  } catch (err) {
-    if (!(err instanceof NodeNotInSolveError)) throw err;
-    // The registry entry is stale (its graph re-solved without `proc`, or without
-    // `sink`) — translate the internal "not in the last solve" error into the one
-    // error the public query is allowed to throw.
+
+  let best: number | undefined;
+  let bestIsRoot = false;
+  for (const [handle, { owner, sink }] of regs) {
+    let pathLatency: number;
+    try {
+      pathLatency = handle.arrivalOf(sink) - handle.arrivalOf(proc);
+    } catch (err) {
+      if (!(err instanceof NodeNotInSolveError)) throw err;
+      // This registration is stale (its graph re-solved without `proc`, or without
+      // `sink`) — try the next one instead of failing the whole query.
+      continue;
+    }
+
+    let total: number;
+    if (owner) {
+      try {
+        total = pathLatency + resolvePathLatency(owner);
+      } catch (err) {
+        if (!(err instanceof LatencyUnknownError)) throw err;
+        continue;
+      }
+    } else {
+      total = pathLatency;
+    }
+
+    const isRoot = owner === undefined;
+    if (best === undefined || (isRoot && !bestIsRoot) || (isRoot === bestIsRoot && total > best)) {
+      best = total;
+      bestIsRoot = isRoot;
+    }
+  }
+
+  if (best === undefined) {
     throw new LatencyUnknownError(proc.constructor.name);
   }
-  return owner ? pathLatency + resolvePathLatency(owner) : pathLatency;
+  return best;
 }
 
 export class AudioEngine {
