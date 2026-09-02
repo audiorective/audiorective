@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { LookaheadLimiter, loadLimiterWorklet } from "./LookaheadLimiter";
 
 // Worklet processors measure with a pre-loaded context: the module must be added to
-// the exact OfflineAudioContext that renders, so the test owns the context.
+// the exact OfflineAudioContext that renders, so the test owns the context. The source
+// buffer is mono, so this also exercises the mono-into-stereo broadcast path.
 async function measure(sampleRate: number) {
   const ctx = new OfflineAudioContext(2, sampleRate, sampleRate);
   await loadLimiterWorklet(ctx);
@@ -13,9 +14,9 @@ async function measure(sampleRate: number) {
   src.connect(proc.input);
   proc.output.connect(ctx.destination);
   src.start(0);
-  const out = (await ctx.startRendering()).getChannelData(0);
-  const firstArrival = out.findIndex((v) => Math.abs(v) > 1e-4);
-  return { firstArrival, declared: proc.latency.value };
+  const rendered = await ctx.startRendering();
+  const arrivals = Array.from({ length: rendered.numberOfChannels }, (_, ch) => rendered.getChannelData(ch).findIndex((v) => Math.abs(v) > 1e-4));
+  return { firstArrival: arrivals[0], arrivals, declared: proc.latency.value };
 }
 
 describe("LookaheadLimiter latency", () => {
@@ -24,6 +25,15 @@ describe("LookaheadLimiter latency", () => {
       const { firstArrival, declared } = await measure(rate);
       expect(declared).toBe(Math.round(0.02 * rate));
       expect(firstArrival).toBe(declared);
+    }
+  });
+
+  it("broadcasts a mono impulse to every output channel", async () => {
+    for (const rate of [44100, 48000]) {
+      const { arrivals, declared } = await measure(rate);
+      for (const arrival of arrivals) {
+        expect(arrival).toBe(declared);
+      }
     }
   });
 });

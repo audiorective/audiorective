@@ -5,7 +5,7 @@ const MAX_LOOKAHEAD_SECONDS = 1;
 
 class LookaheadLimiterProcessor extends AudioWorkletProcessor {
   static get parameterDescriptors() {
-    return [{ name: "ceiling", defaultValue: 0.9, minValue: 0, maxValue: 1, automationRate: "a-rate" }];
+    return [{ name: "ceiling", defaultValue: 0.9, minValue: 0, maxValue: 1, automationRate: "k-rate" }];
   }
 
   constructor() {
@@ -46,7 +46,10 @@ class LookaheadLimiterProcessor extends AudioWorkletProcessor {
     for (let channel = 0; channel < channelCount; channel++) {
       const ring = this._ringFor(channel);
       const ringLength = ring.length;
-      const inputChannel = input[channel];
+      // Fewer input channels than output (e.g. a mono source into this stereo-forced
+      // node): broadcast the last available input channel to the remaining outputs.
+      // More input channels than output: the extras are simply never read.
+      const inputChannel = input.length > 0 ? (input[channel] ?? input[input.length - 1]) : null;
       const outputChannel = output[channel];
 
       for (let i = 0; i < blockSize; i++) {
