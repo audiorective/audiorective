@@ -118,14 +118,15 @@ One engine-owned `defineGraph` built by `buildGraph(compensate: boolean)`:
 ```
 beat  → split
 split → limiter → master       (conditional: limiterBypassed === false)
-split → master                 (conditional: limiterBypassed === true)
 split → dry    → master        (the join PDC compensates)
 click → master
 master → destination
 ```
 
 - `limiterBypassed: Param<boolean>` is read inside the edge function, so
-  bypass is a rewire the diagram shows.
+  bypass is a rewire the diagram shows. Bypass removes the wet branch and
+  adds nothing in its place — the dry path already carries the signal, and a
+  substitute `split → master` edge would double it.
 - The PDC toggle disposes the current handle and calls
   `buildGraph(!compensate)`. Toggling mid-playback re-wires audibly for a
   moment; the UI says so next to the switch.
