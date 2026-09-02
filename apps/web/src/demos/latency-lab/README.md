@@ -10,8 +10,9 @@ pnpm --filter @audiorective/web dev
 # then open /showroom/latency-lab
 ```
 
-Press **Play**. The limiter's worklet loads asynchronously, so the graph starts dry/click-only —
-"Loading limiter…" clears once it's wired in.
+The limiter's worklet loads asynchronously, so the page shows "Loading limiter…" and withholds the
+diagram and controls until it's wired in. Once it clears, press **Play** to start the transport —
+audio itself only starts once the `AudioContext` is resumed by that first user gesture.
 
 ## What it demonstrates
 
@@ -44,11 +45,13 @@ Press **Play**. The limiter's worklet loads asynchronously, so the graph starts 
    means the graph re-solves and the compensation delay on the dry branch updates live, with no
    rebuild.
 
-4. **`perceivedTime` / `getPathLatency` for A/V sync** — `FlashRow` calls
+4. **`getPathLatency` for A/V sync, `perceivedTime` in the diagram header** — `FlashRow` calls
    `core.getPathLatency(beat)` (and `click`) to get each source's samples-to-destination path
    latency, then `flashDelayMs` converts a hit's schedule time plus that latency plus
    `ctx.outputLatency` into a `setTimeout` delay, so the pad flash lands with the sound the
-   listener actually hears rather than with when it was scheduled.
+   listener actually hears rather than with when it was scheduled. `GraphDiagram`'s header shows
+   `engine.core.perceivedTime` (`ctx.currentTime` adjusted the same way) alongside the latency
+   readout, refreshed on every solve.
 
 5. **Wrapping a worklet with declared latency, pinned by `assertLatency`** — `LookaheadLimiter`
    declares `latency: param({ default: Math.round(lookaheadSeconds * ctx.sampleRate) })` and
@@ -81,6 +84,7 @@ in flight through the old graph is interrupted.
 | `audio/graph.ts`            | `Lab` — owns the root `defineGraph`, `limiterBypassed`/`pdcEnabled` params, `setPdc`, `snapshot`/`roles` for the diagram |
 | `audio/Beat.ts`             | Output-only Sampler trio driven by the clock tick, exposing recent `hits` for the flash row                              |
 | `audio/Click.ts`            | Output-only metronome burst per beat, gated by `enabled`                                                                 |
+| `audio/tick.ts`             | `TickWindow` — the pattern-ruler-grid slice `Beat.schedule`/`Click.schedule` both read                                   |
 | `audio/LookaheadLimiter.ts` | `AudioProcessor` wrapping the `lookahead-limiter` worklet, with a Param-backed runtime latency                           |
 | `audio/flashTime.ts`        | `flashDelayMs` — hit time + path latency + output latency → forward-looking flash delay                                  |
 | `audio/engine.ts`           | `createEngine` + `createEngineContext` — owns the page's singleton `AudioContext`                                        |

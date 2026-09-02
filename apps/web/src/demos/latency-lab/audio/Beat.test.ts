@@ -48,7 +48,7 @@ describe("Beat", () => {
     expect(beat.hits.value).toHaveLength(10);
   });
 
-  it("constructs and schedules against an OfflineAudioContext — the offline path Task 4 relies on", () => {
+  it("constructs and schedules against an OfflineAudioContext — the offline path graph.test.ts's headless render relies on", () => {
     const offlineCtx = new OfflineAudioContext(1, 1, 44100);
     const kit = createDrumKit(offlineCtx);
     const beat = new Beat(offlineCtx, { kit });

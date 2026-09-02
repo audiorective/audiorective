@@ -373,9 +373,9 @@ engine.perceivedTime: number;                // ctx.currentTime + latency/sample
 engine.getPathLatency(proc: AudioProcessor): number; // samples from proc's output to ctx.destination
 ```
 
-`perceivedTime` is what a visualizer or a record-quantize step should compare against instead of `ctx.currentTime`. `getPathLatency(proc)` throws [`LatencyUnknownError`](#latencyunknownerror) when `proc` has never appeared in a `defineGraph` — a processor built but never wired has no path to measure.
+`perceivedTime` is what a visualizer or a record-quantize step should compare against instead of `ctx.currentTime`. `getPathLatency(proc)` throws [`LatencyUnknownError`](#latencyunknownerror) when `proc` isn't part of the current solve — built but never wired into a `defineGraph`, dropped from the edge list, its graph disposed, or wired only to an `AudioParam` — a processor with no path to measure.
 
-See the [Latency Lab demo](../apps/web/src/demos/latency-lab) for compensation, bypass, a runtime-adjustable worklet latency, and `perceivedTime`-driven UI sync working together.
+See the [Latency Lab demo](../apps/web/src/demos/latency-lab) for compensation, bypass, a runtime-adjustable worklet latency, and its diagram header showing `getPathLatency`-timed flashes alongside `perceivedTime`.
 
 ### `LatencyUnknownError`
 
@@ -383,7 +383,7 @@ See the [Latency Lab demo](../apps/web/src/demos/latency-lab) for compensation, 
 class LatencyUnknownError extends Error {}
 ```
 
-Thrown by `engine.getPathLatency(proc)` when `proc` hasn't appeared in any `defineGraph` (its own or the engine's), naming the processor. This is a loud failure rather than a silent `0`.
+Thrown by `engine.getPathLatency(proc)` when `proc` isn't part of the current solve of any `defineGraph` (its own or the engine's) — never wired in, dropped from the edge list, its graph disposed, or wired only to an `AudioParam` — naming the processor. This is a loud failure rather than a silent `0`.
 
 ### Spatial
 

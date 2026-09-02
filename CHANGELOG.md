@@ -78,15 +78,20 @@ context, compensate? })` for a graph owned by no processor. A bare
   list, one whose owning graph was disposed, or one that only feeds an
   `AudioParam` — instead of leaking `defineGraph`'s internal "not present in
   the last solve" error for the first two cases.
-- **devtools:** `measureLatency` destroys each per-sample-rate processor it
-  builds after rendering, instead of leaking one `OfflineAudioContext`-scoped
-  processor per configured rate.
 - **core:** a processor wired into more than one live graph no longer loses
   `getPathLatency` when one of those graphs disposes or drops it — the
   internal graph registry now keeps one registration per graph a processor
   belongs to (instead of a single entry the most recently solved graph
   overwrote), so `getPathLatency` keeps resolving through whichever
   registration is still live.
+- **core:** `AudioEngine` no longer leaks a dead graph handle on every
+  dispose-and-rebuild (e.g. each `setPdc` toggle in the Latency Lab demo) —
+  a disposed handle now removes itself from the engine's internal graph
+  list, and `destroy()` iterates a copy of that list since each `dispose()`
+  mutates it mid-loop.
+- **devtools:** `measureLatency` destroys each per-sample-rate processor it
+  builds after rendering, instead of leaking one `OfflineAudioContext`-scoped
+  processor per configured rate.
 
 ## [2.1.2] - 2026-08-24
 

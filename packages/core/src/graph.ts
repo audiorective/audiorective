@@ -94,8 +94,9 @@ interface GraphRegistration {
 }
 
 // Engine-internal: maps every AudioProcessor that has appeared as a graph endpoint to
-// every live graph handle it currently belongs to, so devtools (Task 4) can walk a
-// processor to its solve state without the caller threading handles through, and so a
+// every live graph handle it currently belongs to, so a caller can walk a processor to
+// its solve state (e.g. for a devtools inspector) without the caller threading handles
+// through, and so a
 // processor wired into more than one graph keeps a resolvable entry for each — one
 // graph disposing or dropping the processor only clears that graph's own registration.
 // `sink` is a graph's own join point for path-latency queries — the owner's output for
