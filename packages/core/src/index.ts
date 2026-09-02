@@ -20,3 +20,5 @@ export { BufferPlayer } from "./BufferPlayer";
 export type { BufferPlayerOptions } from "./BufferPlayer";
 export { FilePlayer } from "./FilePlayer";
 export type { FilePlayerOptions } from "./FilePlayer";
+export { defineGraph } from "./graph";
+export type { GraphEdge, EdgeList, EdgeOptions, GraphHandle, GraphOptions, GraphSource, GraphSink } from "./graph";

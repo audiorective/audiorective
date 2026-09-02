@@ -3,6 +3,8 @@ import type { ParamBind, ParamOptions, ComputedAccessor } from "./types";
 import { Param } from "./Param";
 import { SchedulableParam } from "./SchedulableParam";
 import { Cell } from "./Cell";
+import { defineGraph as defineGraphFn } from "./graph";
+import type { EdgeList, GraphHandle } from "./graph";
 
 // Registry constraints use `any` rather than `unknown` because Param<T>/Cell<T> have
 // T in both reader and writer position, making them invariant in T. Subclasses still
@@ -40,6 +42,7 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
   private readonly _ownsLatency: boolean;
   private _constantSources = new Set<ConstantSourceNode>();
   private _effects: (() => void)[] = [];
+  private _graphs: GraphHandle[] = [];
 
   protected constructor(context: BaseAudioContext, build: (helpers: BuildHelpers) => BuildResult<P, C>) {
     this.context = context;
@@ -116,7 +119,18 @@ export abstract class AudioProcessor<P extends ParamRegistry = ParamRegistry, C 
     return stop;
   }
 
+  protected defineGraph(fn: () => EdgeList, opts?: { compensate?: boolean }): GraphHandle {
+    const handle = defineGraphFn(fn, { context: this.context, compensate: opts?.compensate, owner: this });
+    this._graphs.push(handle);
+    return handle;
+  }
+
   destroy(): void {
+    for (const graph of this._graphs) {
+      graph.dispose();
+    }
+    this._graphs = [];
+
     for (const stop of this._effects) {
       stop();
     }

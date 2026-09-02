@@ -22,6 +22,11 @@ export class SchedulableParam extends Param<number> {
     return super.value;
   }
 
+  /** Backing AudioParam, for graph param sinks. */
+  get audioParam(): AudioParam {
+    return this._audioParam;
+  }
+
   override set value(newValue: number) {
     super.value = newValue;
     this._audioParam.value = newValue;
