@@ -39,7 +39,7 @@ export class Sampler extends AudioProcessor<{ volume: SchedulableParam }, { acti
   private readonly _steal: "oldest" | "none";
   private _voices: Voice[] = [];
 
-  constructor(ctx: AudioContext, opts: SamplerOptions = {}) {
+  constructor(ctx: BaseAudioContext, opts: SamplerOptions = {}) {
     const outputGain = new GainNode(ctx, { gain: opts.volume ?? 1 });
     super(ctx, ({ param, cell }) => ({
       params: { volume: param({ default: opts.volume ?? 1, bind: outputGain.gain, min: 0, max: 1 }) },

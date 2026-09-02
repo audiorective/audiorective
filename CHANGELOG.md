@@ -63,6 +63,10 @@ context, compensate? })` for a graph owned by no processor. A bare
   `OfflineAudioContext` for offline measurement. Existing code that passes
   `proc.context` where an `AudioContext` is expected needs its own
   `AudioContext` reference, or a cast, at that call site.
+- **core:** `Sampler` and `BufferPlayer` constructors widen their `ctx`
+  parameter from `AudioContext` to `BaseAudioContext` — neither uses any
+  `AudioContext`-only member, so both now build against an
+  `OfflineAudioContext` too.
 
 ### Fixed
 

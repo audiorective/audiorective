@@ -1,4 +1,3 @@
-import { CycleBarRuler, Timeline } from "@audiorective/clock";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDrumKit } from "../../sequencer/audio/drumKit";
 import { Beat } from "./Beat";
@@ -16,8 +15,7 @@ describe("Beat", () => {
 
   it("triggers the fixed kick/snare/hat pattern on schedule and records hits", () => {
     const kit = createDrumKit(ctx);
-    const timeline = new Timeline({ audioContext: ctx }).addRuler("pattern", new CycleBarRuler({ numerator: 4, denominator: 4, bars: 1 }));
-    const beat = new Beat(ctx, { kit, timeline });
+    const beat = new Beat(ctx, { kit });
 
     const kickSpy = vi.spyOn(beat.samplers.kick, "trigger");
     const snareSpy = vi.spyOn(beat.samplers.snare, "trigger");
@@ -48,5 +46,16 @@ describe("Beat", () => {
       ]),
     );
     expect(beat.hits.value).toHaveLength(10);
+  });
+
+  it("constructs and schedules against an OfflineAudioContext — the offline path Task 4 relies on", () => {
+    const offlineCtx = new OfflineAudioContext(1, 1, 44100);
+    const kit = createDrumKit(offlineCtx);
+    const beat = new Beat(offlineCtx, { kit });
+
+    const grid = Array.from({ length: 16 }, (_, step) => ({ time: step * 0.125, step }));
+    const window = { rulers: { pattern: { grid: () => grid } } };
+
+    expect(() => beat.schedule(window)).not.toThrow();
   });
 });

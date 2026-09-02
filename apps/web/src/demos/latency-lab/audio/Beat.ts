@@ -1,5 +1,4 @@
 import { AudioProcessor, Cell, Sampler } from "@audiorective/core";
-import type { CycleBarRuler, Timeline } from "@audiorective/clock";
 import type { DrumKit } from "../../sequencer/audio/drumKit";
 
 type BeatVoiceId = "kick" | "snare" | "hat";
@@ -16,7 +15,6 @@ const MAX_HITS = 64;
 
 export interface BeatOptions {
   kit: DrumKit;
-  timeline: Timeline<{ pattern: CycleBarRuler }>;
 }
 
 /** The slice of a tick window `schedule()` reads: the pattern ruler's grid. */
@@ -41,9 +39,9 @@ export class Beat extends AudioProcessor {
   constructor(ctx: BaseAudioContext, opts: BeatOptions) {
     const output = new GainNode(ctx);
     const samplers: Record<BeatVoiceId, Sampler> = {
-      kick: new Sampler(ctx as AudioContext, { buffer: opts.kit.kick, polyphony: 4 }),
-      snare: new Sampler(ctx as AudioContext, { buffer: opts.kit.snare, polyphony: 4 }),
-      hat: new Sampler(ctx as AudioContext, { buffer: opts.kit.hat, polyphony: 4 }),
+      kick: new Sampler(ctx, { buffer: opts.kit.kick, polyphony: 4 }),
+      snare: new Sampler(ctx, { buffer: opts.kit.snare, polyphony: 4 }),
+      hat: new Sampler(ctx, { buffer: opts.kit.hat, polyphony: 4 }),
     };
     for (const sampler of Object.values(samplers)) sampler.output.connect(output);
 
