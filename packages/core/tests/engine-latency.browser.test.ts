@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AudioProcessor, LatencyUnknownError, createEngine } from "../src";
+import { AudioProcessor, LatencyUnknownError, Param, createEngine } from "../src";
 
 // Same class as in graph-latency.browser.test.ts.
 class FakeLatent extends AudioProcessor {
@@ -112,5 +112,17 @@ describe("engine latency queries", () => {
     // connected in the other graph.
     engine.dry.latency.value = 50;
     expect(engine.core.latency.value).toBe(400);
+  });
+
+  it("drops a graph's contribution when it disconnects from the destination", () => {
+    const connected = new Param<boolean>({ default: true });
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const slow = new FakeLatent(ctx, 400);
+      defineGraph(() => [connected.value && [slow, ctx.destination]]);
+      return { slow };
+    });
+    expect(engine.core.latency.value).toBe(400);
+    connected.value = false;
+    expect(engine.core.latency.value).toBe(0);
   });
 });

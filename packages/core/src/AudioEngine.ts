@@ -66,11 +66,13 @@ export class AudioEngine {
       ...opts,
       context: this._context,
       onSolve: (h) => {
+        // A graph contributes only while its last solve actually reaches the
+        // destination — one that no longer does drops its entry instead of
+        // keeping a stale arrival.
         try {
           this._graphLatency.set(token, h.arrivalOf(this._context.destination));
         } catch {
-          // The destination didn't participate in this solve — keep this graph's
-          // previous contribution (or none) rather than dropping it to 0.
+          this._graphLatency.delete(token);
         }
         this._recomputeLatency();
         opts?.onSolve?.(h);
