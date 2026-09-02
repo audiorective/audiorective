@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AudioProcessor, defineGraph } from "../src";
+import type { GraphHandle } from "../src";
 
 // A processor that really delays by N samples AND declares it — the stand-in
 // for a buffering effect (a worklet, a lookahead limiter).
@@ -235,6 +236,39 @@ describe("latency compensation", () => {
     });
     expect(firstArrival(data)).toBe(800);
     expect(data.slice(0, 800).every((v) => Math.abs(v) < 1e-4)).toBe(true);
+  });
+
+  it("keeps a processor's internal edge forward when it sits in an external feedback loop", async () => {
+    // proc's own input→output path is a virtual edge; [fbDelay, proc] is a real external
+    // feedback edge back into the same node (proc.input). The virtual edge must never be
+    // the one excluded as the back-edge — that's the feedback wire's job — or proc's own
+    // latency would stop propagating to `join` and the feedback wire would wrongly count
+    // as forward. The edges are ordered so `proc.output` is discovered before
+    // `proc.input` — the ordering that makes back-edge detection close the cycle onto the
+    // virtual edge if it isn't excluded from that detection.
+    const N = 300;
+    const captured: { handle?: GraphHandle; join?: GainNode } = {};
+    const data = await render(0.1, (ctx) => {
+      const src = dirac(ctx);
+      const proc = new FakeLatentDistinct(ctx, N);
+      const join = new GainNode(ctx);
+      const fbDelay = new DelayNode(ctx, { delayTime: 0.05 });
+      captured.join = join;
+      captured.handle = defineGraph(
+        () => [
+          [proc, fbDelay],
+          [fbDelay, proc], // external feedback loop around proc
+          [src, proc],
+          [proc, join],
+          [join, ctx.destination],
+        ],
+        { context: ctx },
+      );
+    });
+    // Renders without stalling or throwing, and proc's own latency still reaches `join`.
+    expect(captured.handle!.arrivalOf(captured.join!)).toBe(N);
+    expect(firstArrival(data)).toBe(N);
+    expect(data.slice(0, N).every((v) => Math.abs(v) < 1e-4)).toBe(true);
   });
 
   it("excludes back-edges from latency", async () => {

@@ -117,21 +117,54 @@ interface SolveResult {
 //
 //  1. Back-edge detection: iterative DFS with white/gray/black coloring — an edge into a
 //     gray (still-on-stack) node closes a cycle and is excluded from the rest of the solve.
+//     A virtual edge (see below) is a processor's own internal path, never a feedback
+//     loop, so it must never be the one excluded. Detection therefore runs on a graph
+//     with each virtual edge's endpoints union-find–contracted into one node: any cycle
+//     that only exists by way of a virtual edge collapses away, leaving a real edge (the
+//     external feedback wire) to close the cycle and get excluded instead.
 //  2. Topological order over the remaining (forward) edges — Kahn's algorithm.
 //  3. arrival(n) = max over forward incoming wires of arrival(from) + nodeLatency(from);
 //     a node with no forward incoming wire is an entry point, arrival 0.
 //  4. Per-wire diff = arrival(n) − (arrival(from) + nodeLatency(from)): how many samples
 //     that wire's branch lags the join it feeds.
 //
-// AudioParam sinks don't participate — they're not AudioNode join points.
-function solve(wires: Wire[], nodeLatency: (n: AudioNode) => number, ownerInput: AudioNode | undefined): SolveResult {
+// AudioParam sinks don't participate — they're not AudioNode join points. `virtualWires`
+// stand in for a processor's invisible input→output path (see `apply`) and are always
+// forward — they're excluded from back-edge detection's input graph entirely.
+function solve(wires: Wire[], virtualWires: Wire[], nodeLatency: (n: AudioNode) => number, ownerInput: AudioNode | undefined): SolveResult {
   const nodes = new Set<AudioNode>();
-  const outgoing = new Map<AudioNode, Wire[]>();
   for (const w of wires) {
     if (w.to instanceof AudioParam) continue;
     nodes.add(w.fromNode);
     nodes.add(w.to);
-    pushWire(outgoing, w.fromNode, w);
+  }
+  for (const w of virtualWires) {
+    nodes.add(w.fromNode);
+    nodes.add(w.to as AudioNode);
+  }
+
+  const parent = new Map<AudioNode, AudioNode>();
+  const find = (n: AudioNode): AudioNode => {
+    let root = parent.get(n) ?? n;
+    while (parent.get(root) && parent.get(root) !== root) root = parent.get(root)!;
+    parent.set(n, root);
+    return root;
+  };
+  const union = (a: AudioNode, b: AudioNode): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  for (const v of virtualWires) union(v.fromNode, v.to as AudioNode);
+
+  const contractedOutgoing = new Map<AudioNode, Wire[]>();
+  const contractedNodes = new Set<AudioNode>();
+  for (const w of wires) {
+    if (w.to instanceof AudioParam) continue;
+    const fromRoot = find(w.fromNode);
+    contractedNodes.add(fromRoot);
+    contractedNodes.add(find(w.to));
+    pushWire(contractedOutgoing, fromRoot, w);
   }
 
   const WHITE = 0;
@@ -139,19 +172,19 @@ function solve(wires: Wire[], nodeLatency: (n: AudioNode) => number, ownerInput:
   const BLACK = 2;
   const color = new Map<AudioNode, number>();
   const backEdges = new Set<Wire>();
-  for (const start of nodes) {
+  for (const start of contractedNodes) {
     if (color.has(start)) continue;
-    const stack: { node: AudioNode; edges: Wire[]; idx: number }[] = [{ node: start, edges: outgoing.get(start) ?? [], idx: 0 }];
+    const stack: { node: AudioNode; edges: Wire[]; idx: number }[] = [{ node: start, edges: contractedOutgoing.get(start) ?? [], idx: 0 }];
     color.set(start, GRAY);
     while (stack.length > 0) {
       const frame = stack[stack.length - 1]!;
       if (frame.idx < frame.edges.length) {
         const w = frame.edges[frame.idx++]!;
-        const to = w.to as AudioNode;
+        const to = find(w.to as AudioNode);
         const c = color.get(to) ?? WHITE;
         if (c === WHITE) {
           color.set(to, GRAY);
-          stack.push({ node: to, edges: outgoing.get(to) ?? [], idx: 0 });
+          stack.push({ node: to, edges: contractedOutgoing.get(to) ?? [], idx: 0 });
         } else if (c === GRAY) {
           backEdges.add(w);
         }
@@ -168,6 +201,10 @@ function solve(wires: Wire[], nodeLatency: (n: AudioNode) => number, ownerInput:
     if (w.to instanceof AudioParam || backEdges.has(w)) continue;
     pushWire(fwdOutgoing, w.fromNode, w);
     pushWire(fwdIncoming, w.to, w);
+  }
+  for (const w of virtualWires) {
+    pushWire(fwdOutgoing, w.fromNode, w);
+    pushWire(fwdIncoming, w.to as AudioNode, w);
   }
 
   const inDegree = new Map<AudioNode, number>();
@@ -370,7 +407,7 @@ export function defineGraph(fn: () => EdgeList, options: GraphOptions): GraphHan
     // Reading `.latency.value` here (via nodeLatency, inside solve) is what makes this
     // effect re-run when any member processor's latency changes.
     const nodeLatency = (n: AudioNode) => owners.get(n)?.latency.value ?? 0;
-    const solved = solve([...current.values(), ...virtualWires], nodeLatency, options.owner?.input);
+    const solved = solve([...current.values()], virtualWires, nodeLatency, options.owner?.input);
     arrival = solved.arrival;
 
     if (options.compensate !== false) {
