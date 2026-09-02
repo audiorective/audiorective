@@ -57,6 +57,20 @@ context, compensate? })` for a graph owned by no processor. A bare
   `proc.context` where an `AudioContext` is expected needs its own
   `AudioContext` reference, or a cast, at that call site.
 
+### Fixed
+
+- **core:** an engine-owned graph that stops reaching `ctx.destination` (an
+  edge condition turns false, the graph is disposed) drops its contribution
+  to `engine.core.latency` instead of leaving the last value it solved.
+- **core:** `getPathLatency` now always throws `LatencyUnknownError` for a
+  processor that isn't part of the current solve — one dropped from the edge
+  list, one whose owning graph was disposed, or one that only feeds an
+  `AudioParam` — instead of leaking `defineGraph`'s internal "not present in
+  the last solve" error for the first two cases.
+- **devtools:** `measureLatency` destroys each per-sample-rate processor it
+  builds after rendering, instead of leaking one `OfflineAudioContext`-scoped
+  processor per configured rate.
+
 ## [2.1.2] - 2026-08-24
 
 ### Added

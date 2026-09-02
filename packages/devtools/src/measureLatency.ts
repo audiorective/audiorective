@@ -45,39 +45,43 @@ async function measureLatencyDetailed(build: (ctx: BaseAudioContext) => AudioPro
     }
     declared = proc.latency.value;
 
-    const buffer = new AudioBuffer({ length: 1, sampleRate });
-    buffer.getChannelData(0)[0] = 1;
-    const src = new AudioBufferSourceNode(ctx, { buffer });
-    src.connect(proc.input);
-    proc.output.connect(ctx.destination);
-    src.start(0);
+    try {
+      const buffer = new AudioBuffer({ length: 1, sampleRate });
+      buffer.getChannelData(0)[0] = 1;
+      const src = new AudioBufferSourceNode(ctx, { buffer });
+      src.connect(proc.input);
+      proc.output.connect(ctx.destination);
+      src.start(0);
 
-    const rendered = await ctx.startRendering();
+      const rendered = await ctx.startRendering();
 
-    let firstArrival = -1;
-    let peak = 0;
-    let peakAbs = 0;
-    for (let ch = 0; ch < rendered.numberOfChannels; ch++) {
-      const data = rendered.getChannelData(ch);
-      for (let i = 0; i < data.length; i++) {
-        const a = Math.abs(data[i]);
-        if (a > threshold && (firstArrival === -1 || i < firstArrival)) {
-          firstArrival = i;
-        }
-        if (a > peakAbs) {
-          peakAbs = a;
-          peak = i;
+      let firstArrival = -1;
+      let peak = 0;
+      let peakAbs = 0;
+      for (let ch = 0; ch < rendered.numberOfChannels; ch++) {
+        const data = rendered.getChannelData(ch);
+        for (let i = 0; i < data.length; i++) {
+          const a = Math.abs(data[i]);
+          if (a > threshold && (firstArrival === -1 || i < firstArrival)) {
+            firstArrival = i;
+          }
+          if (a > peakAbs) {
+            peakAbs = a;
+            peak = i;
+          }
         }
       }
-    }
 
-    if (firstArrival === -1) {
-      throw new Error(
-        "measureLatency: no output detected — is the processor audible in its default state? Set it (wet, gate) inside the build factory.",
-      );
-    }
+      if (firstArrival === -1) {
+        throw new Error(
+          "measureLatency: no output detected — is the processor audible in its default state? Set it (wet, gate) inside the build factory.",
+        );
+      }
 
-    runs.push({ sampleRate, firstArrival, peak, declaredAtRate: declared });
+      runs.push({ sampleRate, firstArrival, peak, declaredAtRate: declared });
+    } finally {
+      proc.destroy();
+    }
   }
 
   return { declared, runs };

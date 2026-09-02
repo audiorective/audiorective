@@ -80,6 +80,20 @@ describe("measureLatency", () => {
     expect(report.runs[0].peak).toBeGreaterThanOrEqual(report.runs[0].firstArrival);
   });
 
+  it("destroys each processor it builds", async () => {
+    const destroyed: number[] = [];
+    await measureLatency((ctx) => {
+      const p = latent(64, 64)(ctx);
+      const original = p.destroy.bind(p);
+      p.destroy = () => {
+        destroyed.push(ctx.sampleRate);
+        original();
+      };
+      return p;
+    });
+    expect(destroyed).toEqual([44100, 48000]);
+  });
+
   it("a waveshaper measures 0", async () => {
     const report = await measureLatency((ctx) => {
       class Shaper extends AudioProcessor {
