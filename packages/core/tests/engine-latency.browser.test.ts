@@ -97,4 +97,20 @@ describe("engine latency queries", () => {
     const engine = createEngine(() => ({}));
     expect(engine.core.latency.value).toBe(0);
   });
+
+  it("latency is the max across multiple engine-owned graphs, unaffected by a smaller graph re-solving", () => {
+    const engine = createEngine((ctx, { defineGraph }) => {
+      const slow = new FakeLatent(ctx, 400);
+      const dry = new FakeLatent(ctx, 0);
+      defineGraph(() => [[slow, ctx.destination]]);
+      defineGraph(() => [[dry, ctx.destination]]);
+      return { slow, dry };
+    });
+    expect(engine.core.latency.value).toBe(400);
+
+    // Re-solving the smaller graph must not clobber the 400-sample path still
+    // connected in the other graph.
+    engine.dry.latency.value = 50;
+    expect(engine.core.latency.value).toBe(400);
+  });
 });

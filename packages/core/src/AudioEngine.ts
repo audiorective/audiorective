@@ -27,6 +27,11 @@ export class AudioEngine {
   private _state: SignalAccessor<EngineState> = signal<EngineState>("idle");
   private _cachedPromise: Promise<void> | null = null;
   private _graphs: GraphHandle[] = [];
+  // Each engine-owned graph's most recent destination arrival, keyed by an identity
+  // token private to that graph — not the graph itself, so a graph whose own last
+  // solve didn't touch the destination just keeps its prior entry (or none) instead
+  // of clobbering it with `undefined`. `latency` is always the max across this map.
+  private _graphLatency = new Map<object, number>();
   readonly latency: Param<number> = new Param({ default: 0 });
 
   constructor(existingContext?: AudioContext) {
@@ -56,20 +61,39 @@ export class AudioEngine {
   }
 
   defineGraph(fn: () => EdgeList, opts?: Omit<GraphOptions, "context">): GraphHandle {
-    const handle = defineGraphFn(fn, {
+    const token = {};
+    const inner = defineGraphFn(fn, {
       ...opts,
       context: this._context,
       onSolve: (h) => {
         try {
-          this.latency.value = h.arrivalOf(this._context.destination);
+          this._graphLatency.set(token, h.arrivalOf(this._context.destination));
         } catch {
-          // The destination didn't participate in this solve — leave latency as-is.
+          // The destination didn't participate in this solve — keep this graph's
+          // previous contribution (or none) rather than dropping it to 0.
         }
+        this._recomputeLatency();
         opts?.onSolve?.(h);
       },
     });
+    const handle: GraphHandle = {
+      dispose: () => {
+        inner.dispose();
+        this._graphLatency.delete(token);
+        this._recomputeLatency();
+      },
+      arrivalOf: (node) => inner.arrivalOf(node),
+    };
     this._graphs.push(handle);
     return handle;
+  }
+
+  // `latency` is the longest path into the destination across every engine-owned
+  // graph currently live — not just whichever one solved most recently.
+  private _recomputeLatency(): void {
+    let max = 0;
+    for (const v of this._graphLatency.values()) if (v > max) max = v;
+    this.latency.value = max;
   }
 
   /** Samples from `proc`'s output to `ctx.destination`, following its graph ownership chain. */
@@ -167,6 +191,7 @@ export class AudioEngine {
     if (this._state() === "destroyed") return;
     for (const graph of this._graphs) graph.dispose();
     this._graphs = [];
+    this._graphLatency.clear();
     for (const p of this._processors) p.destroy();
     this._processors = [];
     this.latency.destroy();
