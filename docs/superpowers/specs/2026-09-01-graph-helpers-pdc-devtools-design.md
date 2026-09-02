@@ -11,7 +11,7 @@ that makes every declared latency checkable in CI.
 
 Three deliverables:
 
-1. **core** — `defineNodes` / `defineGraph` graph helpers, a `latency` reading on
+1. **core** — the `defineGraph` graph helper, a `latency` reading on
    every `AudioProcessor`, join-point compensation inside any graph, and
    engine-level queries (`engine.latency`, `engine.perceivedTime`,
    `engine.getPathLatency`).
@@ -33,26 +33,30 @@ Three deliverables:
   `LATENCY_COMPENSATION = 0.1` starts a dry metronome late to line up with pads
   routed through a pitch-shift chain, and subtracts the same constant back out
   in record quantization. Both uses collapse into `latency` + `getPathLatency`.
-- `AGENTS.md` already lists `defineNodes`/`connectNodes` as a design rule; they
-  do not exist in `packages/core/src`. This spec is where they get built (with
-  `defineGraph` as the connection half).
+- `AGENTS.md` lists `defineNodes`/`connectNodes` as a design rule and the
+  Notion core page sketches a two-phase `defineNodes` + `defineGraph` API;
+  neither exists in `packages/core/src`. This spec supersedes both with a
+  single `defineGraph` over direct references: edges name nodes by variable,
+  so the typed-key map (`defineNodes`) has nothing left to add — reference
+  safety comes from the language.
 
 ## Decisions (locked)
 
-| Decision                      | Choice                                                                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Compensation model            | Local: solved per graph at join points; nested graphs compose through each processor's single `latency` number                  |
-| Compensated scope             | Only edges declared through `defineGraph`. Raw `.connect()` is neither tracked nor compensated                                  |
-| Node types                    | `defineNodes` accepts native `AudioNode`s (latency 0) and `AudioProcessor`s (their `latency`); bare `AudioWorkletNode` rejected |
-| Native-node wrapper           | None. A worklet is wrapped by writing the `AudioProcessor` that declares its latency                                            |
-| Latency unit                  | Samples. Converted to seconds only when writing a compensating `DelayNode`                                                      |
-| Latency source on a processor | Derived from its own graph when it uses `defineGraph`; a value declared in the build callback overrides the derived one         |
-| Cycles                        | Allowed to wire; back-edges excluded from latency computation                                                                   |
-| Mixing primitives             | Not in core. `Chain`/`Bus`/`Channel` are consumer compositions on top of `defineGraph`                                          |
-| Devtools runtime              | Library only, run under vitest browser mode. No CLI, no live-engine introspection                                               |
-| Devtools workflow             | One function (`assertLatency`), one test; the failure message carries the declaration to paste                                  |
-| Skill                         | New `audio-processor-authoring` skill in the plugin, backed by a new `docs/authoring-processors.md`                             |
-| Out of scope                  | `@audiorective/effects`, clock integration of `perceivedTime`, cross-graph solo, end-to-end root-graph measurement              |
+| Decision                      | Choice                                                                                                                                                                              |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compensation model            | Local: solved per graph at join points; nested graphs compose through each processor's single `latency` number                                                                      |
+| Compensated scope             | Only edges declared through `defineGraph`. Raw `.connect()` is neither tracked nor compensated                                                                                      |
+| Node types                    | Edge endpoints are direct references: native `AudioNode`s (latency 0), `AudioProcessor`s (their `latency`), `AudioParam`/`SchedulableParam` sinks; bare `AudioWorkletNode` rejected |
+| Node naming                   | No `defineNodes`, no string keys. Optional per-edge `label` for error messages                                                                                                      |
+| Native-node wrapper           | None. A worklet is wrapped by writing the `AudioProcessor` that declares its latency                                                                                                |
+| Latency unit                  | Samples. Converted to seconds only when writing a compensating `DelayNode`                                                                                                          |
+| Latency source on a processor | Derived from its own graph when it uses `defineGraph`; a value declared in the build callback overrides the derived one                                                             |
+| Cycles                        | Allowed to wire; back-edges excluded from latency computation                                                                                                                       |
+| Mixing primitives             | Not in core. `Chain`/`Bus`/`Channel` are consumer compositions on top of `defineGraph`                                                                                              |
+| Devtools runtime              | Library only, run under vitest browser mode. No CLI, no live-engine introspection                                                                                                   |
+| Devtools workflow             | One function (`assertLatency`), one test; the failure message carries the declaration to paste                                                                                      |
+| Skill                         | New `audio-processor-authoring` skill in the plugin, backed by a new `docs/authoring-processors.md`                                                                                 |
+| Out of scope                  | `@audiorective/effects`, clock integration of `perceivedTime`, cross-graph solo, end-to-end root-graph measurement                                                                  |
 
 ---
 
@@ -81,56 +85,56 @@ modulation) is not latency; those effects declare 0.
   processors construct against an `OfflineAudioContext`. The silencer's
   `connect(context.destination)` is unchanged and harmless offline.
 
-### 1.2 `defineNodes`
+### 1.2 `defineGraph`
+
+Edges reference nodes directly — the variables and fields the processor
+already holds — not string keys. There is no `defineNodes` and no node map;
+reference safety comes from the language (a nonexistent node cannot be named),
+and autocomplete and rename work natively.
 
 ```ts
-const nodes = defineNodes({
-  osc: new OscillatorNode(ctx),
-  filter: new BiquadFilterNode(ctx),
-  shifter: new PitchShift(ctx), // an AudioProcessor
-  out: new GainNode(ctx),
-});
-```
+// locals before super(), per the existing convention
+const osc = new OscillatorNode(ctx);
+const filter = new BiquadFilterNode(ctx);
+const lfo = new OscillatorNode(ctx, { frequency: 5 });
+const shifter = new PitchShift(ctx); // an AudioProcessor
+const out = new GainNode(ctx);
 
-- Accepts a record whose values are `AudioNode | AudioProcessor`. Returns the
-  same record, typed, so every key is known at compile time. The keys `input`,
-  `output` and `destination` are reserved for edge endpoints (1.3, 1.5) and are
-  a type error as node names.
-- `AudioWorkletNode` is rejected at the type level (structurally: a value with
-  `port` and `parameters`) and at runtime (`instanceof` throws). Its latency is
-  unknowable from outside; wrap it in a processor that declares.
-- Native nodes contribute latency 0 — true per spec for every built-in node,
-  including `ConvolverNode` and `DelayNode` (whose delay is intentional, not
-  latency).
-- Available as a build helper alongside `param`/`cell` and as a standalone
-  export; the two are the same function.
-
-### 1.3 `defineGraph`
-
-```ts
-this.graph = defineGraph(nodes, () => [
-  ["osc", "filter"],
-  ["filter", this.params.useShifter.value ? "shifter" : "out"],
-  this.params.useShifter.value && ["shifter", "out"],
-  ["lfo", "filter", { param: "frequency" }],
+this.graph = defineGraph(() => [
+  [osc, filter],
+  [filter, this.params.useShifter.value ? shifter : out],
+  this.params.useShifter.value && [shifter, out],
+  [lfo, filter.frequency], // AudioParam sink — no options bag
 ]);
 ```
 
+- Endpoint types: `from` is `Exclude<AudioNode, AudioWorkletNode> | AudioProcessor`;
+  `to` additionally allows `AudioParam | SchedulableParam` (a `SchedulableParam`
+  sink resolves to its backing `AudioParam`). Bare `AudioWorkletNode` is
+  rejected at the type level (structurally: a value with `port` and
+  `parameters`) and at runtime (`instanceof` throws) — its latency is
+  unknowable from outside; wrap it in a processor that declares. Edges into an
+  `AudioProcessor` connect through its `input` (a type error when the processor
+  has no `input`); edges out of one connect from its `output`.
+- Native nodes contribute latency 0 — true per spec for every built-in node,
+  including `ConvolverNode` and `DelayNode` (whose delay is intentional, not
+  latency).
 - Runs the edge function inside an `effect()` owned by the processor. On every
-  re-evaluation it diffs the new edge list against the current one, applies the
-  minimal `connect`/`disconnect` calls, then re-solves compensation.
-- Edge shape: `[from, to]` or `[from, to, { output?: number; input?: number; param?: string }]`.
-  `from` and `to` are keys of the node map, `"input"` (the processor's own
-  input, when it has one) or `"output"` (the processor's own output). Falsy
-  entries are skipped so edges can be conditional inline.
-- An `AudioProcessor` node connects through its `input`/`output`; an edge into
-  a processor with no `input` is a type error.
-- `param` edges target an `AudioParam` on a native node (or a
-  `SchedulableParam`'s backing param on a processor). They carry no latency.
+  re-evaluation it diffs the new edge list against the current one — keyed by
+  endpoint object identity — applies the minimal `connect`/`disconnect` calls,
+  then re-solves compensation. Falsy entries are skipped so edges can be
+  conditional inline.
+- Edge options: `[from, to, { output?: number; input?: number; label?: string }]`
+  for multi-channel connections and a debug `label` used in error messages
+  (without one, errors name endpoints by constructor name and graph position).
+- `AudioParam` sinks carry no latency and do not participate in the solve.
 - Returns a handle with `dispose()`; `AudioProcessor.destroy()` disposes any
-  graph the processor created.
-- A processor's `input`/`output` getters remain the developer's to write;
-  `defineGraph` never invents nodes.
+  graph the processor created. The graph is discovered from the edges — nodes
+  appear by being connected; `defineGraph` never invents nodes.
+- Available as a build helper alongside `param`/`cell` (owned by the
+  processor under construction) and as a standalone export,
+  `defineGraph(fn, { context, compensate? })`, for graphs owned by no
+  processor (the engine's root graph uses this form internally).
 
 ### 1.4 Compensation
 
@@ -138,16 +142,18 @@ Performed on every re-solve, on the edge list as a directed graph:
 
 1. Detect back-edges (DFS). They are wired normally but excluded from latency
    computation; Web Audio requires a `DelayNode` inside any cycle already.
-2. Compute `arrival(node)` = longest path in samples from any graph input
-   (nodes with no incoming compensated edge, or the processor's own `input`) to
-   `node`, where each node adds its own latency (`0` for native nodes,
-   `proc.latency.value` for processors). `param` edges do not participate.
+2. Compute `arrival(node)` = longest path in samples from any graph entry
+   (nodes with no incoming compensated edge, or the node the processor's
+   `input` getter returns, matched by identity) to `node`, where each node
+   adds its own latency (`0` for native nodes, `proc.latency.value` for
+   processors). `AudioParam` sinks do not participate.
 3. At every node with ≥2 incoming non-param edges, for each incoming edge whose
    `arrival(from) + latency(from)` is less than the maximum, keep a
    helper-owned `DelayNode` on that edge with
    `delayTime = diffSamples / ctx.sampleRate`. Edges at the maximum have no
    delay node.
-4. The processor's derived `latency` is `arrival(output)`.
+4. The processor's derived `latency` is `arrival` at the node its `output`
+   getter returns, matched by identity.
 
 Mechanics:
 
@@ -160,27 +166,28 @@ Mechanics:
 - `latency` values are `Param`s, so a re-solve is triggered by the same effect
   that tracks the edge function: reading `proc.latency.value` during the solve
   subscribes to it.
-- `defineGraph(nodes, fn, { compensate: false })` keeps the diffing and turns
+- `defineGraph(fn, { compensate: false })` keeps the diffing and turns
   compensation off for that graph.
 
 ### 1.5 Root graph and engine queries
 
-The engine's setup receives the same helpers:
+The engine's setup receives the same helper:
 
 ```ts
-const engine = createEngine(({ ctx, defineNodes, defineGraph }) => {
-  const nodes = defineNodes({ machine: new CassetteMachine(ctx), metronome: new Metronome(ctx) });
-  defineGraph(nodes, () => [
-    ["machine", "destination"],
-    ["metronome", "destination"],
+const engine = createEngine(({ ctx, defineGraph }) => {
+  const machine = new CassetteMachine(ctx);
+  const metronome = new Metronome(ctx);
+  defineGraph(() => [
+    [machine, ctx.destination],
+    [metronome, ctx.destination],
   ]);
-  return { ...nodes };
+  return { machine, metronome };
 });
 ```
 
-- The root graph's sink is `"destination"` (`ctx.destination`). It is the one
-  graph the engine owns; compensation at the destination join works exactly as
-  in 1.4.
+- The root graph's sink is `ctx.destination`, referenced directly — no
+  reserved name. It is the one graph the engine owns; compensation at the
+  destination join works exactly as in 1.4.
 - `engine.latency: Param<number>` — samples, longest path into the destination.
 - `engine.perceivedTime` — `ctx.currentTime + engine.latency / sampleRate + ctx.outputLatency`
   (`outputLatency` read as 0 where unsupported). What visualizers and
@@ -207,7 +214,8 @@ show the `defineGraph` version.
   section gains the `latency` reading.
 - `docs/architecture.md`: the audio-layer list adds "graph wiring via
   `defineGraph`; raw `.connect()` only for leaf nodes inside a processor".
-- `AGENTS.md`: design rule 6 corrected from `connectNodes` to `defineGraph`.
+- `AGENTS.md`: design rule 6 corrected from `defineNodes`/`connectNodes` to
+  `defineGraph`.
 - `skills/audiorective/`: rule and reference for graph helpers and latency.
 - `CHANGELOG.md` entry.
 
@@ -216,8 +224,8 @@ show the `defineGraph` version.
 - Diffing: add / remove / rewire edges produce exactly the expected
   connections; disposing leaves none (verified by rendering silence through an
   offline context after dispose).
-- Type tests: unknown key, edge into a processor without `input`, bare
-  `AudioWorkletNode` — all compile errors.
+- Type tests: edge into a processor without `input`, bare `AudioWorkletNode`
+  as either endpoint, `AudioParam` as a `from` — all compile errors.
 - Derived latency: serial sum; parallel max; nested processor contributes one
   number; declared value overrides derived.
 - Alignment: impulse through a two-branch join with unequal declared latency
@@ -354,9 +362,9 @@ docs favor:
    only), what goes on `this` after `super()`.
 2. **State** — `param` vs `schedulableParam` vs `cell`; the `bind` table; when
    a class should be a plain `Cell` class instead (from `architecture.md`).
-3. **Graph** — `defineNodes` / `defineGraph`; conditional edges for bypass;
-   `param` edges; nesting processors; when raw `.connect()` is still fine (a
-   leaf node inside the processor with no join).
+3. **Graph** — `defineGraph` over direct references; conditional edges for
+   bypass; `AudioParam` sinks; nesting processors; when raw `.connect()` is
+   still fine (a leaf node inside the processor with no join).
 4. **Latency** — what counts (processing delay) and what doesn't (musical
    delay); declare vs derive; declare time-based latency from `ctx.sampleRate`;
    `AudioWorkletNode` must be wrapped.
@@ -380,7 +388,7 @@ logic lives) and links to the new doc for how to write the class.
 ## Phasing
 
 1. `AudioProcessor.latency` + `BaseAudioContext` widening (no behavior change).
-2. `defineNodes` / `defineGraph` with diffing and disposal, no compensation.
+2. `defineGraph` with diffing and disposal, no compensation.
 3. Compensation solver + derived latency.
 4. Root graph on `createEngine` + `engine.latency` / `perceivedTime` /
    `getPathLatency`.
