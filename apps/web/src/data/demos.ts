@@ -45,4 +45,14 @@ export const demos: Demo[] = [
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/latency-lab",
     packages: ["@audiorective/core", "@audiorective/clock", "@audiorective/react"],
   },
+  {
+    slug: "fx-rack",
+    title: "FX Rack",
+    blurb:
+      "Five inserts, two sends, a compressor and a limiter on one drum loop: every effect an AudioProcessor with a wet fader, PDC-aligned, and exportable offline.",
+    thumb: "/showroom/fx-rack.jpg",
+    route: "/showroom/fx-rack",
+    source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/fx-rack",
+    packages: ["@audiorective/effects", "@audiorective/core", "@audiorective/react"],
+  },
 ];
