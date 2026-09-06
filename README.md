@@ -42,6 +42,8 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 [apps/web/src/demos/pixi](./apps/web/src/demos/pixi) — a minimal **PixiJS** spectrum visualizer built with only `@audiorective/core`, `alien-signals`, and `pixi.js`. Shows that a 2D canvas renderer needs no binding package: the core `Analyser` feeds per-frame spectrum bars, an `effect()` drives a signal-reactive glow, and pointer drags write params directly (with the UI-owned `level` kept separate from the ramped `gate` envelope). See [docs/pixijs.md](./docs/pixijs.md). Runs at `/showroom/pixi` on the site.
 
+[apps/web/src/demos/fx-rack](./apps/web/src/demos/fx-rack) — an **effects processor** and offline export engine built with `@audiorective/effects`, `@audiorective/core`, and `@audiorective/react`. Route drum stems and pads through five inserts (pitch shift, filter, frequency shifter, distortion, phaser) and two sends (delay, reverb) into dynamics (compressor and limiter). Switch pitch-shift engines live while the graph recomputes latencies and applies PDC; watch reduction meters animate; toggle wet/dry without disconnecting; export 4 bars as a WAV through `renderOffline`. The same `FxRack` class runs the live demo and offline renders. Runs at `/showroom/fx-rack` on the site.
+
 ## Agent Skill
 
 ### Any agent (Claude Code, Cursor, OpenCode, Cline, …)
