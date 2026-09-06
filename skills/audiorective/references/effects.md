@@ -1,3 +1,7 @@
+---
+title: Effects
+---
+
 DSP effects for audiorective — the Tone.js replacement set. Ten `AudioProcessor` classes (nine effects plus `Channel`), a `SendBus`, and dB conversion helpers, all built on `@audiorective/core`.
 
 ## Install
