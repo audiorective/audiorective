@@ -56,6 +56,9 @@ context, compensate? })` for a graph owned by no processor. A bare
   configured sample rate and reports where it arrives; `assertLatency` checks
   that against the processor's declared `latency` and throws a message that
   carries the `latency: ...` line to paste when it doesn't match.
+- **devtools:** `MeasureOptions.ready?: (proc) => Promise<void>` — awaited
+  after `build` and before rendering, for a worklet-backed processor that is
+  silent until its worklet resolves.
 
 ### Changed
 

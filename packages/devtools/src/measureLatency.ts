@@ -5,6 +5,8 @@ export interface MeasureOptions {
   channels?: number;
   windowSeconds?: number;
   threshold?: number;
+  /** Awaited after `build` and before rendering, for a processor that is silent until its worklet is ready. */
+  ready?: (proc: AudioProcessor) => Promise<void>;
 }
 
 export interface LatencyRun {
@@ -32,7 +34,7 @@ interface DetailedLatencyReport {
 }
 
 async function measureLatencyDetailed(build: (ctx: BaseAudioContext) => AudioProcessor, opts: MeasureOptions = {}): Promise<DetailedLatencyReport> {
-  const { sampleRates = [44100, 48000], channels = 2, windowSeconds = 1, threshold = 1e-4 } = opts;
+  const { sampleRates = [44100, 48000], channels = 2, windowSeconds = 1, threshold = 1e-4, ready } = opts;
 
   const runs: DetailedRun[] = [];
   let declared = 0;
@@ -44,6 +46,9 @@ async function measureLatencyDetailed(build: (ctx: BaseAudioContext) => AudioPro
     try {
       if (!proc.input || !proc.output) {
         throw new Error("measureLatency: processor must expose input and output");
+      }
+      if (ready) {
+        await ready(proc);
       }
       declared = proc.latency.value;
 
