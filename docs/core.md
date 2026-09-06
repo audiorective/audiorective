@@ -733,7 +733,7 @@ const duration = useValue(player.cells.duration);
 Renders a graph to an `AudioBuffer` through an `OfflineAudioContext`. `setup` may be async — await any processor's `ready` inside it before returning.
 
 ```typescript
-import { renderOffline, Sampler } from "@audiorective/core";
+import { renderOffline, Sampler, loadAudioBuffer } from "@audiorective/core";
 
 const wav = await renderOffline({ seconds: 8, channels: 2, sampleRate: 44100 }, async (ctx) => {
   const kick = new Sampler(ctx);
