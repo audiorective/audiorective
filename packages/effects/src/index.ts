@@ -11,3 +11,5 @@ export { Distortion, distortionCurve } from "./Distortion";
 export type { DistortionOptions } from "./Distortion";
 export { PingPongDelay } from "./PingPongDelay";
 export type { PingPongDelayOptions } from "./PingPongDelay";
+export { Convolver } from "./Convolver";
+export type { ConvolverOptions } from "./Convolver";
