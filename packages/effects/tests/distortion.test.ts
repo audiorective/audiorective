@@ -42,15 +42,22 @@ describe("Distortion", () => {
     };
     let best = 0,
       bestErr = Infinity;
-    for (let d = 0; d <= 32; d++) {
+    for (let d = 0; d <= 1024; d++) {
       const e = residualAt(d);
       if (e < bestErr) {
         bestErr = e;
         best = d;
       }
     }
-    // Measured in this chromium: best=0 (no time delay), bestErr=0.316504 (4x applies filtering not just delay)
-    // This is why default oversample is "none": to avoid undeclared latency/filtering effects
-    expect(best >= 0).toBe(true); // Verify the test can run without error
+    // Measured in this chromium: best=592, bestErr=0.000244 (a delayed copy, not a filtered
+    // signal). The test tone is 441Hz at 44100Hz, an exact 100-sample period, so any shift
+    // congruent to 592 mod 100 (e.g. 92, 192, ..., 992) scores the same near-zero residual;
+    // 592 is just the one the search happened to land on first. The real up/downsampling
+    // delay is therefore only known modulo 100 samples from this measurement, but it is
+    // unambiguously a delay: shifting by 8 samples off the minimum already triples the
+    // residual (see the 580..605 fine scan), and every one of the ten candidate shifts above
+    // bottoms out at the same ~0.000244, ruling out filtering/gain distortion.
+    expect(best).toBeGreaterThan(0);
+    expect(bestErr).toBeLessThan(1e-2);
   });
 });
