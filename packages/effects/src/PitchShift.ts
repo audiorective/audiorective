@@ -25,6 +25,7 @@ export class PitchShift extends Effect<{ pitch: Param<number> }, { isReady: Cell
   readonly engine: PitchShiftEngine;
   /** Resolves once the engine is ready to process audio. */
   readonly ready: Promise<void>;
+  private readonly core: GranularShifter;
 
   constructor(ctx: BaseAudioContext, opts: PitchShiftOptions = {}) {
     const engine = opts.engine ?? "granular";
@@ -48,5 +49,11 @@ export class PitchShift extends Effect<{ pitch: Param<number> }, { isReady: Cell
     );
     this.engine = engine;
     this.ready = Promise.resolve();
+    this.core = core;
+  }
+
+  override destroy(): void {
+    this.core.destroy();
+    super.destroy();
   }
 }

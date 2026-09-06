@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PitchShift } from "../src";
+import { GranularShifter } from "../src/pitch/GranularShifter";
 
 function dominantHz(frame: Float32Array, sr: number, lo = 200, hi = 1200): number {
   let best = 0,
@@ -48,5 +49,14 @@ describe("PitchShift (granular)", () => {
     expect(fx.latency.value).toBe(Math.round(0.05 * 44100));
     const f = await renderShift((c) => new PitchShift(c, { pitch: 0 }));
     expect(Math.abs(dominantHz(f, 44100) - 440)).toBeLessThanOrEqual(10);
+  });
+
+  it("destroy() tears down the granular wet arm", () => {
+    const ctx = new OfflineAudioContext(1, 128, 44100);
+    const spy = vi.spyOn(GranularShifter.prototype, "destroy");
+    const fx = new PitchShift(ctx);
+    fx.destroy();
+    expect(spy).toHaveBeenCalledOnce();
+    spy.mockRestore();
   });
 });
