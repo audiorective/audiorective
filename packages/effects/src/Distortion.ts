@@ -11,7 +11,7 @@ export interface DistortionOptions extends EffectOptions {
 const CURVE_LENGTH = 4096;
 
 /** Tone.js's distortion curve normalized to unity peak: soft clipping that approaches a square as k grows. */
-export function distortionCurve(amount: number): Float32Array {
+export function distortionCurve(amount: number): Float32Array<ArrayBuffer> {
   const k = amount * 100;
   const deg = Math.PI / 180;
   const curve = new Float32Array(CURVE_LENGTH);
@@ -21,7 +21,7 @@ export function distortionCurve(amount: number): Float32Array {
     const x = (i * 2) / CURVE_LENGTH - 1;
     curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x)) / peak;
   }
-  return curve;
+  return curve as Float32Array<ArrayBuffer>;
 }
 
 export class Distortion extends Effect<{ distortion: Param<number> }> {
@@ -38,7 +38,7 @@ export class Distortion extends Effect<{ distortion: Param<number> }> {
             max: 1,
             bind: {
               set: (v) => {
-                shaper.curve = distortionCurve(v) as Float32Array<ArrayBuffer>;
+                shaper.curve = distortionCurve(v);
               },
             },
           }),
