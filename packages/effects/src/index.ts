@@ -19,3 +19,7 @@ export { FrequencyShifter } from "./FrequencyShifter";
 export type { FrequencyShifterOptions } from "./FrequencyShifter";
 export { PitchShift } from "./PitchShift";
 export type { PitchShiftOptions, PitchShiftEngine, StretchOptions } from "./PitchShift";
+export { Compressor } from "./Compressor";
+export type { CompressorOptions } from "./Compressor";
+export { Limiter } from "./Limiter";
+export type { LimiterOptions } from "./Limiter";
