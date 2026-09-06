@@ -25,8 +25,16 @@ class DynamicsProcessor extends AudioWorkletProcessor {
     this.env = 0;
     this.maxEnv = 0;
     this.sinceReport = 0;
+    this.disposed = false;
+    this.port.onmessage = (e) => {
+      if (e.data?.dispose) {
+        this.disposed = true;
+        this.port.close();
+      }
+    };
   }
   process(inputs, outputs, p) {
+    if (this.disposed) return false;
     const input = inputs[0], output = outputs[0];
     const n = output[0].length;
     const T = p.threshold[0], R = p.ratio[0] >= RATIO_INFINITE ? Infinity : p.ratio[0], W = p.knee[0];

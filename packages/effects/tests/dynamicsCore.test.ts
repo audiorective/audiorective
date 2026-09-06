@@ -66,4 +66,23 @@ describe("DynamicsCore", () => {
     await core.ready;
     expect(core.cells.isReady.value).toBe(false);
   });
+  it("destroy() mid-render stops the worklet from producing further output", async () => {
+    const sr = 44100;
+    const ctx = new OfflineAudioContext(2, 4096, sr);
+    const core = new DynamicsCore(ctx, { threshold: 0, ratio: 1, knee: 0, attack: 0, release: 0.1, makeup: 0, lookahead: 0 });
+    await core.ready;
+    const src = new ConstantSourceNode(ctx, { offset: 0.5 });
+    src.connect(core.input);
+    core.output.connect(ctx.destination);
+    src.start();
+    const suspendFrame = 1024;
+    ctx.suspend(suspendFrame / sr).then(() => {
+      core.destroy();
+      ctx.resume();
+    });
+    const buf = await ctx.startRendering();
+    const d = buf.getChannelData(0);
+    expect(peakFrom(d.subarray(0, suspendFrame), 0)).toBeGreaterThan(0);
+    for (let i = suspendFrame + 256; i < d.length; i++) expect(d[i]).toBe(0);
+  });
 });

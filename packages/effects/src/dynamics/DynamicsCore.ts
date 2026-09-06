@@ -21,7 +21,12 @@ type P = {
   makeup: SchedulableParam;
 };
 
-/** Worklet-backed compressor core. Constructs synchronously; the node arrives when `ready` resolves. */
+/**
+ * Worklet-backed compressor core. Constructs synchronously; the node arrives when `ready` resolves.
+ * Params are bound to placeholders until `ready` resolves; automation scheduled before that is not
+ * carried over, so await `ready` before calling `setValueAtTime`/ramps on these params (plain `.value`
+ * writes are carried over).
+ */
 export class DynamicsCore extends AudioProcessor<P, { reduction: Cell<number>; isReady: Cell<boolean> }> {
   private readonly _input: GainNode;
   private readonly _output: GainNode;
@@ -82,7 +87,9 @@ export class DynamicsCore extends AudioProcessor<P, { reduction: Cell<number>; i
   override destroy(): void {
     this.destroyed = true;
     if (this.node) {
-      this.node.port.close();
+      // The worklet closes its own port once it sees this message and returns `false` from
+      // `process()`, which is what actually lets the node be garbage collected.
+      this.node.port.postMessage({ dispose: true });
       this.node.disconnect();
     }
     super.destroy();

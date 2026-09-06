@@ -63,6 +63,7 @@ export class StretchShifter extends AudioProcessor {
   override destroy(): void {
     this.destroyed = true;
     if (this.node) {
+      // The Signalsmith node exposes no dispose API; stop() halts its WASM work.
       this.node.stop();
       this.node.disconnect();
       this.node = null;
