@@ -39,3 +39,5 @@ Modular toolkit for web audio development. Independent, composable packages that
 **V3:** Phaser.js, component library, clock editable tempo map + DAW-style seek
 
 **Clock (shipped V1):** `@audiorective/clock` — transport, tempo, look-ahead scheduling windows, rulers. See `clock.md`.
+
+**Graph helpers + PDC (shipped):** `defineGraph`, per-processor `latency`, and join-point plugin delay compensation ship in `@audiorective/core`; `@audiorective/devtools` validates declared latency against a measured impulse response. See `core.md`.

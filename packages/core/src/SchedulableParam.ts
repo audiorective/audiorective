@@ -5,7 +5,7 @@ import { ParamSync } from "./ParamSync";
 export interface SchedulableParamOptions extends ParamOptions<number> {
   syncInterval?: number;
   audioParam: AudioParam;
-  audioContext: AudioContext;
+  audioContext: BaseAudioContext;
 }
 
 /**
@@ -20,6 +20,11 @@ export class SchedulableParam extends Param<number> {
 
   override get value(): number {
     return super.value;
+  }
+
+  /** Backing AudioParam, for graph param sinks. */
+  get audioParam(): AudioParam {
+    return this._audioParam;
   }
 
   override set value(newValue: number) {

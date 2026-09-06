@@ -41,7 +41,7 @@ export class BufferPlayer extends AudioProcessor<{ volume: SchedulableParam; rat
   private _loopEnd: number;
   private _source: AudioBufferSourceNode | null = null;
 
-  constructor(ctx: AudioContext, opts: BufferPlayerOptions = {}) {
+  constructor(ctx: BaseAudioContext, opts: BufferPlayerOptions = {}) {
     const output = new GainNode(ctx, { gain: opts.volume ?? 1 });
     super(ctx, ({ param, schedulableParam, cell }) => ({
       params: {

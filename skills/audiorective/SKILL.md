@@ -43,6 +43,7 @@ Then load only what your task actually needs:
 | Playing a sample / SFX, a beat-locked loop, or streaming a track                | `references/core.md`                           |
 | Sequencing, scheduling, transport, tempo, or a step sequencer/drum machine      | `references/clock.md`                          |
 | Building a synth, sequencer, or DSP processor                                   | `references/architecture.md`                   |
+| Writing or modifying an `AudioProcessor` subclass                               | the `audio-processor-authoring` skill          |
 | React UI bound to an engine                                                     | `references/react.md`                          |
 | Next.js / Remix / Astro / any app that renders on a server                      | `references/client-boundary.md`                |
 | Hitting `EngineEnvironmentError`, or "AudioContext is not defined" in a build   | `references/client-boundary.md`                |
