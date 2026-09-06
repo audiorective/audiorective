@@ -10,8 +10,9 @@ export interface PingPongDelayOptions extends EffectOptions {
 }
 
 /**
- * Stereo cross-fed delay with alternating left/right echoes. Input enters on the left delay and bounces through feedback.
- * Echoes that have crossed the feedback path arrive one render quantum (128 samples) later than `delayTime`.
+ * Stereo cross-fed delay with alternating left/right echoes. Input is summed to mono and enters on
+ * the left delay, then bounces through feedback. Echoes that have crossed the feedback path arrive
+ * one render quantum (128 samples) later than `delayTime`.
  */
 export class PingPongDelay extends Effect<{ delayTime: SchedulableParam; feedback: SchedulableParam }> {
   private readonly sources: ConstantSourceNode[];
@@ -25,8 +26,13 @@ export class PingPongDelay extends Effect<{ delayTime: SchedulableParam; feedbac
     const fbL = new GainNode(ctx, { gain: 0 });
     const fbR = new GainNode(ctx, { gain: 0 });
     const merger = new ChannelMergerNode(ctx, { numberOfInputs: 2 });
+    const sumL = new GainNode(ctx, { gain: 0.5 });
+    const sumR = new GainNode(ctx, { gain: 0.5 });
     entry.connect(splitter);
-    splitter.connect(delayL, 0);
+    splitter.connect(sumL, 0);
+    splitter.connect(sumR, 1);
+    sumL.connect(delayL);
+    sumR.connect(delayL);
     delayL.connect(merger, 0, 0);
     delayL.connect(fbL);
     fbL.connect(delayR);

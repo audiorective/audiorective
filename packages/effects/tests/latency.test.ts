@@ -1,5 +1,5 @@
-import { describe, it } from "vitest";
-import { assertLatency } from "@audiorective/devtools";
+import { describe, expect, it } from "vitest";
+import { assertLatency, measureLatency } from "@audiorective/devtools";
 import { Channel, Compressor, Convolver, Distortion, Filter, FrequencyShifter, Limiter, Phaser, PingPongDelay, PitchShift } from "../src";
 
 const rates = { sampleRates: [44100, 48000] };
@@ -31,7 +31,11 @@ describe("declared latency matches measured", () => {
     // 0 up to windowSize, so the impulse measurement under-reads (it lands around half the
     // window here); tolerance covers the full window. The meaningful check for this engine
     // is its own latency.value test.
-    await assertLatency((ctx) => new PitchShift(ctx, { windowSize: 0.02 }), { ...rates, tolerance: 0.02 * 44100 });
+    const { runs } = await measureLatency((ctx) => new PitchShift(ctx, { windowSize: 0.02 }), rates);
+    for (const run of runs) {
+      expect(run.firstArrival).toBeGreaterThanOrEqual(0);
+      expect(run.firstArrival).toBeLessThanOrEqual(Math.round(0.02 * run.sampleRate));
+    }
     // A single-sample impulse vanishes in the STFT at longer blocks (40 ms renders silence),
     // so the impulse validator only checks the short-block configuration; the 40 ms declared
     // value is covered by pitchShiftStretch.test.ts.

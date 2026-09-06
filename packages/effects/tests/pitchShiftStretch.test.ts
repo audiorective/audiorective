@@ -16,4 +16,11 @@ describe("PitchShift (stretch)", () => {
     expect(fx.latency.value).toBeGreaterThan(0);
     expect(fx.latency.value).toBeLessThan(0.2 * 44100);
   });
+  it("destroying before ready resolves leaves isReady false", async () => {
+    const ctx = new OfflineAudioContext(2, 4096, 44100);
+    const fx = new PitchShift(ctx, { engine: "stretch", stretch: { blockMs: 40 } });
+    fx.destroy();
+    await fx.ready;
+    expect(fx.cells.isReady.value).toBe(false);
+  });
 });

@@ -28,4 +28,24 @@ describe("PingPongDelay", () => {
     expect(at(L, 0.3)).toBeGreaterThan(0.1);
     expect(at(L, 0.3)).toBeLessThan(at(L, 0.1));
   });
+
+  it("a right-only input is summed to mono, so the first L echo is at half amplitude", async () => {
+    const sr = 44100;
+    const ctx = new OfflineAudioContext(2, sr, sr);
+    const fx = new PingPongDelay(ctx, { delayTime: 0.1, feedback: 0.5 });
+    const impulse = ctx.createBuffer(2, 1, sr);
+    impulse.getChannelData(1)[0] = 1;
+    const src = new AudioBufferSourceNode(ctx, { buffer: impulse });
+    src.connect(fx.input);
+    fx.output.connect(ctx.destination);
+    src.start();
+    const buf = await ctx.startRendering();
+    const L = buf.getChannelData(0);
+    const at = (d: Float32Array, t: number) => {
+      let m = 0;
+      for (let i = Math.round(t * sr) - 4; i < Math.round(t * sr) + 260; i++) m = Math.max(m, Math.abs(d[i] ?? 0));
+      return m;
+    };
+    expect(at(L, 0.1)).toBeGreaterThan(0.2);
+  });
 });
