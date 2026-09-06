@@ -23,6 +23,7 @@ What's even better: we also ship an agent skill that teaches LLMs how to use aud
 | [`@audiorective/threejs`](./packages/threejs)       | Three.js bindings — engine glue, spatial transform sync                                                   |
 | [`@audiorective/playcanvas`](./packages/playcanvas) | PlayCanvas bindings — shared AudioContext + pre/post-panner FX on SoundSlot                               |
 | [`@audiorective/clock`](./packages/clock)           | Timing and scheduling engine — transport, tempo, look-ahead tick windows, rulers                          |
+| [`@audiorective/effects`](./packages/effects)       | DSP effects and channel/send plumbing — the Tone.js replacement set                                       |
 
 Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 

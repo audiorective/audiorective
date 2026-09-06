@@ -59,6 +59,38 @@ context, compensate? })` for a graph owned by no processor. A bare
 - **devtools:** `MeasureOptions.ready?: (proc) => Promise<void>` — awaited
   after `build` and before rendering, for a worklet-backed processor that is
   silent until its worklet resolves.
+- **effects:** new package, `@audiorective/effects` — the Tone.js
+  replacement set. Every effect is an `AudioProcessor` with `input`/`output`,
+  a `wet: SchedulableParam` crossfade, and a declared or derived `latency`.
+- **effects:** `Filter` — biquad stack with selectable `rolloff` (-12/-24/-48
+  dB per octave), `frequency`/`Q`/`gain` as `SchedulableParam`s.
+- **effects:** `Distortion` — `WaveShaperNode` with Tone's curve shape
+  normalized to unity peak, so `distortion = 0` is exactly unity gain.
+- **effects:** `Phaser` — LFO-swept allpass stages per channel, summed with
+  the dry input at equal gain to produce the notches.
+- **effects:** `FrequencyShifter` — single-sideband shifter built from a
+  Hilbert-transform allpass pair, ring-modulated by quadrature oscillators.
+- **effects:** `PingPongDelay` — stereo cross-fed delay with alternating
+  left/right echoes.
+- **effects:** `Convolver` — `ConvolverNode` wrapper with async `load(url)`
+  (latest call wins), a `ready` promise, and an `isReady` cell.
+- **effects:** `PitchShift` — one param surface over two engines: `"granular"`
+  (native delay-line, low latency) and `"stretch"` (Signalsmith Stretch, a
+  WASM AudioWorklet with a `ready` promise, an `isReady` cell, and latency
+  reported by the node as a live `Param<number>`).
+- **effects:** `Compressor` and `Limiter` — a shared worklet-backed dynamics
+  core (feedforward gain computer, windowed peak detector over `lookahead`)
+  so behavior is identical across browsers and offline renders; both expose
+  a `reduction` meter cell. `Limiter` fixes ratio/knee/attack to a brickwall
+  preset.
+- **effects:** `Channel` — gain → pan → mute strip with post-mute
+  `send(bus, name, gain?)` into a `SendBus`; `gain` is linear.
+- **effects:** `SendBus` — instance-scoped named receive points a `Channel`
+  sends into.
+- **effects:** `registerWorklet(ctx, name, source)` — exported so an app can
+  pre-warm a worklet module ahead of first use.
+- **effects:** `dbToGain(db)` / `gainToDb(gain)` — dB/linear-gain conversion
+  helpers for the package's linear gain params.
 
 ### Changed
 

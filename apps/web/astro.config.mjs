@@ -36,6 +36,7 @@ export default defineConfig({
             { label: "Three.js", slug: "docs/threejs" },
             { label: "PlayCanvas", slug: "docs/playcanvas" },
             { label: "PixiJS", slug: "docs/pixijs" },
+            { label: "Effects", slug: "docs/effects" },
           ],
         },
       ],
