@@ -129,7 +129,10 @@ Every effect:
   `ConstantSourceNode(1)` summed with the wet signal through a `Gain(−1)`, so
   ramps on `wet` are sample-accurate on both arms;
 - wires its internals with `this.defineGraph` so conditional pieces (stretch
-  engine ready, IR loaded) are edges, not manual connects;
+  engine ready, IR loaded) are edges, not manual connects. A worklet-backed
+  wet arm keeps its `AudioWorkletNode` behind raw connects inside a
+  latency-declaring processor, since core rejects a bare worklet node as a
+  graph endpoint;
 - declares `latency` (a number, or a `Param<number>` when it changes at
   runtime);
 - cleans up owned sources (LFO oscillators, constant sources, worklet ports)

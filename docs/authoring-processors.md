@@ -279,7 +279,19 @@ class Drone extends AudioProcessor<{ freq: SchedulableParam }> {
 }
 ```
 
-## 6. Testing
+## 6. Worklet-backed processors
+
+A worklet-backed processor loads its module through `registerWorklet(ctx, name, source)` from
+`@audiorective/effects` — it turns `source` into a Blob URL and calls `ctx.audioWorklet.addModule`,
+deduped per context so a second call for the same name and context is a no-op, and it works offline
+against an `OfflineAudioContext`. The processor itself constructs synchronously and exposes a `ready`
+promise that resolves once the module has loaded and the `AudioWorkletNode` is built and wired in; a
+`destroyed` flag set in `destroy()` and checked in the `ready` continuation guards a destroy that
+happens before that promise resolves. The worklet's own `process()` must return `false` after it has
+been told to dispose, so the node can be garbage collected instead of running forever. `DynamicsCore`
+(`packages/effects/src/dynamics/DynamicsCore.ts`) is the reference implementation.
+
+## 7. Testing
 
 Both functions in `@audiorective/devtools` render a real `OfflineAudioContext`, so tests need
 a browser test environment, not jsdom — vitest browser mode with headless Chromium. A
@@ -307,7 +319,7 @@ throws with a message that names the fix — the exact `latency: ...` line to pa
 build callback — so treat a failure as the test doing its job, not as something to work
 around.
 
-## 7. Checklist
+## 8. Checklist
 
 - **Skeleton** — nodes built as locals before `super()`; build callback returns
   `{ params, cells?, latency? }`; `output` always present, `input` added only for effects;

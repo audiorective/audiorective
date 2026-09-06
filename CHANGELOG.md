@@ -91,6 +91,7 @@ context, compensate? })` for a graph owned by no processor. A bare
   pre-warm a worklet module ahead of first use.
 - **effects:** `dbToGain(db)` / `gainToDb(gain)` — dB/linear-gain conversion
   helpers for the package's linear gain params.
+- **effects:** `Effect` base class exported as the extension point for custom effects.
 
 ### Changed
 

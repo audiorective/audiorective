@@ -14,6 +14,10 @@ pnpm add @audiorective/effects
 
 Every effect in this package is an `AudioProcessor` with a stable `input: GainNode` and `output: GainNode`, so it drops into `defineGraph` like any other processor. Continuous controls are `SchedulableParam`s (rampable, sample-accurate); controls that must rebuild a node (a WaveShaper curve, a filter type) are plain `Param`s. Every effect has `params.wet: SchedulableParam` (default `1`) — a linear crossfade between the dry input and the processed signal, computed from one automation signal so both arms land in step on a ramp. Bypass is `wet = 0`; effects stay connected at `wet = 0`, there is no connect/disconnect toggling. Each effect declares `latency` (samples) or lets it derive from its internal `defineGraph` — unless documented otherwise below, an effect's latency is its wet arm's latency, since the dry arm is delay-compensated to match. Every class accepts a `BaseAudioContext`, so the same code runs live or through `renderOffline` (from `@audiorective/core`).
 
+## Writing your own effect
+
+A custom effect extends `Effect`, passes its wet arm's `input`/`output` pair to `super()`, and either declares `latency` (a fixed number or a `Param<number>`) or leaves it to derive from its own internal `defineGraph`. `Effect`, `WetArm`, `EffectOptions`, and `WorkletUnavailableError` are exported from `@audiorective/effects` for this purpose.
+
 ## Effects
 
 | Class              | Constructor options (defaults)                                                                                               | Params                                                                            | Cells                                                         | Latency                                                                                                             |
@@ -47,7 +51,7 @@ drive.params.wet.linearRampToValueAtTime(0, ctx.currentTime + 1); // fade to byp
 
 - **Distortion.** The waveshaper curve is Tone's shape normalized to unity peak, so `distortion = 0` is exactly unity gain (no coloration). `oversample` defaults to `"none"` because `"2x"`/`"4x"` add browser-defined latency the effect has no way to declare.
 - **Phaser.** The wet arm sums the dry input with the phased signal at equal gain — that sum is what produces the notches, and `wet` blends between the plain dry input and that summed signal. With an even `stages` count, no notch sits exactly at `baseFrequency`.
-- **PingPongDelay.** Input enters on the left delay line and bounces through the cross-feedback path to the right and back. Echoes that have crossed that feedback path arrive one render quantum (128 samples) later than `delayTime`, since a cycle in a Web Audio graph always delays one of its nodes by a quantum.
+- **PingPongDelay.** Input is summed to mono and enters on the left delay line, then bounces through the cross-feedback path to the right and back. Echoes that have crossed that feedback path arrive one render quantum (128 samples) later than `delayTime`, since a cycle in a Web Audio graph always delays one of its nodes by a quantum.
 - **Compressor / Limiter.** See [Compressor and Limiter](#compressor-and-limiter) below.
 - **PitchShift.** See [PitchShift engines](#pitchshift-engines) below.
 - **Convolver.load().** The latest call to `load(url)` wins — an in-flight load that's superseded by a newer one is discarded silently. `ready` resolves once the constructor's initial `url` option (if given) has loaded; it is not re-armed by a later `load()` call.
@@ -78,6 +82,8 @@ Both share one internal gain-computer/detector core (`DynamicsCore`, not exporte
 `Limiter` is the same core preset to a brickwall: ratio `Infinity`, knee `0`, attack `1 ms`, and only `threshold`, `release`, and `lookahead` are exposed as constructor options (`threshold` and `release` as params) — ratio, knee, and attack are fixed. The windowed peak detector over `lookahead` is what actually holds the ceiling at `threshold`.
 
 Both expose `cells.reduction: Cell<number>` — the current gain reduction in dB (≤ 0) — for a meter, and `cells.isReady: Cell<boolean>` alongside a `ready: Promise<void>` that resolves once the worklet has loaded and the node is wired in. `lookahead` is fixed at construction for both classes; it sets the worklet's internal buffer size and cannot be changed live. Because the detector runs sample-by-sample rather than block-by-block, `Compressor`'s output gain on a steady sine settles to within about half a dB of the value a static gain-computer formula would predict — the sample-level detector ripples slightly around it.
+
+Params are bound to placeholders until `ready` resolves; automation scheduled before that is not carried over, so await `ready` before calling `setValueAtTime`/ramps on these params (plain `.value` writes are carried over).
 
 ```typescript
 import { Compressor, Limiter } from "@audiorective/effects";
