@@ -15,6 +15,7 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ### Added
 
+- **core:** `renderOffline(options, setup)` — builds an `OfflineAudioContext`, awaits an async setup callback, returns the rendered `AudioBuffer`.
 - **core:** `defineGraph` — a declarative, reactive audio graph helper. Edges
   reference nodes and processors directly (`[from, to]`, an options bag for
   multi-channel connections and a debug `label`, or a falsy entry to skip),

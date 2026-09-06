@@ -728,6 +728,23 @@ const currentTime = useValue(player.cells.currentTime);
 const duration = useValue(player.cells.duration);
 ```
 
+### `renderOffline`
+
+Renders a graph to an `AudioBuffer` through an `OfflineAudioContext`. `setup` may be async — await any processor's `ready` inside it before returning.
+
+```typescript
+import { renderOffline, Sampler } from "@audiorective/core";
+
+const wav = await renderOffline({ seconds: 8, channels: 2, sampleRate: 44100 }, async (ctx) => {
+  const kick = new Sampler(ctx);
+  kick.buffer = await loadAudioBuffer(ctx, "/kick.wav");
+  kick.output.connect(ctx.destination);
+  for (let beat = 0; beat < 16; beat++) kick.trigger({ when: beat * 0.5 });
+});
+```
+
+`Sampler`, `BufferPlayer`, and every `@audiorective/effects` processor accept a `BaseAudioContext`, so the same classes run live and offline.
+
 ---
 
 ## Usage Examples
