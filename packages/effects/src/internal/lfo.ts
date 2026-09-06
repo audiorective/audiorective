@@ -68,6 +68,12 @@ export class Lfo {
     this.centre.connect(target);
   }
 
+  /** Feeds the LFO into a node's signal input (for arithmetic on the LFO itself). */
+  connectNode(target: AudioNode): void {
+    this.depth.connect(target);
+    this.centre.connect(target);
+  }
+
   start(when = 0): void {
     this.osc.start(when);
     this.centre.start(when);

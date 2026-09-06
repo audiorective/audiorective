@@ -17,3 +17,5 @@ export { Phaser } from "./Phaser";
 export type { PhaserOptions } from "./Phaser";
 export { FrequencyShifter } from "./FrequencyShifter";
 export type { FrequencyShifterOptions } from "./FrequencyShifter";
+export { PitchShift } from "./PitchShift";
+export type { PitchShiftOptions, PitchShiftEngine, StretchOptions } from "./PitchShift";
