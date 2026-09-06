@@ -13,3 +13,5 @@ export { PingPongDelay } from "./PingPongDelay";
 export type { PingPongDelayOptions } from "./PingPongDelay";
 export { Convolver } from "./Convolver";
 export type { ConvolverOptions } from "./Convolver";
+export { Phaser } from "./Phaser";
+export type { PhaserOptions } from "./Phaser";
