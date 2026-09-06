@@ -15,3 +15,5 @@ export { Convolver } from "./Convolver";
 export type { ConvolverOptions } from "./Convolver";
 export { Phaser } from "./Phaser";
 export type { PhaserOptions } from "./Phaser";
+export { FrequencyShifter } from "./FrequencyShifter";
+export type { FrequencyShifterOptions } from "./FrequencyShifter";
