@@ -4,7 +4,7 @@ import { Effect, type EffectOptions } from "./Effect";
 export interface DistortionOptions extends EffectOptions {
   /** 0..1 drive. Default 0.4. */
   distortion?: number;
-  /** WaveShaper oversampling. Default "4x". */
+  /** WaveShaper oversampling. Default "none"; "2x"/"4x" reduce aliasing but add browser-defined latency that this effect cannot declare. */
   oversample?: OverSampleType;
 }
 
@@ -26,7 +26,7 @@ export function distortionCurve(amount: number): Float32Array {
 
 export class Distortion extends Effect<{ distortion: Param<number> }> {
   constructor(ctx: BaseAudioContext, opts: DistortionOptions = {}) {
-    const shaper = new WaveShaperNode(ctx, { oversample: opts.oversample ?? "4x", curve: distortionCurve(opts.distortion ?? 0.4) });
+    const shaper = new WaveShaperNode(ctx, { oversample: opts.oversample ?? "none", curve: distortionCurve(opts.distortion ?? 0.4) });
     super(
       ctx,
       { input: shaper, output: shaper },

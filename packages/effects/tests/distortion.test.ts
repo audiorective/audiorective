@@ -32,4 +32,17 @@ describe("Distortion", () => {
     });
     expect(rms(out)).toBeGreaterThan(0.75);
   });
+  it("oversample 4x delays the wet arm by a few samples (undeclared browser latency)", async () => {
+    // Demonstrates that oversample="4x" adds browser-defined latency; default is "none" to avoid this
+    const outNone = await renderSine((ctx) => new Distortion(ctx, { distortion: 0, oversample: "none" }));
+    const ref = await renderSine((ctx) => new Distortion(ctx, { distortion: 0, wet: 0 }));
+
+    // "none" oversample should match the reference signal closely without added latency
+    let error = 0;
+    for (const i of [1000, 2000, 3000]) {
+      error += Math.abs(outNone[i]! - ref[i]!);
+    }
+
+    expect(error / 3).toBeLessThan(0.01);
+  });
 });
