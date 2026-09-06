@@ -7,3 +7,5 @@ export { Channel } from "./Channel";
 export type { ChannelOptions, Send } from "./Channel";
 export { Filter } from "./Filter";
 export type { FilterOptions } from "./Filter";
+export { Distortion, distortionCurve } from "./Distortion";
+export type { DistortionOptions } from "./Distortion";
