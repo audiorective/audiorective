@@ -16,11 +16,7 @@ describe("Distortion", () => {
   it("distortion = 0 is unity within 1e-3", async () => {
     const out = await renderSine((ctx) => new Distortion(ctx, { distortion: 0 }));
     const ref = await renderSine((ctx) => new Distortion(ctx, { distortion: 0, wet: 0 }));
-    // The curve at k=0 is x·60·deg/π ≈ x/3, not exactly unity
-    for (const i of [1000, 2000, 3000]) {
-      const expected = (ref[i]! * 60 * (Math.PI / 180)) / Math.PI;
-      expect(out[i]).toBeCloseTo(expected, 0);
-    }
+    for (const i of [1000, 2000, 3000]) expect(out[i]).toBeCloseTo(ref[i]!, 3);
   });
   it("more distortion raises RMS (squarer wave) and never exceeds ±1.05", async () => {
     const soft = rms(await renderSine((ctx) => new Distortion(ctx, { distortion: 0.2 })));
@@ -34,6 +30,6 @@ describe("Distortion", () => {
       d.params.distortion.value = 0.9;
       return d;
     });
-    expect(rms(out)).toBeGreaterThan(0.3);
+    expect(rms(out)).toBeGreaterThan(0.75);
   });
 });
