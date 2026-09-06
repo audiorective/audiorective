@@ -19,4 +19,16 @@ describe("fx-rack engine.setEngine", () => {
     expect(engine.rack.value.inserts.pitchShift.engine).toBe("granular");
     expect(destroySpy.mock.instances.filter((i) => i === before)).toHaveLength(1);
   });
+
+  it("carries the loaded drum loop onto the replacement rack", async () => {
+    await engine.core.start();
+    await engine.loopLoaded;
+    const loop = engine.rack.value.deck.buffer;
+    expect(loop).toBeInstanceOf(AudioBuffer);
+
+    const target = engine.rack.value.inserts.pitchShift.engine === "granular" ? "stretch" : "granular";
+    await engine.setEngine(target);
+
+    expect(engine.rack.value.deck.buffer).toBe(loop);
+  });
 });

@@ -8,7 +8,8 @@ export interface GranularShifterOptions {
 }
 
 /** Two delay lines swept by out-of-phase sawtooths and crossfaded — Tone.js's PitchShift core. */
-export class GranularShifter extends AudioProcessor {
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export class GranularShifter extends AudioProcessor<{}, {}> {
   private readonly _input: GainNode;
   private readonly _output: GainNode;
   private readonly windowSize: number;
@@ -47,7 +48,7 @@ export class GranularShifter extends AudioProcessor {
     one.connect(gainB.gain);
     const rate = fanout(ctx, 0, [lfoA.frequency, lfoB.frequency, fade.frequency]);
 
-    super(ctx, () => ({ latency: Math.round(windowSize * ctx.sampleRate) }));
+    super(ctx, () => ({ params: {}, cells: {}, latency: Math.round(windowSize * ctx.sampleRate) }));
     this._input = input;
     this._output = output;
     this.windowSize = windowSize;

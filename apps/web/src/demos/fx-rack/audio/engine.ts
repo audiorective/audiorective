@@ -13,8 +13,12 @@ export const engine = createEngine((ctx) => {
     return r;
   };
   const rack = cell(build("granular", null));
+  // Held outside the rack: a swap in flight builds its replacement from this, and a load that
+  // lands mid-swap would otherwise be written to the rack about to be destroyed.
+  let loop: AudioBuffer | null = null;
   const loopLoaded = loadAudioBuffer(ctx, "/stems/drums.mp3")
     .then((buf) => {
+      loop = buf;
       rack.value.deck.buffer = buf;
     })
     .catch((err: unknown) => {
@@ -30,13 +34,14 @@ export const engine = createEngine((ctx) => {
     old.stop();
     let next: FxRack | undefined;
     try {
-      next = build(pitchEngine, old.deck.buffer);
+      next = build(pitchEngine, loop);
       await next.ready;
     } catch (err) {
       next?.destroy();
       if (wasPlaying) old.play();
       throw err;
     }
+    if (loop && !next.deck.buffer) next.deck.buffer = loop;
     applySettings(next, { ...settings, engine: pitchEngine });
     old.destroy();
     rack.value = next;
