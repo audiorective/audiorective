@@ -62,7 +62,7 @@ class DynamicsProcessor extends AudioWorkletProcessor {
       const gain = Math.pow(10, (makeup - this.env) / 20);
       const r = (w - L + size) % size;
       output[0][i] = rings[0][r] * gain;
-      if (output[1]) output[1][i] = rings[1][r] * gain;
+      output[1][i] = rings[1][r] * gain;
     }
     this.write = (this.write + n) % size;
     this.sinceReport += n;

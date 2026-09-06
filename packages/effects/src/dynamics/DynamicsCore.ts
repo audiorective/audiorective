@@ -27,6 +27,7 @@ export class DynamicsCore extends AudioProcessor<P, { reduction: Cell<number>; i
   private readonly _output: GainNode;
   readonly ready: Promise<void>;
   private node: AudioWorkletNode | null = null;
+  private destroyed = false;
 
   constructor(ctx: BaseAudioContext, opts: DynamicsCoreOptions) {
     const input = new GainNode(ctx),
@@ -48,6 +49,7 @@ export class DynamicsCore extends AudioProcessor<P, { reduction: Cell<number>; i
     this._output = output;
 
     this.ready = registerWorklet(ctx, DYNAMICS_WORKLET_NAME, DYNAMICS_WORKLET).then(() => {
+      if (this.destroyed) return;
       const node = new AudioWorkletNode(ctx, DYNAMICS_WORKLET_NAME, {
         numberOfInputs: 1,
         numberOfOutputs: 1,
@@ -78,6 +80,7 @@ export class DynamicsCore extends AudioProcessor<P, { reduction: Cell<number>; i
   }
 
   override destroy(): void {
+    this.destroyed = true;
     if (this.node) {
       this.node.port.close();
       this.node.disconnect();

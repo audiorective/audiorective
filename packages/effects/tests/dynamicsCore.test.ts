@@ -59,4 +59,11 @@ describe("DynamicsCore", () => {
       }
     expect(idx).toBe(Math.round(0.005 * sr));
   });
+  it("destroying before ready resolves leaves isReady false and does not build the worklet node", async () => {
+    const ctx = new OfflineAudioContext(2, 44100, 44100);
+    const core = new DynamicsCore(ctx, { threshold: -24, ratio: 4, knee: 0, attack: 0.001, release: 0.05, makeup: 0, lookahead: 0 });
+    core.destroy();
+    await core.ready;
+    expect(core.cells.isReady.value).toBe(false);
+  });
 });
