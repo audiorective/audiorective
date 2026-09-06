@@ -60,4 +60,20 @@ describe("Channel", () => {
     const bus = new SendBus(ctx);
     expect(() => bus.receive("nope")).toThrow(/nope/);
   });
+
+  it("a disposed send delivers nothing", async () => {
+    const buf = await renderStereo((ctx) => {
+      const bus = new SendBus(ctx);
+      bus.define("hall");
+      const ch = new Channel(ctx);
+      const src = new ConstantSourceNode(ctx, { offset: 1 });
+      src.connect(ch.input);
+      src.start();
+      const send = ch.send(bus, "hall", 0.5);
+      send.dispose();
+      expect(() => send.dispose()).not.toThrow();
+      bus.receive("hall").connect(ctx.destination);
+    });
+    expect(buf.getChannelData(0)[200]).toBeCloseTo(0, 6);
+  });
 });

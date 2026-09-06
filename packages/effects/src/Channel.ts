@@ -72,6 +72,7 @@ export class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: Sched
       dispose: () => {
         if (!this.sends.delete(entry)) return;
         param.destroy();
+        this.output.disconnect(node);
         node.disconnect();
       },
     };
@@ -80,6 +81,11 @@ export class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: Sched
   override destroy(): void {
     for (const { node, param } of this.sends) {
       param.destroy();
+      try {
+        this.output.disconnect(node);
+      } catch {
+        // node may already be disconnected
+      }
       node.disconnect();
     }
     this.sends.clear();

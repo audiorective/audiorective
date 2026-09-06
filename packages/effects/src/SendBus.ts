@@ -22,6 +22,7 @@ export class SendBus {
     return this.receives.has(name);
   }
 
+  /** Disconnect all receives; call after dependent sends are disposed since this cannot see their nodes. */
   destroy(): void {
     for (const node of this.receives.values()) node.disconnect();
     this.receives.clear();
