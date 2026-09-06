@@ -28,4 +28,19 @@ describe("Convolver", () => {
     expect(fx.cells.isReady.value).toBe(true);
     vi.restoreAllMocks();
   });
+  it("latest load(url) call wins over slower earlier calls", async () => {
+    const ctx = new OfflineAudioContext(1, 128, 44100);
+    const slowIr = ctx.createBuffer(1, 4, 44100);
+    slowIr.getChannelData(0)[0] = 0.1;
+    const fastIr = ctx.createBuffer(1, 4, 44100);
+    fastIr.getChannelData(0)[0] = 0.9;
+    const core = await import("@audiorective/core");
+    vi.spyOn(core.AudioBufferCache.prototype, "load").mockImplementation((url) =>
+      url === "/slow.wav" ? new Promise((r) => setTimeout(() => r(slowIr), 30)) : Promise.resolve(fastIr),
+    );
+    const fx = new Convolver(ctx);
+    await Promise.all([fx.load("/slow.wav"), fx.load("/fast.wav")]);
+    expect(fx.buffer).toBe(fastIr);
+    vi.restoreAllMocks();
+  });
 });

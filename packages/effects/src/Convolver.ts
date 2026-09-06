@@ -21,6 +21,7 @@ function cacheFor(ctx: BaseAudioContext): AudioBufferCache {
 
 export class Convolver extends Effect<{}, { isReady: Cell<boolean> }> {
   private readonly node: ConvolverNode;
+  private loadToken = 0;
   /** Resolves once the initial `url` (if any) has loaded. */
   readonly ready: Promise<void>;
 
@@ -41,6 +42,9 @@ export class Convolver extends Effect<{}, { isReady: Cell<boolean> }> {
   }
 
   async load(url: string): Promise<void> {
-    this.buffer = await cacheFor(this.context).load(url);
+    const token = ++this.loadToken;
+    const buffer = await cacheFor(this.context).load(url);
+    if (token !== this.loadToken) return;
+    this.buffer = buffer;
   }
 }
