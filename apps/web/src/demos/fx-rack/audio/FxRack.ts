@@ -144,6 +144,7 @@ export class FxRack extends AudioProcessor<{}, { isReady: Cell<boolean> }> {
     this.limiter.destroy();
     this.channel.destroy();
     this.bus.destroy();
+    this.out.disconnect();
     super.destroy();
   }
 }

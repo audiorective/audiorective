@@ -24,7 +24,7 @@ Press **Play** to loop the drum stems, or hit the pads to trigger drum sounds. T
    }
    ```
 
-2. **Engine toggle and latency tracking** — the pitch shifter has two engines (granular and stretch), toggled live. The module shows the pitch shifter's own `latency` and a total path latency computed from the graph's `arrivalOf` call. Switching engines rebuilds the entire rack while preserving every other setting, and Plug Delay Compensation (`compensate: true` in `defineGraph`) keeps the send returns aligned:
+2. **Engine toggle and latency tracking** — the pitch shifter has two engines (granular and stretch), toggled live. The module shows the pitch shifter's own `latency` and a total path latency computed from the graph's `arrivalOf` call. Switching engines rebuilds the entire rack while preserving every other setting, and Plugin Delay Compensation (`compensate: true` in `defineGraph`) keeps the send returns aligned:
 
    ```ts
    const switchTo = async (pitchEngine: PitchShiftEngine) => {
@@ -91,7 +91,7 @@ Press **Play** to loop the drum stems, or hit the pads to trigger drum sounds. T
 pnpm --filter @audiorective/web test -- --run tests/fx-rack
 ```
 
-The headless `FxRack` constructs against an `OfflineAudioContext`, renders one bar of the pad pattern, and asserts that the output is non-silent, stays under the limiter threshold, and that setting every insert's `wet` to 0 reproduces the dry sum within floating-point tolerance (`1e-4`).
+The headless `FxRack` constructs against an `OfflineAudioContext`, renders one bar of the pad pattern, and asserts that the output is non-silent, stays under the limiter threshold, and that setting every insert's `wet` to 0 reproduces the dry sum within `< 1e-3` mean absolute difference over a subsampled window.
 
 ## Deliberately out of scope
 

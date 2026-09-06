@@ -92,6 +92,10 @@ context, compensate? })` for a graph owned by no processor. A bare
 - **effects:** `dbToGain(db)` / `gainToDb(gain)` — dB/linear-gain conversion
   helpers for the package's linear gain params.
 - **effects:** `Effect` base class exported as the extension point for custom effects.
+- **apps:** FX Rack showroom demo — a live effects processor and offline
+  export engine built on `@audiorective/effects`: five inserts, two sends,
+  compression, and a limiter, sharing one headless `FxRack` class between the
+  live UI and the WAV export.
 
 ### Changed
 

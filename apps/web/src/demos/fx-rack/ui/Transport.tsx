@@ -41,8 +41,11 @@ export function Transport() {
       const a = document.createElement("a");
       a.href = url;
       a.download = "fx-rack.wav";
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      // Deferred so the browser has started the download before the URL it points to is revoked.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (err) {
       setExportError(err instanceof Error ? err.message : "Export failed");
     } finally {
