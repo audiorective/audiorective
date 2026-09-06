@@ -32,5 +32,13 @@ describe("declared latency matches measured", () => {
     // window here); tolerance covers the full window. The meaningful check for this engine
     // is its own latency.value test.
     await assertLatency((ctx) => new PitchShift(ctx, { windowSize: 0.02 }), { ...rates, tolerance: 0.02 * 44100 });
+    // A single-sample impulse vanishes in the STFT at longer blocks (40 ms renders silence),
+    // so the impulse validator only checks the short-block configuration; the 40 ms declared
+    // value is covered by pitchShiftStretch.test.ts.
+    await assertLatency((ctx) => new PitchShift(ctx, { engine: "stretch", stretch: { blockMs: 10 } }), {
+      ...rates,
+      tolerance: 8,
+      ready: (p) => (p as PitchShift).ready,
+    });
   });
 });
