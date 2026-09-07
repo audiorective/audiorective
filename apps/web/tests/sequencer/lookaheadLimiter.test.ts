@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LookaheadLimiter, loadLimiterWorklet } from "./LookaheadLimiter";
+import { LookaheadLimiter, loadLimiterWorklet } from "../../src/demos/sequencer/audio/LookaheadLimiter";
 
 // Worklet processors measure with a pre-loaded context: the module must be added to
 // the exact OfflineAudioContext that renders, so the test owns the context. The source

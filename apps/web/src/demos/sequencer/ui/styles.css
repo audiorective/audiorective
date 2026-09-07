@@ -14,6 +14,10 @@
   --accent: #5ad1a0;
   --accent-dim: #2f7a5e;
   --playhead: #f0c674;
+  --diagram-node: #262b34;
+  --diagram-node-processor: #2f3644;
+  --diagram-edge: #4a5568;
+  --diagram-badge: #f0c674;
 
   max-width: 860px;
   margin: 0 auto;
@@ -244,4 +248,124 @@
 
 .tick--downbeat {
   color: var(--text);
+}
+
+/* latency lab ---------------------------------------------------------- */
+
+.lab {
+  margin-top: 36px;
+}
+
+.lab__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.lab__subtitle {
+  margin: 6px 0 18px;
+  color: var(--muted-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.diagram {
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+
+.diagram__header {
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--muted-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.diagram__svg {
+  width: 100%;
+  height: auto;
+}
+
+.diagram__node {
+  fill: var(--diagram-node);
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.diagram__node--processor {
+  fill: var(--diagram-node-processor);
+  stroke: var(--accent-dim);
+}
+
+.diagram__node-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.diagram__node-latency {
+  fill: var(--muted-text);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagram__edge-label {
+  fill: var(--muted-text);
+  font-size: 10px;
+}
+
+.diagram__badge {
+  fill: var(--diagram-badge);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.diagram__arrival {
+  fill: var(--muted-text);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.controls__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.controls__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted-text);
+  font-style: italic;
+}
+
+.controls__slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted-text);
+}
+
+.controls__slider-value {
+  min-width: 48px;
+  font-variant-numeric: tabular-nums;
 }

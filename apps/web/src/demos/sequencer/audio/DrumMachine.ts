@@ -1,5 +1,5 @@
 import { AudioProcessor, Cell, Param, Sampler } from "@audiorective/core";
-import { Clock, CycleBarRuler, LinearBarRuler, Timeline } from "@audiorective/clock";
+import { Clock, CycleBarRuler, LinearBarRuler, Timeline, type CycleBarPoint, type TickSource } from "@audiorective/clock";
 import type { DrumKit, DrumVoiceId } from "./drumKit";
 import { DEFAULT_PATTERN_LENGTH, STEPS_PER_BAR } from "./stepFromPattern";
 
@@ -32,6 +32,12 @@ export interface DrumMachineOptions {
    * gives a two-bar pattern with no other change.
    */
   patternLength?: number;
+  /**
+   * What drives the clock's ticks. Defaults to the clock's own worker timer;
+   * an offline render hands in the tick source `renderTimeline` provides, so
+   * the same machine schedules a WAV export exactly as it schedules live.
+   */
+  tickSource?: TickSource;
 }
 
 const TRACK_LABELS: Record<DrumVoiceId, string> = {
@@ -76,10 +82,13 @@ export class DrumMachine extends AudioProcessor {
 
   private readonly _master: GainNode;
   private readonly _timeline: Timeline<SequencerRulers>;
+  private readonly _patternRuler: CycleBarRuler;
   private readonly _clock: Clock<SequencerRulers>;
+  /** Context time `play()` last anchored beat 0 at — before it, nothing of this segment has sounded. */
+  private _segmentStart = 0;
 
   constructor(options: DrumMachineOptions) {
-    const { audioContext, kit, bpm = 120, patternLength = DEFAULT_PATTERN_LENGTH } = options;
+    const { audioContext, kit, bpm = 120, patternLength = DEFAULT_PATTERN_LENGTH, tickSource } = options;
     // No params/cells registry: the reactive surface is per-track (`pattern`,
     // `mute` on each DrumTrack) plus `bpm`/`state`, which belong to the
     // Timeline and Clock respectively.
@@ -108,12 +117,14 @@ export class DrumMachine extends AudioProcessor {
     // bars -- 16 steps is one bar, 32 is two. The cycle region therefore holds
     // exactly one pass of the pattern, which is what makes a grid point's
     // `step` a direct index into it.
+    this._patternRuler = new CycleBarRuler({ numerator: 4, denominator: 4, bars: patternLength / STEPS_PER_BAR });
     this._timeline = new Timeline({ audioContext, bpm })
       .addRuler("bar", new LinearBarRuler({ numerator: 4, denominator: 4 }))
-      .addRuler("pattern", new CycleBarRuler({ numerator: 4, denominator: 4, bars: patternLength / STEPS_PER_BAR }));
+      .addRuler("pattern", this._patternRuler);
 
     this._clock = new Clock({
       timeline: this._timeline,
+      tickSource,
       onTick: (window) => {
         // `step` is already folded into the cycle, so it indexes the pattern
         // directly -- and it stays in range across the loop wrap and any seek.
@@ -147,9 +158,26 @@ export class DrumMachine extends AudioProcessor {
     return this._timeline.rulers.bar.current;
   }
 
-  /** Reactive pattern-ruler reading at the playhead — drives the step highlight. */
+  /**
+   * Reactive pattern-ruler reading at the playhead — refreshed every tick at
+   * the render clock, i.e. the position being *scheduled*. For the position
+   * being *heard*, see `patternAt`.
+   */
   get currentPattern() {
     return this._timeline.rulers.pattern.current;
+  }
+
+  /**
+   * The pattern-ruler reading at an arbitrary context time — the same pure
+   * ruler math `currentPattern` uses, at a time of the caller's choosing. The
+   * UI passes the time the listener is hearing (the render clock minus the
+   * graph and output latency) so the step highlight lands with the sound
+   * rather than with its scheduling. `null` before the segment's start:
+   * nothing scheduled in this segment has reached the ear yet.
+   */
+  patternAt(time: number): CycleBarPoint | null {
+    if (time < this._segmentStart) return null;
+    return this._patternRuler.at(this._timeline.timeToBeat(time));
   }
 
   toggleStep(trackId: DrumVoiceId, step: number): void {
@@ -162,8 +190,12 @@ export class DrumMachine extends AudioProcessor {
 
   /** Play from a stop, or resume from a pause — whichever the state calls for. */
   play(): void {
-    if (this._clock.state.value === "paused") this._clock.resume();
-    else this._clock.start();
+    if (this._clock.state.value === "paused") {
+      this._clock.resume();
+      return;
+    }
+    this._segmentStart = this.context.currentTime;
+    this._clock.start();
   }
 
   pause(): void {

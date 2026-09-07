@@ -3,7 +3,7 @@ import { useValue } from "@audiorective/react";
 import type { GraphSnapshot } from "@audiorective/core";
 import { useEngine } from "../audio/engine";
 
-type Role = "beat" | "click" | "split" | "limiter" | "dry" | "master" | "destination";
+type Role = "machine" | "split" | "limiter" | "dry" | "master" | "destination";
 
 interface Box {
   x: number;
@@ -14,8 +14,7 @@ interface Box {
 
 /** Fixed per-role layout — the graph's shape never changes, only which edges are live. */
 const POS: Record<Role, Box> = {
-  beat: { x: 16, y: 20, w: 84, h: 40 },
-  click: { x: 16, y: 180, w: 84, h: 40 },
+  machine: { x: 16, y: 100, w: 96, h: 40 },
   split: { x: 160, y: 100, w: 72, h: 40 },
   limiter: { x: 300, y: 16, w: 110, h: 48 },
   dry: { x: 300, y: 180, w: 72, h: 40 },
@@ -24,8 +23,7 @@ const POS: Record<Role, Box> = {
 };
 
 const ROLE_LABEL: Record<Role, string> = {
-  beat: "Beat",
-  click: "Click",
+  machine: "Sequencer",
   split: "split",
   limiter: "Limiter",
   dry: "dry",
@@ -52,9 +50,9 @@ function edgePoint(box: Box, to: { x: number; y: number }): { x: number; y: numb
 
 export function GraphDiagram() {
   const { core, lab } = useEngine();
-  // Re-read the snapshot on every solve — `solveTick` is bumped from `Lab`'s
-  // `onSolve` callback, which fires after PDC toggles, bypass toggles, and
-  // attach().
+  // Re-read the snapshot on every solve — `solveTick` is bumped from
+  // `LatencyLab`'s `onSolve` callback, which fires after PDC toggles, bypass
+  // toggles, lookahead changes, and attach().
   useValue(lab.solveTick);
   const snapshot: GraphSnapshot = lab.snapshot();
   const roles = lab.roles();
@@ -94,15 +92,15 @@ export function GraphDiagram() {
 
   const sampleRate = core.context.sampleRate;
   const latencyMs = (latency / sampleRate) * 1000;
-  // Read fresh on every render — cheapest way to keep it current without a
-  // requestAnimationFrame loop, since a render already happens on every solve
-  // (`solveTick` above) and every latency/PDC change.
-  const perceivedTime = core.perceivedTime;
+  // Read on every render rather than subscribed: it only changes when the
+  // output device does, and a render already happens on every solve.
+  const outputLatencyMs = (core.context.outputLatency ?? 0) * 1000;
 
   return (
     <div className="diagram">
       <div className="diagram__header">
-        engine.latency: {latency} samples ({latencyMs.toFixed(1)} ms) · perceived: {perceivedTime.toFixed(3)} s · PDC {pdcEnabled ? "on" : "off"}
+        engine.latency: {latency} samples ({latencyMs.toFixed(1)} ms) · output: {outputLatencyMs.toFixed(1)} ms · the ear is{" "}
+        {(latencyMs + outputLatencyMs).toFixed(1)} ms behind the render clock · PDC {pdcEnabled ? "on" : "off"}
       </div>
       <svg className="diagram__svg" viewBox="0 0 760 240" role="img" aria-label="Audio graph diagram">
         <defs>

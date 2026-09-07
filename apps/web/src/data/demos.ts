@@ -21,7 +21,8 @@ export const demos: Demo[] = [
   {
     slug: "sequencer",
     title: "Step Sequencer",
-    blurb: "A 4-track × 16-step drum machine: one grid() loop over a cycle ruler schedules the whole pattern, with live tempo and step edits.",
+    blurb:
+      "A 4-track × 16-step drum machine routed through a lookahead limiter: one grid() loop schedules the pattern, defineGraph rewires live, PDC keeps the branches aligned, and the playhead lands with the ear.",
     thumb: "/showroom/sequencer.jpg",
     route: "/showroom/sequencer",
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/sequencer",
@@ -35,15 +36,6 @@ export const demos: Demo[] = [
     route: "/showroom/pixi",
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/pixi",
     packages: ["@audiorective/core", "pixi.js"],
-  },
-  {
-    slug: "latency-lab",
-    title: "Latency Lab",
-    blurb: "A drum kit split into a lookahead-limited path and a dry path: watch defineGraph rewire live and PDC snap the two into sample alignment.",
-    thumb: "/showroom/latency-lab.jpg",
-    route: "/showroom/latency-lab",
-    source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/latency-lab",
-    packages: ["@audiorective/core", "@audiorective/clock", "@audiorective/react"],
   },
   {
     slug: "fx-rack",

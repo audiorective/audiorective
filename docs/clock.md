@@ -198,7 +198,7 @@ const wav = await renderTimeline({ seconds: 8, channels: 2, sampleRate: 44100 },
 
 Two rules carry over from live playback. Keep `tickInterval` below the clock's `lookAhead`, or the clock reports misses offline exactly as it would live. And one tick source drives one clock — the one-clock rule below. One rule is offline-only: a render can pause only on a 128-frame render-quantum boundary, so ticks are never closer than one quantum (about 2.9 ms at 44.1 kHz), and a smaller `tickInterval` ticks once per quantum.
 
-A type that owns its `Clock` needs to accept `tickSource` to be renderable this way. Unlike a fake `currentTime`, that is a real seam and not a test-only option: it is how the same class runs live and exports offline.
+A type that owns its `Clock` needs to accept `tickSource` to be renderable this way — `apps/web/src/demos/sequencer`'s `DrumMachine` does, and its tests render the whole machine through its limiter graph with `renderTimeline`. Unlike a fake `currentTime`, that is a real seam and not a test-only option: it is how the same class runs live and exports offline.
 
 ## Testing scheduling deterministically
 
@@ -224,7 +224,7 @@ Every assertion is then exact — no tolerances, no polling, no flake.
 
 ### When you can't inject — testing a type that owns its Clock
 
-The two parameters above are the right approach when the code under test _takes_ a `Timeline` or a `Clock`. A class that builds its own — as `apps/web/src/demos/sequencer`'s `DrumMachine` does — shouldn't grow constructor options that exist only for tests. Mock the seams instead:
+The two parameters above are the right approach when the code under test _takes_ a `Timeline` or a `Clock`. A class that builds its own — as `apps/web/src/demos/sequencer`'s `DrumMachine` does — shouldn't grow constructor options that exist only for tests (`tickSource` earns its place there because offline rendering needs it; a fake `currentTime` would not). Mock the seams instead:
 
 ```typescript
 // "now": an own property shadowing the prototype getter on a real context

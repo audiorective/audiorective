@@ -100,6 +100,16 @@ context, compensate? })` for a graph owned by no processor. A bare
 
 ### Changed
 
+- **apps:** the Latency Lab demo is folded into the Step Sequencer: the
+  sequencer's `DrumMachine` now feeds the split/limiter/dry `defineGraph`
+  (PDC toggle, bypass-by-edge-removal, the runtime-adjustable
+  `LookaheadLimiter`, and the graph diagram all live on `/showroom/sequencer`),
+  and the step highlight reads the pattern ruler at the time the listener is
+  hearing — the render clock minus `engine.latency` and the output latency —
+  instead of at `ctx.currentTime`. `DrumMachine` accepts a `tickSource`, so
+  the whole machine renders offline through `renderTimeline`; the standalone
+  `/showroom/latency-lab` page, its `Beat`/`Click` sources, and its flash row
+  are gone.
 - **core:** `AudioProcessor.context` widens from `AudioContext` to
   `BaseAudioContext`, so processors can be constructed against an
   `OfflineAudioContext` for offline measurement. Existing code that passes

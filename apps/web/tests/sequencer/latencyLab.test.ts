@@ -1,23 +1,17 @@
-import { createEngine, Sampler } from "@audiorective/core";
-import { describe, expect, it } from "vitest";
-import { createDrumKit } from "../../sequencer/audio/drumKit";
-import { createLabSetup } from "./labSetup";
+import { createEngine, type Sampler } from "@audiorective/core";
+import { renderTimeline } from "@audiorective/clock";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DrumMachine } from "../../src/demos/sequencer/audio/DrumMachine";
+import { createDrumKit } from "../../src/demos/sequencer/audio/drumKit";
+import { createSequencerSetup } from "../../src/demos/sequencer/audio/setup";
+import type { SequencerSetupOptions } from "../../src/demos/sequencer/audio/setup";
 
 const SAMPLE_RATE = 48000;
 const HIT_TIME = 0.05;
 const THRESHOLD = 1e-4;
 
-async function renderLab(configure: (engine: Awaited<ReturnType<typeof buildEngine>>) => void) {
-  const engine = await buildEngine();
-  configure(engine);
-  engine.beat.samplers.kick.trigger({ when: HIT_TIME });
-  const rendered = await engine.ctx.startRendering();
-  return rendered.getChannelData(0);
-}
-
-async function buildEngine() {
-  const ctx = new OfflineAudioContext(2, SAMPLE_RATE * 1, SAMPLE_RATE);
-  const { setup, attach } = createLabSetup();
+async function buildEngine(ctx: OfflineAudioContext, options?: SequencerSetupOptions) {
+  const { setup, attach } = createSequencerSetup(options);
   const engine = createEngine(setup, { context: ctx as unknown as AudioContext });
   attach(engine.core);
   await engine.ready;
@@ -25,14 +19,28 @@ async function buildEngine() {
   return { ...engine, limiter: engine.lab.limiter, ctx };
 }
 
-/** The raw kick, rendered alone (no Lab) — the exact waveform the dry/wet branches carry. */
+function kickOf(engine: Awaited<ReturnType<typeof buildEngine>>): Sampler {
+  return engine.machine.tracks.find((t) => t.id === "kick")!.sampler;
+}
+
+/** One kick through the lab's root graph, triggered directly -- the routing under test, not the clock. */
+async function renderLab(configure: (engine: Awaited<ReturnType<typeof buildEngine>>) => void) {
+  const ctx = new OfflineAudioContext(2, SAMPLE_RATE * 1, SAMPLE_RATE);
+  const engine = await buildEngine(ctx);
+  configure(engine);
+  kickOf(engine).trigger({ when: HIT_TIME });
+  const rendered = await ctx.startRendering();
+  return rendered.getChannelData(0);
+}
+
+/** The kick through a bare machine (no lab) — the exact waveform, master gain included, the dry/wet branches carry. */
 async function renderSoloDryKick(): Promise<Float32Array> {
   const ctx = new OfflineAudioContext(1, SAMPLE_RATE * 1, SAMPLE_RATE);
-  const kit = createDrumKit(ctx);
-  const sampler = new Sampler(ctx, { buffer: kit.kick });
-  sampler.output.connect(ctx.destination);
-  sampler.trigger({ when: HIT_TIME });
+  const machine = new DrumMachine({ audioContext: ctx as unknown as AudioContext, kit: createDrumKit(ctx) });
+  machine.output.connect(ctx.destination);
+  machine.tracks.find((t) => t.id === "kick")!.sampler.trigger({ when: HIT_TIME });
   const rendered = await ctx.startRendering();
+  machine.destroy();
   return rendered.getChannelData(0);
 }
 
@@ -47,7 +55,7 @@ function isSilentBefore(data: Float32Array, index: number, threshold = THRESHOLD
   return true;
 }
 
-describe("latency-lab root graph", () => {
+describe("sequencer latency lab — root graph", () => {
   it("PDC on: the dry branch is compensated to align with the limited branch — one onset, at hitTime + limiter latency", async () => {
     let latency = 0;
     const data = await renderLab((engine) => {
@@ -105,12 +113,50 @@ describe("latency-lab root graph", () => {
   });
 
   it("keeps engine.core.latency following the limiter's latency as it changes", async () => {
-    const engine = await buildEngine();
+    const engine = await buildEngine(new OfflineAudioContext(2, SAMPLE_RATE * 1, SAMPLE_RATE));
     expect(engine.core.latency.value).toBe(engine.limiter.latency.value);
 
     const doubled = engine.limiter.latency.value * 2;
     engine.limiter.latency.value = doubled;
 
     expect(engine.core.latency.value).toBe(doubled);
+  });
+});
+
+describe("sequencer latency lab — the whole machine rendered offline", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("renderTimeline drives the machine's clock through the lab: a bar of kicks, the first landing at the limiter's latency", async () => {
+    const bpm = 120; // a bar is 2 s; kicks on every beat at 0, 0.5, 1.0, 1.5
+    let latency = 0;
+    const scheduled: number[] = [];
+
+    const rendered = await renderTimeline({ seconds: 2, channels: 2, sampleRate: SAMPLE_RATE }, async (ctx, tickSource) => {
+      // the page's setup, verbatim, plus the one injection offline rendering needs
+      const engine = await buildEngine(ctx, { tickSource });
+      engine.machine.bpm.value = bpm;
+      for (const track of engine.machine.tracks) track.mute.value = track.id !== "kick";
+      // record the real trigger calls as the ticks fire mid-render, and let them through
+      const kick = kickOf(engine);
+      const trigger = kick.trigger.bind(kick);
+      vi.spyOn(kick, "trigger").mockImplementation((opts) => {
+        scheduled.push(opts?.when ?? ctx.currentTime);
+        return trigger(opts);
+      });
+      latency = engine.limiter.latency.value;
+      engine.machine.play();
+    });
+
+    // the four kicks of the bar, plus the next downbeat: the render stops at
+    // 2 s, but the last window's look-ahead had already committed it
+    expect(scheduled).toEqual([0, 0.5, 1.0, 1.5, 2.0]);
+
+    // PDC on by default: the dry branch waits for the limited one, so beat 0
+    // lands exactly `latency` samples in, and nothing sounds before it
+    const data = rendered.getChannelData(0);
+    expect(isSilentBefore(data, latency)).toBe(true);
+    expect(firstAboveThreshold(data)).toBe(latency);
   });
 });

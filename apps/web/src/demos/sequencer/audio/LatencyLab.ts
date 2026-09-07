@@ -1,28 +1,27 @@
 import { Cell, Param, type AudioEngine, type GraphHandle, type GraphSnapshot } from "@audiorective/core";
-import type { Beat } from "./Beat";
-import type { Click } from "./Click";
+import type { DrumMachine } from "./DrumMachine";
 import type { LookaheadLimiter } from "./LookaheadLimiter";
 
-export interface LabNodes {
-  beat: Beat;
-  click: Click;
+export interface LatencyLabNodes {
+  machine: DrumMachine;
   split: GainNode;
   dry: GainNode;
   master: GainNode;
 }
 
 /**
- * Owns the demo's root graph: beat and click feed a split point that
+ * Owns the demo's root graph: the drum machine feeds a split point that
  * branches into a limited ("wet") path and an unlimited ("dry") path, mixed
  * back into master. `limiterBypassed` drops the wet branch; `pdcEnabled`
  * controls whether the graph compensates the branches' latency difference so
  * they still land in phase.
  *
  * Constructible before the limiter exists — its worklet loads asynchronously
- * — so the first graph is dry/click-only (equivalent to a forced bypass);
- * `attach(limiter)` wires the limiter in once it's ready and rebuilds.
+ * — so the first graph is dry-only (equivalent to a forced bypass) and the
+ * sequencer plays from the first gesture; `attach(limiter)` wires the limiter
+ * in once it's ready and rebuilds.
  */
-export class Lab {
+export class LatencyLab {
   readonly limiterBypassed = new Param<boolean>({ default: false, label: "Limiter bypassed" });
   readonly pdcEnabled = new Param<boolean>({ default: true, label: "PDC enabled" });
   /** Bumped on every graph solve — the diagram subscribes to this to redraw. */
@@ -32,10 +31,10 @@ export class Lab {
   limiter?: LookaheadLimiter;
 
   private readonly _ctx: BaseAudioContext;
-  private readonly _nodes: LabNodes;
+  private readonly _nodes: LatencyLabNodes;
   private readonly _defineGraph: AudioEngine["defineGraph"];
 
-  constructor(ctx: BaseAudioContext, nodes: LabNodes, defineGraph: AudioEngine["defineGraph"]) {
+  constructor(ctx: BaseAudioContext, nodes: LatencyLabNodes, defineGraph: AudioEngine["defineGraph"]) {
     this._ctx = ctx;
     this._nodes = nodes;
     this._defineGraph = defineGraph;
@@ -43,7 +42,7 @@ export class Lab {
   }
 
   private _build(compensate: boolean): GraphHandle {
-    const { beat, click, split, dry, master } = this._nodes;
+    const { machine, split, dry, master } = this._nodes;
     return this._defineGraph(
       () => {
         const limiter = this.limiter;
@@ -51,12 +50,11 @@ export class Lab {
         // edge, since dry->master is always present and a second copy would double
         // the signal (+6 dB) rather than actually bypass anything.
         return [
-          [beat, split],
+          [machine, split],
           limiter && !this.limiterBypassed.value && [split, limiter, { label: "wet" }],
           limiter && !this.limiterBypassed.value && [limiter, master],
           [split, dry, { label: "dry" }],
           [dry, master],
-          [click, master, { label: "click" }],
           [master, this._ctx.destination],
         ];
       },
@@ -85,10 +83,9 @@ export class Lab {
 
   /** Maps each known node's `snapshot()` id to a short role name, for the diagram's static layout. */
   roles(): Map<number, string> {
-    const { beat, click, split, dry, master } = this._nodes;
+    const { machine, split, dry, master } = this._nodes;
     const roles = new Map<number, string>([
-      [this.handle.idOf(beat), "beat"],
-      [this.handle.idOf(click), "click"],
+      [this.handle.idOf(machine), "machine"],
       [this.handle.idOf(split), "split"],
       [this.handle.idOf(dry), "dry"],
       [this.handle.idOf(master), "master"],
