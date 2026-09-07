@@ -75,7 +75,7 @@ function patternFromSteps(steps: number[], length: number): boolean[] {
  * a transport jump — `step` is derived from position rather than counted, and
  * the ruler folds it into the cycle before handing it over.
  */
-export class DrumMachine extends AudioProcessor {
+export class DrumMachine extends AudioProcessor<{}, {}> {
   readonly tracks: readonly DrumTrack[];
   /** Steps in one pass — the cycle ruler's division and the pattern length. */
   readonly patternLength: number;
@@ -89,10 +89,10 @@ export class DrumMachine extends AudioProcessor {
 
   constructor(options: DrumMachineOptions) {
     const { audioContext, kit, bpm = 120, patternLength = DEFAULT_PATTERN_LENGTH, tickSource } = options;
-    // No params/cells registry: the reactive surface is per-track (`pattern`,
-    // `mute` on each DrumTrack) plus `bpm`/`state`, which belong to the
-    // Timeline and Clock respectively.
-    super(audioContext, () => ({}));
+    // Empty params/cells registries: the reactive surface is per-track
+    // (`pattern`, `mute` on each DrumTrack) plus `bpm`/`state`, which belong
+    // to the Timeline and Clock respectively.
+    super(audioContext, () => ({ params: {}, cells: {} }));
 
     // Not connected to `destination` here -- the caller wires `output`, so the
     // machine can be routed through an EQ, reverb, or mixer like any processor.

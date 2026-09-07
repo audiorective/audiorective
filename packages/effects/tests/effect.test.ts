@@ -11,11 +11,11 @@ class Inverter extends Effect {
 }
 
 /** Wet arm with 100 samples of declared latency (a DelayNode standing in for a worklet). */
-class Latent extends AudioProcessor {
+class Latent extends AudioProcessor<{}, {}> {
   private readonly d: DelayNode;
   constructor(ctx: BaseAudioContext) {
     const d = new DelayNode(ctx, { delayTime: 100 / ctx.sampleRate, maxDelayTime: 1 });
-    super(ctx, () => ({ latency: 100 }));
+    super(ctx, () => ({ params: {}, cells: {}, latency: 100 }));
     this.d = d;
   }
   override get input() {
