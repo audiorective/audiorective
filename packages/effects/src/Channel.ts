@@ -15,7 +15,7 @@ export interface Send {
 }
 
 /** Channel strip: gain → pan → mute, with post-mute sends into a SendBus. */
-export class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: SchedulableParam; mute: Param<boolean> }> {
+export class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: SchedulableParam; mute: Param<boolean> }, {}> {
   private readonly _input: GainNode;
   private readonly _output: GainNode;
   private readonly sends = new Set<{ node: GainNode; param: SchedulableParam }>();
@@ -28,6 +28,7 @@ export class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: Sched
     const output = new GainNode(ctx);
 
     super(ctx, ({ param }) => ({
+      cells: {},
       params: {
         gain: param({ default: opts.gain ?? 1, bind: gain.gain, min: 0 }),
         pan: param({ default: opts.pan ?? 0, bind: pan.pan, min: -1, max: 1 }),

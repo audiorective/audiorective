@@ -23,7 +23,7 @@ const DEFAULT_LOOKAHEAD_SECONDS = 0.02;
  * `lookahead-limiter` AudioWorklet; `loadLimiterWorklet(ctx)` must have
  * resolved before construction.
  */
-export class LookaheadLimiter extends AudioProcessor<{ ceiling: SchedulableParam }> {
+export class LookaheadLimiter extends AudioProcessor<{ ceiling: SchedulableParam }, {}> {
   private readonly _node: AudioWorkletNode;
 
   constructor(ctx: BaseAudioContext, opts: LookaheadLimiterOptions = {}) {
@@ -35,6 +35,7 @@ export class LookaheadLimiter extends AudioProcessor<{ ceiling: SchedulableParam
     });
 
     super(ctx, ({ param }) => ({
+      cells: {},
       params: {
         ceiling: param({ default: opts.ceiling ?? 0.9, bind: node.parameters.get("ceiling")! }),
       },
