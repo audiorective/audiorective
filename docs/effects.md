@@ -109,7 +109,7 @@ An FX rack — five inserts in series, two sends to shared buses, a master limit
 import { AudioProcessor } from "@audiorective/core";
 import { Channel, SendBus, Filter, Compressor, Distortion, Phaser, PingPongDelay, Limiter, dbToGain } from "@audiorective/effects";
 
-class FxRack extends AudioProcessor<{}> {
+class FxRack extends AudioProcessor<{}, {}> {
   private readonly _output: GainNode;
   readonly channel: Channel;
   readonly bus: SendBus;
@@ -129,7 +129,7 @@ class FxRack extends AudioProcessor<{}> {
     const delayFx = new PingPongDelay(ctx, { delayTime: 0.3, feedback: 0.35 });
     const hallFx = new Filter(ctx, { frequency: 3000, type: "lowpass" }); // stand-in for a reverb IR chain
 
-    super(ctx, () => ({ params: {} }));
+    super(ctx, () => ({ params: {}, cells: {} }));
     this._output = output;
     this.channel = channel;
     this.bus = bus;

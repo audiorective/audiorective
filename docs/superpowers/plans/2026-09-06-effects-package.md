@@ -319,7 +319,7 @@ class Inverter extends Effect {
 }
 
 /** Wet arm with 100 samples of declared latency (a DelayNode standing in for a worklet). */
-class Latent extends AudioProcessor {
+class Latent extends AudioProcessor<{}, {}> {
   private readonly d: DelayNode;
   constructor(ctx: BaseAudioContext) {
     const d = new DelayNode(ctx, { delayTime: 100 / ctx.sampleRate, maxDelayTime: 1 });
@@ -516,7 +516,7 @@ interface ChannelOptions {
   mute?: boolean;
   channelCount?: number;
 }
-class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: SchedulableParam; mute: Param<boolean> }> {
+class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: SchedulableParam; mute: Param<boolean> }, {}> {
   readonly input: GainNode;
   readonly output: GainNode;
   send(bus: SendBus, name: string, gain?: number): Send;
@@ -653,7 +653,7 @@ export interface Send {
 }
 
 /** Channel strip: gain → pan → mute, with post-mute sends into a SendBus. */
-export class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: SchedulableParam; mute: Param<boolean> }> {
+export class Channel extends AudioProcessor<{ gain: SchedulableParam; pan: SchedulableParam; mute: Param<boolean> }, {}> {
   readonly input: GainNode;
   readonly output: GainNode;
   private readonly sends = new Set<{ node: GainNode; param: SchedulableParam }>();
@@ -1796,7 +1796,7 @@ interface GranularShifterOptions {
   pitch?: number;
   windowSize?: number;
 }
-class GranularShifter extends AudioProcessor {
+class GranularShifter extends AudioProcessor<{}, {}> {
   readonly input: GainNode;
   readonly output: GainNode;
   setPitch(semitones: number): void;
@@ -1899,7 +1899,7 @@ export interface GranularShifterOptions {
 }
 
 /** Two delay lines swept by out-of-phase sawtooths and crossfaded — Tone.js's PitchShift core. */
-export class GranularShifter extends AudioProcessor {
+export class GranularShifter extends AudioProcessor<{}, {}> {
   readonly input: GainNode;
   readonly output: GainNode;
   private readonly windowSize: number;
@@ -2719,7 +2719,7 @@ import SignalsmithStretch, { type StretchNode } from "signalsmith-stretch";
 import type { StretchOptions } from "../PitchShift";
 
 /** Signalsmith Stretch in live-input mode. Silent until `ready`; latency is read from the node. */
-export class StretchShifter extends AudioProcessor {
+export class StretchShifter extends AudioProcessor<{}, {}> {
   readonly input: GainNode;
   readonly output: GainNode;
   readonly ready: Promise<void>;
