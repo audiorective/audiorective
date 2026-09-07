@@ -745,6 +745,8 @@ const wav = await renderOffline({ seconds: 8, channels: 2, sampleRate: 44100 }, 
 
 `Sampler`, `BufferPlayer`, and every `@audiorective/effects` processor accept a `BaseAudioContext`, so the same classes run live and offline.
 
+A graph driven by a `@audiorective/clock` `Clock` needs its ticks driven in step with the render — use that package's `renderTimeline`, which wraps `renderOffline`. See [`docs/clock.md`](./clock.md#rendering-offline--rendertimeline).
+
 ---
 
 ## Usage Examples

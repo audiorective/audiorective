@@ -122,6 +122,10 @@ Remedy: raise `lookAhead`.
 
 `Clock` defaults to `WorkerTickSource` (a Web-Worker timer, so ticks continue in background tabs). `IntervalTickSource` and `ManualTickSource` are also exported — the latter is how this package's own tests drive ticks deterministically without a real `AudioContext`.
 
+## Rendering offline
+
+`renderTimeline(options, setup)` is `renderOffline` for a clock-driven graph: `setup(ctx, tickSource)` builds the `Clock` on the tick source it is handed and starts the transport, and the render is suspended, ticked, and resumed every `tickInterval` (default 25 ms) so the clock keeps emitting windows against the context's real `currentTime`. Keep `tickInterval` below the clock's `lookAhead`, as live. See [`docs/clock.md`](https://github.com/audiorective/audiorective/blob/main/docs/clock.md#rendering-offline--rendertimeline).
+
 ## Design
 
 See [`docs/superpowers/specs/2026-07-04-clock-design.md`](https://github.com/audiorective/audiorective/blob/eaad3df1bf52ec319414b73640d273ae445ecbb2/docs/superpowers/specs/2026-07-04-clock-design.md) (kept in git history) for the full design rationale.

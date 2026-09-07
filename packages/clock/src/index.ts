@@ -8,6 +8,9 @@ export type { CoreTickWindow, TransportState, TimeSource } from "./types";
 export { WorkerTickSource, IntervalTickSource, ManualTickSource } from "./TickSource";
 export type { TickSource } from "./TickSource";
 
+export { renderTimeline } from "./renderTimeline";
+export type { RenderTimelineOptions } from "./renderTimeline";
+
 export type { Ruler, TimelineLike, GridPoint, CycleGridPoint } from "./rulers/Ruler";
 export { gridPoints, cycleGridPoints, beatsPerBar } from "./rulers/Ruler";
 
