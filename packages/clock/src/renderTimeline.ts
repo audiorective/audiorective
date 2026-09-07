@@ -11,7 +11,9 @@ export interface RenderTimelineOptions extends RenderOfflineOptions {
   /**
    * Seconds of audio time between ticks. Default 0.025 — `Clock`'s own default.
    * Keep it below the driven clock's `lookAhead`, exactly as live: a tick that
-   * lands past the previous window's end is a miss offline too.
+   * lands past the previous window's end is a miss offline too. An offline
+   * render can only pause on a 128-frame render-quantum boundary, so ticks are
+   * never closer than one quantum: a smaller interval ticks once per quantum.
    */
   tickInterval?: number;
 }
@@ -54,19 +56,33 @@ export async function renderTimeline(
 }
 
 async function driveTicks(ctx: OfflineAudioContext, ticks: ManualTickSource, interval: number): Promise<void> {
-  // suspend() rejects at or past the end of the render -- stop one quantum short
-  const suspendAt = (t: number): Promise<void> | undefined => {
-    const frame = Math.ceil((t * ctx.sampleRate) / RENDER_QUANTUM) * RENDER_QUANTUM;
-    return frame < ctx.length ? ctx.suspend(t) : undefined;
+  // `suspend(t)` pauses on the render-quantum boundary at or after `t`
+  // (ceil), rejects a second suspend on a frame that already has one, and a
+  // suspend at or past the end of the render never settles. So every stop is
+  // planned in quantized frames: the k-th tick's nominal time rounded up to a
+  // quantum, never the same quantum twice (a sub-quantum interval degrades
+  // to one tick per quantum), and never at or beyond `ctx.length`.
+  const quantize = (t: number): number => Math.ceil((t * ctx.sampleRate) / RENDER_QUANTUM) * RENDER_QUANTUM;
+  // ask for a time safely inside the quantum below the target, so rounding
+  // error in frame/sampleRate can't push the actual stop one quantum later
+  const suspendAtFrame = (frame: number): Promise<void> => ctx.suspend((frame - RENDER_QUANTUM / 2) / ctx.sampleRate);
+
+  let frame = 0;
+  const nextFrame = (k: number): number | undefined => {
+    const next = Math.max(quantize(k * interval), frame + RENDER_QUANTUM);
+    return next < ctx.length ? next : undefined;
   };
 
-  let pending = suspendAt(interval);
-  for (let t = interval; pending; t += interval) {
+  let next = nextFrame(1);
+  let pending = next === undefined ? undefined : suspendAtFrame(next);
+  for (let k = 1; pending !== undefined && next !== undefined; k++) {
     await pending;
+    frame = next;
     try {
       ticks.tick();
       // schedule the next stop before letting the render run again
-      pending = suspendAt(t + interval);
+      next = nextFrame(k + 1);
+      pending = next === undefined ? undefined : suspendAtFrame(next);
     } finally {
       await ctx.resume();
     }

@@ -98,6 +98,36 @@ describe("renderTimeline", () => {
     expect(ticks).toBe(1);
   });
 
+  test("a tickInterval below one render quantum ticks once per quantum instead of colliding", async () => {
+    const sampleRate = 44100;
+    const frames: number[] = [];
+    await renderTimeline({ seconds: 0.1, channels: 1, sampleRate, tickInterval: 0.001 }, (ctx, tickSource) => {
+      const timeline = new Timeline({ audioContext: ctx, bpm: 120 });
+      new Clock({ timeline, tickSource, onTick: (w) => frames.push(Math.round(w.time.current * sampleRate)) }).start();
+    });
+    // 0.1 s is 4410 frames: quantum boundaries 0, 128, ... 4352 -- every one, none twice
+    const expected = [];
+    for (let f = 0; f < 4410; f += 128) expected.push(f);
+    expect(frames).toEqual(expected);
+  });
+
+  test("ticks land on the exact quantized frame and stop short of the render end", async () => {
+    const sampleRate = 48000;
+    const interval = 1024 / sampleRate;
+    const run = async (lengthFrames: number) => {
+      const frames: number[] = [];
+      await renderTimeline({ seconds: lengthFrames / sampleRate, channels: 1, sampleRate, tickInterval: interval }, (ctx, tickSource) => {
+        const timeline = new Timeline({ audioContext: ctx, bpm: 120 });
+        new Clock({ timeline, tickSource, onTick: (w) => frames.push(Math.round(w.time.current * sampleRate)) }).start();
+      });
+      return frames;
+    };
+    // a tick that would fall exactly on the last frame is not a valid stop...
+    expect(await run(4096)).toEqual([0, 1024, 2048, 3072]);
+    // ...but one quantum before the end is, and must not be dropped
+    expect(await run(4096 + 128)).toEqual([0, 1024, 2048, 3072, 4096]);
+  });
+
   test("an error thrown from a tick surfaces instead of hanging the render", async () => {
     await expect(
       renderTimeline({ seconds: 0.2, channels: 1 }, (ctx, tickSource) => {

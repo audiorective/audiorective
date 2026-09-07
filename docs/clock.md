@@ -196,7 +196,7 @@ const wav = await renderTimeline({ seconds: 8, channels: 2, sampleRate: 44100 },
 });
 ```
 
-Two rules carry over from live playback. Keep `tickInterval` below the clock's `lookAhead`, or the clock reports misses offline exactly as it would live. And one tick source drives one clock — the one-clock rule below.
+Two rules carry over from live playback. Keep `tickInterval` below the clock's `lookAhead`, or the clock reports misses offline exactly as it would live. And one tick source drives one clock — the one-clock rule below. One rule is offline-only: a render can pause only on a 128-frame render-quantum boundary, so ticks are never closer than one quantum (about 2.9 ms at 44.1 kHz), and a smaller `tickInterval` ticks once per quantum.
 
 A type that owns its `Clock` needs to accept `tickSource` to be renderable this way. Unlike a fake `currentTime`, that is a real seam and not a test-only option: it is how the same class runs live and exports offline.
 
