@@ -13,6 +13,17 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-09-10
+
+### Fixed
+
+- **effects:** the granular `PitchShift` declared its full `windowSize` as
+  latency while its signal arrives half a window late (exactly so at pitch 0,
+  on average when shifting). It now declares `windowSize / 2`, so plugin
+  delay compensation and `perceivedTime` no longer over-delay everything
+  aligned to a pad by 50 ms at the default window. Measured by the devtools
+  validator at 44.1 and 48 kHz.
+
 ## [2.3.0] - 2026-09-09
 
 ### Added

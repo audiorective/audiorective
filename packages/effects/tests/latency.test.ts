@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { assertLatency, measureLatency } from "@audiorective/devtools";
+import { describe, it } from "vitest";
+import { assertLatency } from "@audiorective/devtools";
 import { Channel, Compressor, Convolver, Distortion, Filter, FrequencyShifter, Limiter, Phaser, PingPongDelay, PitchShift } from "../src";
 
 const rates = { sampleRates: [44100, 48000] };
@@ -27,15 +27,10 @@ describe("declared latency matches measured", () => {
   it("worklet and granular effects declare their buffering", async () => {
     await assertLatency((ctx) => new Limiter(ctx), { ...rates, tolerance: 1, ready: (p) => (p as Limiter).ready });
     await assertLatency((ctx) => new Compressor(ctx, { lookahead: 0.003 }), { ...rates, tolerance: 1, ready: (p) => (p as Compressor).ready });
-    // The granular engine's first arrival is its shortest delay-line path, which sweeps from
-    // 0 up to windowSize, so the impulse measurement under-reads (it lands around half the
-    // window here); tolerance covers the full window. The meaningful check for this engine
-    // is its own latency.value test.
-    const { runs } = await measureLatency((ctx) => new PitchShift(ctx, { windowSize: 0.02 }), rates);
-    for (const run of runs) {
-      expect(run.firstArrival).toBeGreaterThanOrEqual(0);
-      expect(run.firstArrival).toBeLessThanOrEqual(Math.round(0.02 * run.sampleRate));
-    }
+    // At pitch 0 the granular engine holds one grain at half the window, so the impulse
+    // lands exactly on the declared value.
+    await assertLatency((ctx) => new PitchShift(ctx, { windowSize: 0.02 }), { ...rates, tolerance: 1 });
+    await assertLatency((ctx) => new PitchShift(ctx, { windowSize: 0.1 }), { ...rates, tolerance: 1 });
     // A single-sample impulse vanishes in the STFT at longer blocks (40 ms renders silence),
     // so the impulse validator only checks the short-block configuration; the 40 ms declared
     // value is covered by pitchShiftStretch.test.ts.

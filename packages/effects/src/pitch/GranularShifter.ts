@@ -48,7 +48,9 @@ export class GranularShifter extends AudioProcessor<{}, {}> {
     one.connect(gainB.gain);
     const rate = fanout(ctx, 0, [lfoA.frequency, lfoB.frequency, fade.frequency]);
 
-    super(ctx, () => ({ params: {}, cells: {}, latency: Math.round(windowSize * ctx.sampleRate) }));
+    // The grains' delay sweeps 0..windowSize with the crossfade centred on it, so the
+    // signal arrives half a window late on average, and exactly that at pitch 0.
+    super(ctx, () => ({ params: {}, cells: {}, latency: Math.round((windowSize / 2) * ctx.sampleRate) }));
     this._input = input;
     this._output = output;
     this.windowSize = windowSize;
