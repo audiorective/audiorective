@@ -12,11 +12,11 @@ describe("PitchShift (granular)", () => {
     const f = await renderShift((ctx) => new PitchShift(ctx, { pitch: -12 }));
     expect(Math.abs(dominantHz(f, 44100, 100, 600) - 220)).toBeLessThanOrEqual(15);
   });
-  it("pitch 0 leaves 440 in place and isReady is immediate; latency is the window", async () => {
+  it("pitch 0 leaves 440 in place and isReady is immediate; latency is half the window", async () => {
     const ctx = new OfflineAudioContext(1, 128, 44100);
     const fx = new PitchShift(ctx, { windowSize: 0.05 });
     expect(fx.cells.isReady.value).toBe(true);
-    expect(fx.latency.value).toBe(Math.round(0.05 * 44100));
+    expect(fx.latency.value).toBe(Math.round(0.025 * 44100));
     const f = await renderShift((c) => new PitchShift(c, { pitch: 0 }));
     expect(Math.abs(dominantHz(f, 44100) - 440)).toBeLessThanOrEqual(10);
   });
