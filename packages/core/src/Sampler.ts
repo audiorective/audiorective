@@ -123,20 +123,22 @@ export class Sampler extends AudioProcessor<{ volume: SchedulableParam; mute: Pa
       if (this._steal === "none") return null;
       victim = this._voices[0]!;
     }
+    const loop = opts.loop ?? this._loop;
     const voiceOpts: VoiceOptions = {
-      ...this.region(opts.offset ?? 0, opts.duration),
+      ...this.region(opts.offset ?? 0, opts.duration, loop),
       when: opts.when,
       rate: opts.rate ?? this._rate,
       volume: opts.volume,
-      loop: opts.loop ?? this._loop,
+      loop,
       fadeIn: opts.fadeIn ?? this._fadeIn,
       fadeOut: opts.fadeOut ?? this._fadeOut,
     };
     const voice = new Voice(this.context, this.playBuffer(), this._muteGain, voiceOpts, () => this._evict(voice));
-    // The new voice joins before the victim leaves, so the count never dips to 0 on a retrigger.
+    // The new voice joins before the victim leaves and the count is published once
+    // afterwards, so a retrigger never shows 0 or a count above the cap.
     this._voices.push(voice);
-    this.cells.activeVoices.value = this._voices.length;
     victim?.stop(); // synchronous finish -> _evict
+    this.cells.activeVoices.value = this._voices.length;
     return voice;
   }
 
@@ -162,9 +164,12 @@ export class Sampler extends AudioProcessor<{ volume: SchedulableParam; mute: Pa
   }
 
   /** A forward-buffer region mapped onto whichever buffer is playing. */
-  private region(offset: number, duration: number | undefined): Pick<VoiceOptions, "offset" | "duration"> {
+  private region(offset: number, duration: number | undefined, loop: boolean): Pick<VoiceOptions, "offset" | "duration"> {
     if (!this._reverse) return { offset, duration };
-    return reverseRegion(offset, duration, this._buffer!.duration);
+    const length = this._buffer!.duration;
+    // A whole-buffer loop keeps looping; only its entry point mirrors.
+    if (loop && duration == null) return { offset: (length - Math.min(Math.max(0, offset), length)) % length };
+    return reverseRegion(offset, duration, length);
   }
 
   private _evict(voice: Voice): void {

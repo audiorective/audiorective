@@ -62,6 +62,19 @@ describe("Sampler — reverse", () => {
     expect(out[400]).toBe(0);
   });
 
+  test("a reversed whole-buffer loop keeps looping", async () => {
+    const out = await render(1000, (oac) => {
+      const s = new Sampler(oac, { buffer: rampBuffer(oac, 200), reverse: true, loop: true });
+      s.output.connect(oac.destination);
+      s.trigger({ when: 0, offset: 50 / RATE });
+    });
+    // the entry point mirrors the offset: 50 samples in from the front becomes 50 from the end
+    expect(out[0]).toBeCloseTo(49 / 200, 3);
+    // still sounding well past one buffer length, and still descending through each pass
+    expect(out[850]).toBeGreaterThan(0);
+    expect(out[850]).toBeGreaterThan(out[851]!);
+  });
+
   test("swapping the buffer drops the cached reversed copy", async () => {
     const out = await render(200, (oac) => {
       const s = new Sampler(oac, { buffer: dcBuffer(oac, 200, 0.25), reverse: true });
@@ -104,6 +117,7 @@ describe("Sampler — pad retrigger", () => {
     s.trigger();
     expect(seen[0]).toBe(0);
     expect(seen.slice(1)).not.toContain(0);
+    expect(Math.max(...seen)).toBe(1);
     expect(s.cells.activeVoices.value).toBe(1);
     s.stopAll();
     expect(s.cells.activeVoices.value).toBe(0);
@@ -174,6 +188,17 @@ describe("Voice — fades", () => {
     expect(out[350]).toBeLessThan(0.7);
     expect(out[450]).toBe(0);
     expect(ended).toBe(1);
+  });
+
+  test("a stop scheduled inside the fade-in fades from the level reached at `when`", async () => {
+    const out = await render(400, (oac) => {
+      const v = new Voice(oac, dcBuffer(oac, 400), oac.destination, { when: 0, fadeIn: 200 / RATE, fadeOut: 100 / RATE }, () => {});
+      v.stop(100 / RATE);
+    });
+    expect(out[50]).toBeCloseTo(0.25, 2); // fade-in still runs up to `when`
+    expect(out[100]).toBeCloseTo(0.5, 2); // level reached at `when`
+    expect(out[150]).toBeCloseTo(0.25, 2); // halfway through the fade-out
+    expect(out[250]).toBe(0);
   });
 
   test("without fades a unity voice still adds no gain node", () => {

@@ -208,13 +208,23 @@ export class Voice {
     this.paused = false;
   }
 
-  /** Ramp the gain to silence over `fadeOut`, starting at `from`. */
+  /** Ramp the gain to silence over `fadeOut`, starting at `from`, from whatever level the gain has then. */
   private rampOut(from: number): void {
     if (!this.gain || this.fadeOut <= 0) return;
     const g = this.gain.gain;
     g.cancelScheduledValues(from);
-    g.setValueAtTime(g.value, from);
+    // Cancelling drops a fade-in endpoint that lies past `from`; re-aim that ramp at `from` so the
+    // fade-in keeps its slope up to the moment the fade-out takes over.
+    if (this.fadeIn > 0 && from < this.startedAt + this.fadeIn) g.linearRampToValueAtTime(this.gainAt(from), from);
+    else g.setValueAtTime(this.gainAt(from), from);
     g.linearRampToValueAtTime(0, from + this.fadeOut);
+  }
+
+  /** The voice gain at ctx-time `t`, accounting for a fade-in still in progress. */
+  private gainAt(t: number): number {
+    if (this.fadeIn <= 0) return this._volume;
+    const progress = Math.min(1, Math.max(0, (t - this.startedAt) / this.fadeIn));
+    return this._volume * progress;
   }
 
   /**
