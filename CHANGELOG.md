@@ -13,6 +13,8 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-09
+
 ### Added
 
 - **core:** `Voice` / `Sampler` fades — `fadeIn` and `fadeOut` (seconds) as
