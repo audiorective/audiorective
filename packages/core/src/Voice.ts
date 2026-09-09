@@ -11,6 +11,10 @@ export interface VoiceOptions {
   volume?: number;
   /** Loop the whole buffer. Default false. */
   loop?: boolean;
+  /** Linear ramp from silence to `volume` on every source start, in seconds. Default 0. */
+  fadeIn?: number;
+  /** Linear ramp to silence on stop(), in seconds. Default 0. */
+  fadeOut?: number;
 }
 
 /**
@@ -18,9 +22,13 @@ export interface VoiceOptions {
  * AudioBufferSourceNode is one-shot by spec, so pause/seek recreate the source
  * at a computed offset. Transient — created per trigger, disposed when it ends.
  *
- * The per-voice GainNode is lazy: at unity volume the source connects straight
- * to the destination (no extra node on the hot path); a gain is created only
- * when a non-unity volume is set.
+ * The per-voice GainNode is lazy: at unity volume with no fades the source
+ * connects straight to the destination (no extra node on the hot path); a gain
+ * is created only when there is something to attenuate or ramp.
+ *
+ * Fades apply to start and stop only; pause() stays an immediate cut. An
+ * immediate stop() with a fade finishes the voice for its caller right away
+ * and lets the nodes ring out on their own.
  */
 export class Voice {
   private readonly ctx: BaseAudioContext;
@@ -29,6 +37,15 @@ export class Voice {
   private gain: GainNode | null = null;
   private readonly playLength: number | undefined;
   private readonly onDone: () => void;
+  private readonly fadeIn: number;
+  private readonly fadeOut: number;
+  private _volume: number;
+  // The fade-in ramp as scheduled on the current source; read back when a fade-out has to
+  // start from the level reached partway through it.
+  private fadeInStart = 0;
+  private fadeInEnd = 0;
+  private fadeInFrom = 0;
+  private fadeInTarget = 1;
 
   private source: AudioBufferSourceNode | null = null;
   private startedAt = 0; // ctx time the current source started
@@ -38,6 +55,7 @@ export class Voice {
   private paused = false;
   private ended = false;
   private stopScheduled = false; // a future-dated stop(when) is pending; transport ops are frozen until it fires
+  private released = false; // the source and gain are ringing out on their own after a faded stop
   private endedCbs: Array<() => void> = [];
 
   constructor(ctx: BaseAudioContext, buffer: AudioBuffer, destination: AudioNode, opts: VoiceOptions, onDone: () => void) {
@@ -49,8 +67,11 @@ export class Voice {
     this._rate = opts.rate ?? 1;
     this.loop = opts.loop ?? false;
     this.playLength = opts.duration;
-    if (opts.volume != null && opts.volume !== 1) {
-      this.gain = this.makeGain(opts.volume);
+    this.fadeIn = Math.max(0, opts.fadeIn ?? 0);
+    this.fadeOut = Math.max(0, opts.fadeOut ?? 0);
+    this._volume = opts.volume ?? 1;
+    if (this._volume !== 1 || this.fadeIn > 0 || this.fadeOut > 0) {
+      this.gain = this.makeGain(this._volume);
     }
     this.startSource(opts.when ?? ctx.currentTime, this.offset);
   }
@@ -94,14 +115,19 @@ export class Voice {
     if (when != null && when > this.ctx.currentTime && this.source) {
       // Scheduled stop: let it play to `when`; the current source's onended finalizes.
       this.stopScheduled = true;
+      this.rampOut(when);
       try {
-        this.source.stop(when);
+        this.source.stop(when + this.fadeOut);
       } catch {
         /* already stopped */
       }
       return;
     }
-    this.teardownCurrent();
+    if (this.fadeOut > 0 && this.source && !this.paused) {
+      this.releaseCurrent();
+    } else {
+      this.teardownCurrent();
+    }
     this.finish();
   }
 
@@ -135,8 +161,24 @@ export class Voice {
 
   set volume(v: number) {
     if (this.ended) return;
+    this._volume = v;
     if (this.gain) {
-      this.gain.gain.value = v;
+      const g = this.gain.gain;
+      const now = this.ctx.currentTime;
+      if (this.fadeIn > 0 && now < this.fadeInEnd && !this.stopScheduled) {
+        // The fade-in is pending or in progress: keep ramping, but towards the new
+        // volume, from wherever the ramp is when it can change (never before it starts).
+        const from = Math.max(now, this.fadeInStart);
+        const level = this.gainAt(from);
+        g.cancelScheduledValues(from);
+        g.setValueAtTime(level, from);
+        g.linearRampToValueAtTime(v, this.fadeInEnd);
+        this.fadeInStart = from;
+        this.fadeInFrom = level;
+        this.fadeInTarget = v;
+      } else {
+        g.value = v;
+      }
       return;
     }
     if (v === 1) return; // unity — no gain node needed
@@ -173,12 +215,64 @@ export class Voice {
       if (src !== this.source) return;
       this.finish();
     };
+    if (this.gain && this.fadeIn > 0) {
+      const g = this.gain.gain;
+      g.cancelScheduledValues(when);
+      g.setValueAtTime(0, when);
+      g.linearRampToValueAtTime(this._volume, when + this.fadeIn);
+      this.fadeInStart = when;
+      this.fadeInEnd = when + this.fadeIn;
+      this.fadeInFrom = 0;
+      this.fadeInTarget = this._volume;
+    }
     if (this.playLength != null) src.start(when, offset, this.playLength);
     else src.start(when, offset);
     this.source = src;
     this.startedAt = when;
     this.offset = offset;
     this.paused = false;
+  }
+
+  /** Ramp the gain to silence over `fadeOut`, starting at `from`, from whatever level the gain has then. */
+  private rampOut(from: number): void {
+    if (!this.gain || this.fadeOut <= 0) return;
+    const g = this.gain.gain;
+    g.cancelScheduledValues(from);
+    // Cancelling drops a fade-in endpoint that lies past `from`; re-aim that ramp at `from` so the
+    // fade-in keeps its slope up to the moment the fade-out takes over.
+    if (this.fadeIn > 0 && from < this.fadeInEnd) g.linearRampToValueAtTime(this.gainAt(from), from);
+    else g.setValueAtTime(this.gainAt(from), from);
+    g.linearRampToValueAtTime(0, from + this.fadeOut);
+  }
+
+  /** The voice gain at ctx-time `t`, accounting for a fade-in still in progress. */
+  private gainAt(t: number): number {
+    if (this.fadeIn <= 0 || t >= this.fadeInEnd) return this.fadeInTarget;
+    const progress = Math.min(1, Math.max(0, (t - this.fadeInStart) / (this.fadeInEnd - this.fadeInStart)));
+    return this.fadeInFrom + (this.fadeInTarget - this.fadeInFrom) * progress;
+  }
+
+  /**
+   * Hand the current source and gain over to ring out on their own: fade from
+   * now, stop at the end of the fade, and disconnect once the source ends.
+   */
+  private releaseCurrent(): void {
+    const src = this.source;
+    const gain = this.gain;
+    this.source = null; // null first so the ring-out's onended is ignored as stale
+    if (!src) return;
+    this.released = true;
+    const now = this.ctx.currentTime;
+    this.rampOut(now);
+    src.onended = () => {
+      src.disconnect();
+      gain?.disconnect();
+    };
+    try {
+      src.stop(now + this.fadeOut);
+    } catch {
+      /* already stopped */
+    }
   }
 
   private teardownCurrent(): void {
@@ -200,7 +294,8 @@ export class Voice {
     this.ended = true;
     this.paused = false;
     this.teardownCurrent();
-    this.gain?.disconnect();
+    // A released gain is disconnected by its ring-out; every other one is ours to drop.
+    if (!this.released) this.gain?.disconnect();
     const cbs = this.endedCbs;
     this.endedCbs = [];
     for (const cb of cbs) cb();

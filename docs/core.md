@@ -497,7 +497,7 @@ All three are output-only `AudioProcessor`s. Compose them by routing `player.out
 
 ### `loadAudioBuffer` / `AudioBufferCache`
 
-Before a `Sampler` can play anything it needs an `AudioBuffer`. Two helpers handle fetching and decoding:
+Before a `Sampler` can play anything it needs an `AudioBuffer`. Two helpers handle fetching and decoding; both take any `BaseAudioContext`, so they serve `renderOffline` too:
 
 ```typescript
 import { loadAudioBuffer, AudioBufferCache } from "@audiorective/core";
@@ -540,23 +540,27 @@ player.destroy();
 
 **Constructor options** (`SamplerOptions`):
 
-| Option         | Type                  | Default    | Description                                    |
-| -------------- | --------------------- | ---------- | ---------------------------------------------- |
-| `buffer`       | `AudioBuffer \| null` | `null`     | Initial buffer (hot-swappable via `.buffer =`) |
-| `loop`         | `boolean`             | `false`    | Loop voices by default                         |
-| `playbackRate` | `number`              | `1`        | Default playback rate                          |
-| `volume`       | `number`              | `1`        | Output gain 0–1                                |
-| `polyphony`    | `number`              | `1`        | Maximum simultaneous voices                    |
-| `steal`        | `"oldest" \| "none"`  | `"oldest"` | What happens when `polyphony` is exceeded      |
+| Option         | Type                  | Default    | Description                                                 |
+| -------------- | --------------------- | ---------- | ----------------------------------------------------------- |
+| `buffer`       | `AudioBuffer \| null` | `null`     | Initial buffer (hot-swappable via `.buffer =`)              |
+| `loop`         | `boolean`             | `false`    | Loop voices by default                                      |
+| `playbackRate` | `number`              | `1`        | Default playback rate                                       |
+| `volume`       | `number`              | `1`        | Output gain 0–1                                             |
+| `polyphony`    | `number`              | `1`        | Maximum simultaneous voices                                 |
+| `steal`        | `"oldest" \| "none"`  | `"oldest"` | What happens when `polyphony` is exceeded                   |
+| `fadeIn`       | `number`              | `0`        | Default fade-in per voice, seconds                          |
+| `fadeOut`      | `number`              | `0`        | Fade applied when a voice is stopped or stolen              |
+| `reverse`      | `boolean`             | `false`    | Play backwards; regions still count from the original start |
+| `mute`         | `boolean`             | `false`    | Start muted                                                 |
 
 **Polyphony / steal matrix:**
 
-| `polyphony` | `steal`    | Behaviour                                                         |
-| ----------- | ---------- | ----------------------------------------------------------------- |
-| `1`         | `"oldest"` | Each `trigger()` restarts — classic one-shot pad                  |
-| `1`         | `"none"`   | First voice plays to completion; retriggering is silently dropped |
-| `N`         | `"oldest"` | Up to N overlapping voices; oldest stolen when cap hit            |
-| `N`         | `"none"`   | Up to N overlapping voices; excess triggers dropped               |
+| `polyphony` | `steal`    | Behaviour                                                                                 |
+| ----------- | ---------- | ----------------------------------------------------------------------------------------- |
+| `1`         | `"oldest"` | Each `trigger()` restarts — classic one-shot pad. Add `fadeOut` so the cut does not click |
+| `1`         | `"none"`   | First voice plays to completion; retriggering is silently dropped                         |
+| `N`         | `"oldest"` | Up to N overlapping voices; oldest stolen when cap hit                                    |
+| `N`         | `"none"`   | Up to N overlapping voices; excess triggers dropped                                       |
 
 **Public surface:**
 
@@ -564,6 +568,8 @@ player.destroy();
 player.buffer: AudioBuffer | null      // hot-swap at any time
 player.output: AudioNode               // summing gain; connect → Spatial / destination
 player.params.volume: SchedulableParam // output gain 0..1
+player.params.mute: Param<boolean>     // separate gain stage; leaves volume automation intact
+player.reverse: boolean                // applies to future triggers
 player.cells.activeVoices: Cell<number>// reactive voice count
 
 player.trigger(opts?: TriggerOptions): Voice | null
@@ -582,10 +588,21 @@ interface TriggerOptions {
   rate?: number; // playback rate override
   volume?: number; // per-voice gain override
   loop?: boolean; // per-voice loop override
+  fadeIn?: number; // seconds; overrides the sampler default
+  fadeOut?: number; // seconds; overrides the sampler default
 }
 ```
 
 `when` is absolute `AudioContext` time — the same unit `@audiorective/clock` hands you as `time` on each grid point, so a sequencer passes it straight through as `trigger({ when: time })`. Note the rename across the boundary: the clock says `time`, the player says `when`. See `clock.md`.
+
+**Pad recipe.** For a drum pad or soundboard key — one hit at a time, a new hit replaces the old one — use `polyphony: 1`, `steal: "oldest"`, and a short `fadeOut`. `cells.activeVoices` is then the pad's "playing" signal: `1` while the latest hit plays, `0` once it ends or is stopped, and it never drops to `0` while a retrigger supersedes the previous hit. For clock-scheduled dynamics, automate `params.volume` (`setValueAtTime(gain, when)`); values are linear gain, so convert dB with `dbToGain` from `@audiorective/effects`.
+
+```typescript
+const pad = new Sampler(ctx, { polyphony: 1, steal: "oldest", fadeOut: 0.05 });
+pad.buffer = await cache.load("/pads/snare.wav");
+pad.params.volume.setValueAtTime(dbToGain(-6), time);
+pad.trigger({ when: time, offset: 0.12, duration: 0.4 });
+```
 
 ### Voice
 
@@ -604,6 +621,7 @@ voice.isPlaying; // boolean
 voice.volume = 0.5; // live gain change
 voice.rate = 0.75; // live rate change
 voice.onEnded(() => console.log("done")); // fires once on natural end or stop()
+// with fadeOut set, stop() finishes the voice now and the audio rings out
 ```
 
 ### BufferPlayer
