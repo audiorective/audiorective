@@ -217,6 +217,17 @@ describe("Voice — fades", () => {
     expect(out[380]).toBe(0);
   });
 
+  test("a volume change before a scheduled start keeps the fade-in anchored at `when`", async () => {
+    const out = await render(600, (oac) => {
+      const v = new Voice(oac, dcBuffer(oac, 600), oac.destination, { when: 200 / RATE, fadeIn: 200 / RATE }, () => {});
+      v.volume = 0.5;
+    });
+    expect(out[100]).toBe(0);
+    expect(out[200]).toBeCloseTo(0, 3);
+    expect(out[300]).toBeCloseTo(0.25, 2);
+    expect(out[450]).toBeCloseTo(0.5, 3);
+  });
+
   test("a rate change mid fade-in leaves the fade schedule alone", async () => {
     const out = await render(600, (oac) => {
       const v = new Voice(oac, dcBuffer(oac, 600), oac.destination, { when: 0, fadeIn: 400 / RATE, fadeOut: 100 / RATE }, () => {});

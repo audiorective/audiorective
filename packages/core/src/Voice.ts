@@ -166,12 +166,14 @@ export class Voice {
       const g = this.gain.gain;
       const now = this.ctx.currentTime;
       if (this.fadeIn > 0 && now < this.fadeInEnd && !this.stopScheduled) {
-        // Mid fade-in: keep ramping, but towards the new volume.
-        const level = this.gainAt(now);
-        g.cancelScheduledValues(now);
-        g.setValueAtTime(level, now);
+        // The fade-in is pending or in progress: keep ramping, but towards the new
+        // volume, from wherever the ramp is when it can change (never before it starts).
+        const from = Math.max(now, this.fadeInStart);
+        const level = this.gainAt(from);
+        g.cancelScheduledValues(from);
+        g.setValueAtTime(level, from);
         g.linearRampToValueAtTime(v, this.fadeInEnd);
-        this.fadeInStart = now;
+        this.fadeInStart = from;
         this.fadeInFrom = level;
         this.fadeInTarget = v;
       } else {
