@@ -13,6 +13,20 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-09-09
+
+### Fixed
+
+- **core:** `AudioEngine.perceivedTime` had its sign backwards — it added the
+  graph latency and `ctx.outputLatency` to `ctx.currentTime`, giving the
+  moment something scheduled now would be heard, while its docs described
+  the schedule time the listener is hearing now. It now subtracts both, so a
+  visualizer or record-quantize step comparing against it lands with the
+  ear instead of leading it by twice the latency. Breaking for anyone who
+  consumed the 2.2.0 value; nothing in tree did. (#29)
+
+## [2.2.0] - 2026-09-09
+
 ### Added
 
 - **core:** `renderOffline(options, setup)` — builds an `OfflineAudioContext`, awaits an async setup callback, returns the rendered `AudioBuffer`.
@@ -150,13 +164,6 @@ context, compensate? })` for a graph owned by no processor. A bare
   graph does) — it now throws `LatencyUnknownError` for that case instead of
   subtracting two unrelated solved arrivals. `GraphHandle` gains
   `reaches(from, to)` to answer the reachability check.
-- **core:** `AudioEngine.perceivedTime` had its sign backwards — it added the
-  graph latency and `ctx.outputLatency` to `ctx.currentTime`, giving the
-  moment something scheduled now would be heard, while its docs described
-  the schedule time the listener is hearing now. It now subtracts both, so a
-  visualizer or record-quantize step comparing against it lands with the
-  ear instead of leading it by twice the latency. Breaking for anyone who
-  consumed the 2.2.0 value; nothing in tree did. (#29)
 
 ## [2.1.2] - 2026-08-24
 
