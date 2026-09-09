@@ -40,6 +40,12 @@ export class Voice {
   private readonly fadeIn: number;
   private readonly fadeOut: number;
   private _volume: number;
+  // The fade-in ramp as scheduled on the current source; read back when a fade-out has to
+  // start from the level reached partway through it.
+  private fadeInStart = 0;
+  private fadeInEnd = 0;
+  private fadeInFrom = 0;
+  private fadeInTarget = 1;
 
   private source: AudioBufferSourceNode | null = null;
   private startedAt = 0; // ctx time the current source started
@@ -157,7 +163,20 @@ export class Voice {
     if (this.ended) return;
     this._volume = v;
     if (this.gain) {
-      this.gain.gain.value = v;
+      const g = this.gain.gain;
+      const now = this.ctx.currentTime;
+      if (this.fadeIn > 0 && now < this.fadeInEnd && !this.stopScheduled) {
+        // Mid fade-in: keep ramping, but towards the new volume.
+        const level = this.gainAt(now);
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(level, now);
+        g.linearRampToValueAtTime(v, this.fadeInEnd);
+        this.fadeInStart = now;
+        this.fadeInFrom = level;
+        this.fadeInTarget = v;
+      } else {
+        g.value = v;
+      }
       return;
     }
     if (v === 1) return; // unity — no gain node needed
@@ -199,6 +218,10 @@ export class Voice {
       g.cancelScheduledValues(when);
       g.setValueAtTime(0, when);
       g.linearRampToValueAtTime(this._volume, when + this.fadeIn);
+      this.fadeInStart = when;
+      this.fadeInEnd = when + this.fadeIn;
+      this.fadeInFrom = 0;
+      this.fadeInTarget = this._volume;
     }
     if (this.playLength != null) src.start(when, offset, this.playLength);
     else src.start(when, offset);
@@ -215,16 +238,16 @@ export class Voice {
     g.cancelScheduledValues(from);
     // Cancelling drops a fade-in endpoint that lies past `from`; re-aim that ramp at `from` so the
     // fade-in keeps its slope up to the moment the fade-out takes over.
-    if (this.fadeIn > 0 && from < this.startedAt + this.fadeIn) g.linearRampToValueAtTime(this.gainAt(from), from);
+    if (this.fadeIn > 0 && from < this.fadeInEnd) g.linearRampToValueAtTime(this.gainAt(from), from);
     else g.setValueAtTime(this.gainAt(from), from);
     g.linearRampToValueAtTime(0, from + this.fadeOut);
   }
 
   /** The voice gain at ctx-time `t`, accounting for a fade-in still in progress. */
   private gainAt(t: number): number {
-    if (this.fadeIn <= 0) return this._volume;
-    const progress = Math.min(1, Math.max(0, (t - this.startedAt) / this.fadeIn));
-    return this._volume * progress;
+    if (this.fadeIn <= 0 || t >= this.fadeInEnd) return this.fadeInTarget;
+    const progress = Math.min(1, Math.max(0, (t - this.fadeInStart) / (this.fadeInEnd - this.fadeInStart)));
+    return this.fadeInFrom + (this.fadeInTarget - this.fadeInFrom) * progress;
   }
 
   /**

@@ -201,6 +201,36 @@ describe("Voice — fades", () => {
     expect(out[250]).toBe(0);
   });
 
+  // OfflineAudioContext.suspend() lands on a 128-sample render quantum, so the
+  // two tests below act at sample 128 and schedule the stop at 256.
+  test("a volume change mid fade-in re-aims the ramp, and a later fade-out starts from that level", async () => {
+    const out = await render(600, (oac) => {
+      const v = new Voice(oac, dcBuffer(oac, 600), oac.destination, { when: 0, fadeIn: 400 / RATE, fadeOut: 100 / RATE }, () => {});
+      void oac.suspend(128 / RATE).then(() => {
+        v.volume = 0.5; // level 0.32 here; ramp continues towards 0.5 at sample 400
+        v.stop(256 / RATE); // reaches 0.32 + 0.18 * 128/272 there
+        void oac.resume();
+      });
+    });
+    expect(out[256]).toBeCloseTo(0.405, 2);
+    expect(out[306]).toBeCloseTo(0.202, 2);
+    expect(out[380]).toBe(0);
+  });
+
+  test("a rate change mid fade-in leaves the fade schedule alone", async () => {
+    const out = await render(600, (oac) => {
+      const v = new Voice(oac, dcBuffer(oac, 600), oac.destination, { when: 0, fadeIn: 400 / RATE, fadeOut: 100 / RATE }, () => {});
+      void oac.suspend(128 / RATE).then(() => {
+        v.rate = 2;
+        v.stop(256 / RATE);
+        void oac.resume();
+      });
+    });
+    expect(out[256]).toBeCloseTo(0.64, 2);
+    expect(out[306]).toBeCloseTo(0.32, 2);
+    expect(out[380]).toBe(0);
+  });
+
   test("without fades a unity voice still adds no gain node", () => {
     const oac = new OfflineAudioContext(1, 10, RATE);
     const spy = { count: 0 };
