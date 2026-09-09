@@ -15,6 +15,8 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ### Added
 
+- **core:** `renderOffline(options, setup)` — builds an `OfflineAudioContext`, awaits an async setup callback, returns the rendered `AudioBuffer`.
+- **clock:** `renderTimeline(options, setup)` — `renderOffline` for a `Clock`-driven graph. `setup(ctx, tickSource)` builds the clock on the tick source it is handed; the render is then suspended, ticked, and resumed every `tickInterval` (default 25 ms) so windows keep coming against the context's real `currentTime` instead of starving after the first look-ahead. A `tickInterval` above the clock's `lookAhead` reports misses, as live.
 - **core:** `defineGraph` — a declarative, reactive audio graph helper. Edges
   reference nodes and processors directly (`[from, to]`, an options bag for
   multi-channel connections and a debug `label`, or a falsy entry to skip),
@@ -55,9 +57,59 @@ context, compensate? })` for a graph owned by no processor. A bare
   configured sample rate and reports where it arrives; `assertLatency` checks
   that against the processor's declared `latency` and throws a message that
   carries the `latency: ...` line to paste when it doesn't match.
+- **devtools:** `MeasureOptions.ready?: (proc) => Promise<void>` — awaited
+  after `build` and before rendering, for a worklet-backed processor that is
+  silent until its worklet resolves.
+- **effects:** new package, `@audiorective/effects` — the Tone.js
+  replacement set. Every effect is an `AudioProcessor` with `input`/`output`,
+  a `wet: SchedulableParam` crossfade, and a declared or derived `latency`.
+- **effects:** `Filter` — biquad stack with selectable `rolloff` (-12/-24/-48
+  dB per octave), `frequency`/`Q`/`gain` as `SchedulableParam`s.
+- **effects:** `Distortion` — `WaveShaperNode` with Tone's curve shape
+  normalized to unity peak, so `distortion = 0` is exactly unity gain.
+- **effects:** `Phaser` — LFO-swept allpass stages per channel, summed with
+  the dry input at equal gain to produce the notches.
+- **effects:** `FrequencyShifter` — single-sideband shifter built from a
+  Hilbert-transform allpass pair, ring-modulated by quadrature oscillators.
+- **effects:** `PingPongDelay` — stereo cross-fed delay with alternating
+  left/right echoes.
+- **effects:** `Convolver` — `ConvolverNode` wrapper with async `load(url)`
+  (latest call wins), a `ready` promise, and an `isReady` cell.
+- **effects:** `PitchShift` — one param surface over two engines: `"granular"`
+  (native delay-line, low latency) and `"stretch"` (Signalsmith Stretch, a
+  WASM AudioWorklet with a `ready` promise, an `isReady` cell, and latency
+  reported by the node as a live `Param<number>`).
+- **effects:** `Compressor` and `Limiter` — a shared worklet-backed dynamics
+  core (feedforward gain computer, windowed peak detector over `lookahead`)
+  so behavior is identical across browsers and offline renders; both expose
+  a `reduction` meter cell. `Limiter` fixes ratio/knee/attack to a brickwall
+  preset.
+- **effects:** `Channel` — gain → pan → mute strip with post-mute
+  `send(bus, name, gain?)` into a `SendBus`; `gain` is linear.
+- **effects:** `SendBus` — instance-scoped named receive points a `Channel`
+  sends into.
+- **effects:** `registerWorklet(ctx, name, source)` — exported so an app can
+  pre-warm a worklet module ahead of first use.
+- **effects:** `dbToGain(db)` / `gainToDb(gain)` — dB/linear-gain conversion
+  helpers for the package's linear gain params.
+- **effects:** `Effect` base class exported as the extension point for custom effects.
+- **apps:** FX Rack showroom demo — a live effects processor and offline
+  export engine built on `@audiorective/effects`: five inserts, two sends,
+  compression, and a limiter, sharing one headless `FxRack` class between the
+  live UI and the WAV export.
 
 ### Changed
 
+- **apps:** the Latency Lab demo is folded into the Step Sequencer: the
+  sequencer's `DrumMachine` now feeds the split/limiter/dry `defineGraph`
+  (PDC toggle, bypass-by-edge-removal, the runtime-adjustable
+  `LookaheadLimiter`, and the graph diagram all live on `/showroom/sequencer`),
+  and the step highlight reads the pattern ruler at the time the listener is
+  hearing — the render clock minus `engine.latency` and the output latency —
+  instead of at `ctx.currentTime`. `DrumMachine` accepts a `tickSource`, so
+  the whole machine renders offline through `renderTimeline`; the standalone
+  `/showroom/latency-lab` page, its `Beat`/`Click` sources, and its flash row
+  are gone.
 - **core:** `AudioProcessor.context` widens from `AudioContext` to
   `BaseAudioContext`, so processors can be constructed against an
   `OfflineAudioContext` for offline measurement. Existing code that passes

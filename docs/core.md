@@ -375,7 +375,7 @@ engine.getPathLatency(proc: AudioProcessor): number; // samples from proc's outp
 
 `perceivedTime` is what a visualizer or a record-quantize step should compare against instead of `ctx.currentTime`. `getPathLatency(proc)` throws [`LatencyUnknownError`](#latencyunknownerror) when `proc` isn't part of the current solve — built but never wired into a `defineGraph`, dropped from the edge list, its graph disposed, or wired only to an `AudioParam` — a processor with no path to measure.
 
-See the [Latency Lab demo](../apps/web/src/demos/latency-lab) for compensation, bypass, a runtime-adjustable worklet latency, and its diagram header showing `getPathLatency`-timed flashes alongside `perceivedTime`.
+See the [Step Sequencer demo](../apps/web/src/demos/sequencer)'s latency lab for compensation, bypass, a runtime-adjustable worklet latency, and a playhead that reads the clock's ruler at the time the listener is hearing (the render clock minus `engine.latency` and the output latency) rather than at `ctx.currentTime`.
 
 ### `LatencyUnknownError`
 
@@ -727,6 +727,25 @@ const isPlaying = useValue(player.cells.isPlaying);
 const currentTime = useValue(player.cells.currentTime);
 const duration = useValue(player.cells.duration);
 ```
+
+### `renderOffline`
+
+Renders a graph to an `AudioBuffer` through an `OfflineAudioContext`. `setup` may be async — await any processor's `ready` inside it before returning.
+
+```typescript
+import { renderOffline, Sampler, loadAudioBuffer } from "@audiorective/core";
+
+const wav = await renderOffline({ seconds: 8, channels: 2, sampleRate: 44100 }, async (ctx) => {
+  const kick = new Sampler(ctx);
+  kick.buffer = await loadAudioBuffer(ctx, "/kick.wav");
+  kick.output.connect(ctx.destination);
+  for (let beat = 0; beat < 16; beat++) kick.trigger({ when: beat * 0.5 });
+});
+```
+
+`Sampler`, `BufferPlayer`, and every `@audiorective/effects` processor accept a `BaseAudioContext`, so the same classes run live and offline.
+
+A graph driven by a `@audiorective/clock` `Clock` needs its ticks driven in step with the render — use that package's `renderTimeline`, which wraps `renderOffline`. See [`docs/clock.md`](./clock.md#rendering-offline--rendertimeline).
 
 ---
 

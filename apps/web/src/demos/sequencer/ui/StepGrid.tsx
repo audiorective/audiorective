@@ -2,7 +2,29 @@ import { useMemo } from "react";
 import { useValue } from "@audiorective/react";
 import { useEngine } from "../audio/engine";
 import type { DrumTrack } from "../audio/DrumMachine";
+import { heardTime } from "../audio/heardTime";
 import { stepFromPattern } from "../audio/stepFromPattern";
+
+/**
+ * The step the listener is hearing right now, or `null` when nothing is.
+ *
+ * `currentPattern` is the clock's reactive reading at the render clock,
+ * refreshed every tick — subscribing to it is what re-runs this on every
+ * tick. The reading itself is taken at `heardTime`: the same ruler, at the
+ * render clock minus the graph's compensated latency and the output latency.
+ * With the limiter's lookahead at 100 ms that gap is most of a sixteenth, so
+ * reading at the render clock would light each step before it sounds.
+ */
+function useHeardStep(): number | null {
+  const { core, machine } = useEngine();
+  const state = useValue(machine.state);
+  useValue(machine.currentPattern);
+  const latency = useValue(core.latency);
+  if (state !== "playing") return null;
+  const ctx = core.context;
+  const point = machine.patternAt(heardTime(ctx.currentTime, latency, ctx.sampleRate, ctx.outputLatency ?? 0));
+  return point && stepFromPattern(point, machine.patternLength);
+}
 
 function TrackRow({ track, steps, playhead }: { track: DrumTrack; steps: number[]; playhead: number | null }) {
   const { machine } = useEngine();
@@ -41,12 +63,10 @@ function TrackRow({ track, steps, playhead }: { track: DrumTrack; steps: number[
 
 export function StepGrid() {
   const { machine } = useEngine();
-  const state = useValue(machine.state);
-  const pattern = useValue(machine.currentPattern);
   const steps = useMemo(() => Array.from({ length: machine.patternLength }, (_, i) => i), [machine.patternLength]);
-  // one reactive ruler reading drives every row's highlight -- `phase` is the
-  // fraction through one pass, so this needs no time-signature knowledge
-  const playhead = state === "playing" ? stepFromPattern(pattern, machine.patternLength) : null;
+  // one reading drives every row's highlight -- `phase` is the fraction
+  // through one pass, so this needs no time-signature knowledge
+  const playhead = useHeardStep();
 
   return (
     <div className="grid">

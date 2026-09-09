@@ -1,21 +1,17 @@
 import { createEngine } from "@audiorective/core";
 import { createEngineContext } from "@audiorective/react";
-import { DrumMachine } from "./DrumMachine";
-import { createDrumKit } from "./drumKit";
+import { createSequencerSetup } from "./setup";
 
 /**
  * The app's single engine. `createEngine` owns the AudioContext for the page's
  * lifetime, so there is no per-component context to create, resume, or close —
  * `EngineProvider`'s `autoStart` satisfies the browser's user-gesture
- * requirement on the first interaction.
+ * requirement on the first interaction. Importing this module constructs the
+ * context, so tests that only need the setup should import `./setup` instead.
  */
-export const engine = createEngine((ctx) => {
-  const machine = new DrumMachine({ audioContext: ctx, kit: createDrumKit(ctx) });
-  // The machine exposes `output` rather than wiring itself to the destination,
-  // so routing it through an EQ or reverb later is a one-line change here.
-  machine.output.connect(ctx.destination);
-  return { machine };
-});
+const { setup, attach } = createSequencerSetup();
+export const engine = createEngine(setup);
+attach(engine.core);
 
 export const { EngineProvider, useEngine } = createEngineContext(engine);
 

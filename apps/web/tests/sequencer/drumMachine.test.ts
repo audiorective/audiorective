@@ -10,7 +10,9 @@ import { stepFromPattern } from "../../src/demos/sequencer/audio/stepFromPattern
  * moves when we move it. Every assertion below is therefore exact — no
  * tolerance windows, no polling.
  *
- * `DrumMachine` exposes no test seams, so all three come from mocks:
+ * `DrumMachine` accepts a `tickSource` (offline rendering needs one) but no
+ * time-source seam, so "now" and the scheduled calls come from mocks, and
+ * ticks are captured the same way for symmetry:
  *
  * - "now" — an own `currentTime` property shadowing the prototype getter on a
  *   real context. The nodes stay real (a Proxy would fail Web Audio's
@@ -238,6 +240,42 @@ describe("DrumMachine — scheduling", () => {
     }
     // more steps land in the same wall-clock span once the tempo doubles
     expect(h.triggerCount()).toBeGreaterThan(beforeCount);
+    h.machine.destroy();
+  });
+});
+
+describe("DrumMachine — patternAt", () => {
+  let ctx: AudioContext;
+  beforeEach(async () => {
+    ctx = new AudioContext();
+    await ctx.resume();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    void ctx.close();
+  });
+
+  test("reads the pattern ruler at any context time, with the same math as currentPattern", () => {
+    const h = makeHarness(ctx, 120); // a 16th is 0.125 s
+    h.machine.play(); // beat 0 anchored at t = 0
+    h.advanceTo(1);
+    h.tick();
+
+    // the clock's own reading at the render clock...
+    expect(stepFromPattern(h.machine.currentPattern.value, 16)).toBe(8);
+    // ...and the same reading taken 0.1 s earlier: what the ear hears when
+    // 0.1 s of latency sits between the render clock and the listener
+    expect(stepFromPattern(h.machine.patternAt(1)!, 16)).toBe(8);
+    expect(stepFromPattern(h.machine.patternAt(0.9)!, 16)).toBe(7);
+    h.machine.destroy();
+  });
+
+  test("is null before the segment's beat 0 — nothing scheduled has reached the ear yet", () => {
+    const h = makeHarness(ctx, 120);
+    h.advanceTo(0.5);
+    h.machine.play(); // beat 0 anchored at t = 0.5
+    expect(h.machine.patternAt(0.4)).toBeNull();
+    expect(h.machine.patternAt(0.5)).not.toBeNull();
     h.machine.destroy();
   });
 });

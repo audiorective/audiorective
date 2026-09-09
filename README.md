@@ -23,6 +23,7 @@ What's even better: we also ship an agent skill that teaches LLMs how to use aud
 | [`@audiorective/threejs`](./packages/threejs)       | Three.js bindings — engine glue, spatial transform sync                                                   |
 | [`@audiorective/playcanvas`](./packages/playcanvas) | PlayCanvas bindings — shared AudioContext + pre/post-panner FX on SoundSlot                               |
 | [`@audiorective/clock`](./packages/clock)           | Timing and scheduling engine — transport, tempo, look-ahead tick windows, rulers                          |
+| [`@audiorective/effects`](./packages/effects)       | DSP effects and channel/send plumbing — the Tone.js replacement set                                       |
 
 Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
@@ -37,9 +38,11 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 [apps/web/src/demos/livehouse](./apps/web/src/demos/livehouse) — **Livehouse PA Simulator**, one app built with `@audiorective/core`, `@audiorective/react`, `@audiorective/playcanvas`, and three.js: you're the PA tech in a cyber livehouse. Six audio drones (FilePlayer stems, a synth, and a Sampler for the pads) fly in a PlayCanvas world; walk around to hear the spatial mix shift, mix each channel (EQ / volume / solo / mute / 3D pan) from a React iPad HUD, fire the sampler pads, and hit Headphone to monitor a dry stereo mixdown. Demonstrates the full stack: one `AudioContext`, three renderers, zero duplicated audio state. Runs at `/showroom/livehouse` on the site.
 
-[apps/web/src/demos/sequencer](./apps/web/src/demos/sequencer) — a 16-step **drum machine** built with `@audiorective/clock`, `@audiorective/core`, and `@audiorective/react`. One `grid(patternLength)` loop over a `CycleBarRuler` schedules the whole pattern; transport, tempo, and live step edits all go through the clock. The reference consumer for [docs/clock.md](./docs/clock.md). Runs at `/showroom/sequencer` on the site.
+[apps/web/src/demos/sequencer](./apps/web/src/demos/sequencer) — a 16-step **drum machine** built with `@audiorective/clock`, `@audiorective/core`, and `@audiorective/react`. One `grid(patternLength)` loop over a `CycleBarRuler` schedules the whole pattern; transport, tempo, and live step edits all go through the clock. Its output runs through a latency lab — a `defineGraph` splitting the signal into a lookahead-limited path and a dry path, with plugin delay compensation, bypass, and a live graph diagram — and the playhead reads the ruler at the time the listener is hearing. The reference consumer for [docs/clock.md](./docs/clock.md) and for `defineGraph`'s latency compensation. Runs at `/showroom/sequencer` on the site.
 
 [apps/web/src/demos/pixi](./apps/web/src/demos/pixi) — a minimal **PixiJS** spectrum visualizer built with only `@audiorective/core`, `alien-signals`, and `pixi.js`. Shows that a 2D canvas renderer needs no binding package: the core `Analyser` feeds per-frame spectrum bars, an `effect()` drives a signal-reactive glow, and pointer drags write params directly (with the UI-owned `level` kept separate from the ramped `gate` envelope). See [docs/pixijs.md](./docs/pixijs.md). Runs at `/showroom/pixi` on the site.
+
+[apps/web/src/demos/fx-rack](./apps/web/src/demos/fx-rack) — an **effects processor** and offline export engine built with `@audiorective/effects`, `@audiorective/core`, and `@audiorective/react`. Route drum stems and pads through five inserts (pitch shift, filter, frequency shifter, distortion, phaser) and two sends (delay, reverb) into dynamics (compressor and limiter). Switch pitch-shift engines live while the graph recomputes latencies and applies PDC; watch reduction meters animate; toggle wet/dry without disconnecting; export 4 bars as a WAV through `renderOffline`. The same `FxRack` class runs the live demo and offline renders. Runs at `/showroom/fx-rack` on the site.
 
 ## Agent Skill
 

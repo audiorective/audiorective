@@ -19,6 +19,7 @@
     "@astrojs/starlight": "^0.41.3",
     "@audiorective/clock": "workspace:*",
     "@audiorective/core": "workspace:*",
+    "@audiorective/effects": "workspace:*",
     "@audiorective/playcanvas": "workspace:*",
     "@audiorective/react": "workspace:*",
     "@types/react": "^19.2.17",

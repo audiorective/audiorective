@@ -170,6 +170,36 @@ Toggling a step whose window has already been committed takes effect on the _nex
 
 `Clock` defaults to `WorkerTickSource` (a Web-Worker timer, so ticks continue in background tabs). `IntervalTickSource` (setInterval fallback) and `ManualTickSource` (deterministic, hand-driven ticks — how this package's own tests work without a real `AudioContext`) are also exported.
 
+## Rendering offline — `renderTimeline`
+
+`renderOffline` (from `@audiorective/core`) builds an `OfflineAudioContext`, runs your setup, and renders. That is enough when everything is scheduled up front at absolute times, but not for a `Clock`: an offline context's `currentTime` never moves before rendering starts and then races through the whole render in milliseconds, so a timer-driven tick source emits one `lookAhead` window and starves.
+
+`renderTimeline` is `renderOffline` for a clock-driven graph. It hands `setup` a tick source to build the `Clock` on, fires the first tick at time 0 once `setup` returns, then suspends the render every `tickInterval` (default 25 ms, the clock's own default), ticks, and resumes. The clock reads the context's real `currentTime` throughout, so nothing else changes — same `Timeline`, same rulers, same `onTick`.
+
+```typescript
+import { Sampler, loadAudioBuffer } from "@audiorective/core";
+import { Clock, Timeline, CycleBarRuler, renderTimeline } from "@audiorective/clock";
+
+const wav = await renderTimeline({ seconds: 8, channels: 2, sampleRate: 44100 }, async (ctx, tickSource) => {
+  const kick = new Sampler(ctx, { buffer: await loadAudioBuffer(ctx, "/kick.wav") });
+  kick.output.connect(ctx.destination);
+
+  const timeline = new Timeline({ audioContext: ctx, bpm: 120 }).addRuler("pattern", new CycleBarRuler({ numerator: 4, denominator: 4, bars: 1 }));
+  const clock = new Clock({
+    timeline,
+    tickSource, // the one injection -- everything else is the live code
+    onTick(window) {
+      for (const { time, step } of window.rulers.pattern.grid(16)) if (pattern[step]) kick.trigger({ when: time });
+    },
+  });
+  clock.start(); // inside setup: the first window is emitted as soon as setup returns
+});
+```
+
+Two rules carry over from live playback. Keep `tickInterval` below the clock's `lookAhead`, or the clock reports misses offline exactly as it would live. And one tick source drives one clock — the one-clock rule below. One rule is offline-only: a render can pause only on a 128-frame render-quantum boundary, so ticks are never closer than one quantum (about 2.9 ms at 44.1 kHz), and a smaller `tickInterval` ticks once per quantum.
+
+A type that owns its `Clock` needs to accept `tickSource` to be renderable this way — `apps/web/src/demos/sequencer`'s `DrumMachine` does, and its tests render the whole machine through its limiter graph with `renderTimeline`. Unlike a fake `currentTime`, that is a real seam and not a test-only option: it is how the same class runs live and exports offline.
+
 ## Testing scheduling deterministically
 
 The repo's rule is that audio logic runs in a unit test with no DOM. For time, that needs **two** injections, and they are separate parameters on purpose:
@@ -194,7 +224,7 @@ Every assertion is then exact — no tolerances, no polling, no flake.
 
 ### When you can't inject — testing a type that owns its Clock
 
-The two parameters above are the right approach when the code under test _takes_ a `Timeline` or a `Clock`. A class that builds its own — as `apps/web/src/demos/sequencer`'s `DrumMachine` does — shouldn't grow constructor options that exist only for tests. Mock the seams instead:
+The two parameters above are the right approach when the code under test _takes_ a `Timeline` or a `Clock`. A class that builds its own — as `apps/web/src/demos/sequencer`'s `DrumMachine` does — shouldn't grow constructor options that exist only for tests (`tickSource` earns its place there because offline rendering needs it; a fake `currentTime` would not). Mock the seams instead:
 
 ```typescript
 // "now": an own property shadowing the prototype getter on a real context

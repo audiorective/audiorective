@@ -1,0 +1,395 @@
+/*
+ * Rack strips styled after outboard studio gear: screws at the panel corners,
+ * silkscreened uppercase labels on knobs, and monospace numeric readouts for
+ * anything measured (latency, gain reduction, the graph table). Variables and
+ * the base dark theme are ported from the sequencer demo so the two showroom
+ * pages share one palette; the accent here is an LED cyan instead of the
+ * sequencer's mint, so a strip that's live (wet turned up) reads distinctly.
+ */
+.app {
+  --bg: #14161a;
+  --panel: #1c1f26;
+  --panel-raised: #22262e;
+  --line: #2c313b;
+  --text: #e6e9ef;
+  --muted-text: #8b93a3;
+  --accent: #4fd8ff;
+  --accent-dim: #276b80;
+  --warn: #f0c674;
+  --hot: #ff5d5d;
+
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  color: var(--text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.app code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  color: var(--accent);
+}
+
+.app__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.app__subtitle {
+  margin: 6px 0 28px;
+  color: var(--muted-text);
+  font-size: 14px;
+}
+
+.app__hint {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  color: var(--muted-text);
+  font-size: 13px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.app__footer {
+  margin-top: 28px;
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* transport --------------------------------------------------------------- */
+
+.transport {
+  margin-bottom: 18px;
+}
+
+.transport__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.transport__button {
+  min-width: 84px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.transport__button:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+}
+
+.transport__button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.transport__button--primary {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.transport__button--export {
+  margin-left: auto;
+}
+
+.transport__pads {
+  display: flex;
+  gap: 8px;
+}
+
+.transport__pad {
+  width: 60px;
+  padding: 9px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.transport__pad:hover {
+  border-color: var(--accent-dim);
+}
+
+.transport__pad:active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.transport__error {
+  margin: 10px 0 0;
+  color: var(--hot);
+  font-size: 13px;
+}
+
+/* rack grid ----------------------------------------------------------------- */
+
+.rack {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.module {
+  position: relative;
+  padding: 16px 14px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* two panel screws, top corners — a nod to a real rack strip's mounting holes */
+.module::before,
+.module::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--line);
+  box-shadow: inset 0 0 0 1px #0a0b0d;
+}
+
+.module::before {
+  left: 8px;
+}
+
+.module::after {
+  right: 8px;
+}
+
+.module__head {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.module__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-text);
+}
+
+.module__latency {
+  margin-top: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted-text);
+}
+
+.module__latency-value {
+  color: var(--accent);
+}
+
+.module__engine {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.module__engine-button {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-text);
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.module__engine-button--active {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.module__engine-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.module__engine-error {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--hot);
+}
+
+/* knob / fader -------------------------------------------------------------- */
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.knob:first-of-type {
+  margin-top: 0;
+}
+
+.knob__label {
+  font-size: 11px;
+  color: var(--muted-text);
+}
+
+.knob__input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.knob__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.knob--fader .knob__input {
+  accent-color: var(--warn);
+}
+
+/* meter ----------------------------------------------------------------- */
+
+.module--meter {
+  display: flex;
+  flex-direction: column;
+}
+
+.meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.meter__track {
+  position: relative;
+  width: 16px;
+  height: 90px;
+  background: var(--panel-raised);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.meter__fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, var(--accent), var(--warn) 70%, var(--hot));
+}
+
+.meter__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* graph readout ----------------------------------------------------------- */
+
+.graph {
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.graph__path {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted-text);
+}
+
+.graph__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--accent);
+}
+
+.graph__tables {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.graph__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.graph__table caption {
+  text-align: left;
+  margin-bottom: 6px;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-text);
+}
+
+.graph__table th {
+  text-align: left;
+  padding: 4px 8px;
+  color: var(--muted-text);
+  border-bottom: 1px solid var(--line);
+  font-weight: 500;
+}
+
+.graph__table td {
+  padding: 4px 8px;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.graph__empty {
+  color: var(--muted-text);
+}
+
+@media (max-width: 640px) {
+  .graph__tables {
+    grid-template-columns: 1fr;
+  }
+}

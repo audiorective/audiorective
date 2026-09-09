@@ -21,14 +21,15 @@ Web Audio's imperative API with UI frameworks.
 
 ## Packages
 
-| Package                    | Purpose                                                                                                                                      | Reference                       |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`, `Analyser`, `Sampler`, `BufferPlayer`, `FilePlayer`. Required by everything. | `references/core.md`            |
-| `@audiorective/clock`      | Timing/scheduling engine — transport, tempo, look-ahead tick windows, rulers (bars, cycles/loops, seconds).                                  | `references/clock.md`           |
-| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                                                  | `references/react.md`           |
-| _(any framework)_          | Client-only boundary for server-rendered apps (Next.js, Remix, Astro) and the `EngineEnvironmentError` it prevents.                          | `references/client-boundary.md` |
-| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                                                          | `references/threejs.md`         |
-| `@audiorective/playcanvas` | PlayCanvas scene bindings (`attach`, `bindPanner`).                                                                                          | `references/playcanvas.md`      |
+| Package                    | Purpose                                                                                                                                         | Reference                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `@audiorective/core`       | Reactive audio primitives, `AudioProcessor`, engine, `Spatial`, `Analyser`, `Sampler`, `BufferPlayer`, `FilePlayer`. Required by everything.    | `references/core.md`            |
+| `@audiorective/clock`      | Timing/scheduling engine — transport, tempo, look-ahead tick windows, rulers (bars, cycles/loops, seconds).                                     | `references/clock.md`           |
+| `@audiorective/react`      | React bindings (`useValue`, `EngineProvider`, `useEngine`).                                                                                     | `references/react.md`           |
+| _(any framework)_          | Client-only boundary for server-rendered apps (Next.js, Remix, Astro) and the `EngineEnvironmentError` it prevents.                             | `references/client-boundary.md` |
+| `@audiorective/threejs`    | three.js scene bindings (`attach`, `PannerAnchor`).                                                                                             | `references/threejs.md`         |
+| `@audiorective/playcanvas` | PlayCanvas scene bindings (`attach`, `bindPanner`).                                                                                             | `references/playcanvas.md`      |
+| `@audiorective/effects`    | DSP effects — Filter, Distortion, Phaser, FrequencyShifter, PingPongDelay, Convolver, Compressor, Limiter, PitchShift; Channel strip + SendBus. | `references/effects.md`         |
 
 ## What to read next
 
@@ -52,6 +53,7 @@ Then load only what your task actually needs:
 | PixiJS (2D) audio visualizer or interactive canvas                              | `references/pixijs.md`                         |
 | Sharing state between React and an imperative view (Three.js, Canvas2D, WebGPU) | `references/architecture.md`                   |
 | Understanding rationale ("why does this exist?")                                | `references/overview.md`                       |
+| Adding effects / building an FX rack / replacing Tone.js effects                | `references/effects.md`                        |
 
 ## Version mismatches
 

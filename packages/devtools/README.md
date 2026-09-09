@@ -63,6 +63,7 @@ interface MeasureOptions {
   channels?: number; // default 2
   windowSeconds?: number; // default 1
   threshold?: number; // default 1e-4
+  ready?: (proc: AudioProcessor) => Promise<void>;
 }
 
 assertLatency(build, { ...MeasureOptions, tolerance?: number /* default 1 */ });
@@ -70,6 +71,9 @@ assertLatency(build, { ...MeasureOptions, tolerance?: number /* default 1 */ });
 
 The processor must be audible in its default state (wet, gated open, etc.) — set that up
 inside the `build` factory before returning the processor.
+
+For a worklet-backed processor that is silent until its worklet resolves, pass `ready` —
+it's awaited after `build` returns and before rendering starts.
 
 ## `measureLatency`
 
