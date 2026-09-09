@@ -1,6 +1,6 @@
 {
   "name": "@audiorective/devtools",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Dev-time validators for audiorective processors — impulse-based latency measurement",
   "type": "module",
   "license": "MIT",
