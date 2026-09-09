@@ -29,7 +29,7 @@ Press **Play**. Browsers require a user gesture before audio, which `EngineProvi
 
    The cycle region holds exactly one pass of the pattern, so `step` is already the pattern index — the ruler does the folding, and it stays in range across the wrap and any seek.
 
-2. **The playhead reads the ruler at the time the listener is hearing** — `currentPattern` is the clock's reactive `current` reading, refreshed every tick at the render clock, and subscribing to it is what re-renders the grid each tick. But the highlight itself comes from `machine.patternAt(heardTime)`: the same ruler, read at `ctx.currentTime` minus `engine.latency` (the graph's compensated path latency) and `ctx.outputLatency`. With the limiter's lookahead at 100 ms, reading at the render clock would light each step most of a sixteenth before it sounds. No rAF loop, no parallel position state — one pure ruler reading at a time of the UI's choosing.
+2. **The playhead reads the ruler at the time the listener is hearing** — `currentPattern` is the clock's reactive `current` reading, refreshed every tick at the render clock, and subscribing to it is what re-renders the grid each tick. But the highlight itself comes from `machine.patternAt(core.perceivedTime)`: the same ruler, read at `ctx.currentTime` minus `engine.latency` (the graph's compensated path latency) and `ctx.outputLatency`. With the limiter's lookahead at 100 ms, reading at the render clock would light each step most of a sixteenth before it sounds. No rAF loop, no parallel position state — one pure ruler reading at a time of the UI's choosing.
 3. **Two rulers on one timeline** — rulers are stateless, so stacking them is free, and each answers a different question. `pattern` cycles (scheduling and the step highlight); `bar` counts forever (the absolute position readout, which a cycling ruler deliberately can't give).
 4. **Live tempo** — the slider writes `timeline.bpm.value` mid-playback; the beat axis re-derives from the anchor, so nothing drifts and nothing needs rescheduling by hand.
 5. **Transport** — play / pause / resume / stop, with button state from `useValue(clock.state)`. Resume continues mid-bar; stop returns to step 0.
@@ -70,7 +70,6 @@ Toggling PDC disposes the root graph and rebuilds it (`LatencyLab.setPdc`) — i
 | `audio/DrumMachine.ts`      | The headless core — Timeline + Clock + tracks, transport, reactive surface, `patternAt(time)` for the heard playhead                |
 | `audio/drumKit.ts`          | Procedurally synthesized kick/snare/hat/clap (no binary assets)                                                                     |
 | `audio/stepFromPattern.ts`  | Cycle phase → step index; shared by the UI playhead and the tests                                                                   |
-| `audio/heardTime.ts`        | Render clock − path latency − output latency → the time the listener is hearing                                                     |
 | `audio/LatencyLab.ts`       | Owns the root `defineGraph` around the machine: `limiterBypassed`/`pdcEnabled` params, `setPdc`, `snapshot`/`roles` for the diagram |
 | `audio/LookaheadLimiter.ts` | `AudioProcessor` wrapping the `lookahead-limiter` worklet, with a Param-backed runtime latency                                      |
 | `audio/setup.ts`            | `createSequencerSetup` — builds the machine and the lab, loads the worklet, wires the limiter in once ready                         |
@@ -88,7 +87,6 @@ Scheduling is verified deterministically. `DrumMachine`'s only injectable seam i
 
 - `drumMachine.test.ts` — pattern state, scheduling across the wrap, mute, restart, the committed-window edit latency, live tempo, and `patternAt` (the heard-playhead reading, `null` before the segment starts).
 - `smoke.test.ts` — the real `WorkerTickSource` against a real `AudioContext`, polling rather than sleeping.
-- `heardTime.test.ts` — the render-clock-to-ear arithmetic.
 - `latencyLab.test.ts` — the root graph rendered offline (PDC on / PDC off / bypass, and `engine.core.latency` tracking the limiter), plus the whole machine driven through the lab by `renderTimeline`.
 - `lookaheadLimiter.test.ts` — the worklet's declared latency matches where an impulse actually arrives, at both 44.1 kHz and 48 kHz, and a mono impulse reaches every output channel.
 

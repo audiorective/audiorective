@@ -65,10 +65,10 @@ describe("engine latency queries", () => {
     expect(engine.core.latency.value).toBe(400);
   });
 
-  it("perceivedTime = currentTime + latency seconds + outputLatency", () => {
+  it("perceivedTime = currentTime - latency seconds - outputLatency", () => {
     const engine = make();
     const ctx = engine.core.context;
-    const expected = ctx.currentTime + 400 / ctx.sampleRate + (ctx.outputLatency ?? 0);
+    const expected = ctx.currentTime - 400 / ctx.sampleRate - (ctx.outputLatency ?? 0);
     expect(engine.core.perceivedTime).toBeCloseTo(expected, 3);
   });
 

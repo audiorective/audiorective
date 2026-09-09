@@ -369,13 +369,13 @@ Compensation runs on every re-solve of a `defineGraph`: at any join with two or 
 
 ```typescript
 engine.latency: Param<number>;              // samples — longest path into ctx.destination across every engine-owned graph
-engine.perceivedTime: number;                // ctx.currentTime + latency/sampleRate + ctx.outputLatency (0 where unsupported)
+engine.perceivedTime: number;                // ctx.currentTime - latency/sampleRate - ctx.outputLatency (0 where unsupported)
 engine.getPathLatency(proc: AudioProcessor): number; // samples from proc's output to ctx.destination
 ```
 
-`perceivedTime` is what a visualizer or a record-quantize step should compare against instead of `ctx.currentTime`. `getPathLatency(proc)` throws [`LatencyUnknownError`](#latencyunknownerror) when `proc` isn't part of the current solve — built but never wired into a `defineGraph`, dropped from the edge list, its graph disposed, or wired only to an `AudioParam` — a processor with no path to measure.
+`perceivedTime` is the schedule time the listener is hearing right now — sound scheduled at `t` is still travelling the graph and the output stage, so the ear lags `ctx.currentTime` by both. It is what a visualizer or a record-quantize step should compare against instead of `ctx.currentTime`. `getPathLatency(proc)` throws [`LatencyUnknownError`](#latencyunknownerror) when `proc` isn't part of the current solve — built but never wired into a `defineGraph`, dropped from the edge list, its graph disposed, or wired only to an `AudioParam` — a processor with no path to measure.
 
-See the [Step Sequencer demo](../apps/web/src/demos/sequencer)'s latency lab for compensation, bypass, a runtime-adjustable worklet latency, and a playhead that reads the clock's ruler at the time the listener is hearing (the render clock minus `engine.latency` and the output latency) rather than at `ctx.currentTime`.
+See the [Step Sequencer demo](../apps/web/src/demos/sequencer)'s latency lab for compensation, bypass, a runtime-adjustable worklet latency, and a playhead that reads the clock's ruler at `perceivedTime` rather than at `ctx.currentTime`.
 
 ### `LatencyUnknownError`
 
@@ -1019,7 +1019,7 @@ engine.sequencer; // Sequencer
 engine.core.start(); // resume AudioContext
 engine.core.state(); // EngineState
 engine.core.latency.value; // samples — longest path into ctx.destination
-engine.core.perceivedTime; // ctx.currentTime, adjusted for latency + output latency
+engine.core.perceivedTime; // ctx.currentTime minus latency and output latency — what the listener hears now
 engine.core.getPathLatency(synth); // samples from synth.output to ctx.destination
 engine.core.destroy(); // cleanup
 engine.core.context; // AudioContext

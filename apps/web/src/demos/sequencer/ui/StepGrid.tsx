@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useValue } from "@audiorective/react";
 import { useEngine } from "../audio/engine";
 import type { DrumTrack } from "../audio/DrumMachine";
-import { heardTime } from "../audio/heardTime";
 import { stepFromPattern } from "../audio/stepFromPattern";
 
 /**
@@ -10,8 +9,8 @@ import { stepFromPattern } from "../audio/stepFromPattern";
  *
  * `currentPattern` is the clock's reactive reading at the render clock,
  * refreshed every tick — subscribing to it is what re-runs this on every
- * tick. The reading itself is taken at `heardTime`: the same ruler, at the
- * render clock minus the graph's compensated latency and the output latency.
+ * tick. The reading itself is taken at `core.perceivedTime`: the same ruler,
+ * at the render clock minus the graph's compensated latency and the output latency.
  * With the limiter's lookahead at 100 ms that gap is most of a sixteenth, so
  * reading at the render clock would light each step before it sounds.
  */
@@ -19,10 +18,8 @@ function useHeardStep(): number | null {
   const { core, machine } = useEngine();
   const state = useValue(machine.state);
   useValue(machine.currentPattern);
-  const latency = useValue(core.latency);
   if (state !== "playing") return null;
-  const ctx = core.context;
-  const point = machine.patternAt(heardTime(ctx.currentTime, latency, ctx.sampleRate, ctx.outputLatency ?? 0));
+  const point = machine.patternAt(core.perceivedTime);
   return point && stepFromPattern(point, machine.patternLength);
 }
 
