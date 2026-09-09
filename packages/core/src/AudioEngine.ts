@@ -104,11 +104,16 @@ export class AudioEngine {
     return this._state;
   }
 
-  /** `currentTime` advanced by the root graph's compensated latency and the context's output latency. */
+  /**
+   * The schedule time the listener is hearing right now: `currentTime` minus
+   * the root graph's compensated latency and the context's output latency.
+   * Sound scheduled at `t` is still in flight through the graph and the output
+   * stage, so the ear lags the render clock by both.
+   */
   get perceivedTime(): number {
     const ctx = this._context;
     const outputLatency = "outputLatency" in ctx && typeof ctx.outputLatency === "number" ? ctx.outputLatency : 0;
-    return ctx.currentTime + this.latency.value / ctx.sampleRate + outputLatency;
+    return ctx.currentTime - this.latency.value / ctx.sampleRate - outputLatency;
   }
 
   defineGraph(fn: () => EdgeList, opts?: Omit<GraphOptions, "context">): GraphHandle {
