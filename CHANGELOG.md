@@ -13,6 +13,26 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+### Added
+
+- **core:** `Voice` / `Sampler` fades — `fadeIn` and `fadeOut` (seconds) as
+  `SamplerOptions` defaults and `TriggerOptions` overrides. A faded `stop()`
+  or steal finishes the voice for callers immediately and lets the audio ring
+  out; a scheduled `stop(when)` fades from `when`. (#31)
+- **core:** `Sampler.reverse` — plays voices backwards from a cached reversed
+  copy of `buffer`; `offset`/`duration` still count from the original start.
+  `reverseBuffer(buffer)` is exported for callers that need the copy. (#31)
+- **core:** `Sampler.params.mute: Param<boolean>` on its own gain stage, so
+  muting leaves queued `params.volume` automation intact. (#31)
+- **core:** `loadAudioBuffer` and `AudioBufferCache` accept a
+  `BaseAudioContext`, so the same loader serves `renderOffline`. (#31)
+
+### Changed
+
+- **core:** `Sampler.trigger` pushes the new voice before stopping a stolen
+  one, so `cells.activeVoices` no longer dips to `0` during a retrigger.
+  With `polyphony: 1` the cell is a pad's "latest hit is playing" signal. (#31)
+
 ## [2.2.1] - 2026-09-09
 
 ### Fixed

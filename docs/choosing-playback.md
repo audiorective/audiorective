@@ -56,6 +56,19 @@ In words:
 
 **Avoid when** you need a _stable_ transport you schedule against. A `Voice`'s `rate`/`volume` are immediate setters, and the voice recreates its source on `pause`/`seek`/`rate` — so it has no stable `playbackRate` AudioParam to ramp. For a schedulable rate, that's `BufferPlayer`.
 
+**Single-voice pad (last trigger wins).** `polyphony: 1` + `steal: "oldest"` + a short `fadeOut`. This is the `Tone.Player` shape for sample pads, metronome clicks, and clip players:
+
+| `Tone.Player`                   | `Sampler`                                                             |
+| ------------------------------- | --------------------------------------------------------------------- |
+| `start(when, offset, duration)` | `trigger({ when, offset, duration })`                                 |
+| `fadeIn` / `fadeOut`            | `fadeIn` / `fadeOut` (constructor default or per trigger)             |
+| `reverse`                       | `reverse`                                                             |
+| `mute`                          | `params.mute`                                                         |
+| `volume` (dB, schedulable)      | `params.volume` (linear, schedulable; `dbToGain` for dB)              |
+| `onstop`                        | `cells.activeVoices` → `0`, or `voice.onEnded` on the returned handle |
+| `load(url)` / `loaded`          | `AudioBufferCache.load(url)` then `sampler.buffer = …`                |
+| `new Tone.Player({ context })`  | `new Sampler(ctx)` — live or `OfflineAudioContext`                    |
+
 ### `BufferPlayer` — the deck
 
 **Use when** you have one in-memory source on a single playhead and you need **sample-accurate `start(t0)`** and/or a **schedulable `rate`**: beat-locked loops and stems, vinyl spin-down, tempo-matched transitions, anything that must stay phase-locked to other ctx-clocked sources.
@@ -72,17 +85,17 @@ In words:
 
 ## Quick reference
 
-|                  | `Sampler`                       | `BufferPlayer`                    | `FilePlayer`                               |
-| ---------------- | ------------------------------- | --------------------------------- | ------------------------------------------ |
-| Metaphor         | Drum pad                        | Deck / tape loop                  | Track                                      |
-| Source           | `AudioBuffer`                   | `AudioBuffer`                     | `HTMLAudioElement` (streamed)              |
-| Memory           | whole sample resident           | whole sample resident             | low — progressive                          |
-| Voices           | polyphonic (overlap)            | one persistent playhead           | one playhead                               |
-| Clock            | sample-accurate                 | sample-accurate                   | media clock                                |
-| Schedulable rate | no (per-voice immediate setter) | **yes (`params.rate`)**           | no (immediate setter)                      |
-| Transport        | none — `trigger()`              | `start`/`stop`/loop               | `play`/`pause`/`seek`/`stop`               |
-| Reactive state   | `cells.activeVoices`            | `cells.isPlaying`                 | `cells.isPlaying`/`currentTime`/`duration` |
-| Best for         | SFX, hits, one-shots            | beat-locked loops/stems, DJ moves | music, long-form, scrubbing                |
+|                  | `Sampler`                         | `BufferPlayer`                    | `FilePlayer`                               |
+| ---------------- | --------------------------------- | --------------------------------- | ------------------------------------------ |
+| Metaphor         | Drum pad                          | Deck / tape loop                  | Track                                      |
+| Source           | `AudioBuffer`                     | `AudioBuffer`                     | `HTMLAudioElement` (streamed)              |
+| Memory           | whole sample resident             | whole sample resident             | low — progressive                          |
+| Voices           | polyphonic (overlap)              | one persistent playhead           | one playhead                               |
+| Clock            | sample-accurate                   | sample-accurate                   | media clock                                |
+| Schedulable rate | no (per-voice immediate setter)   | **yes (`params.rate`)**           | no (immediate setter)                      |
+| Transport        | none — `trigger()`                | `start`/`stop`/loop               | `play`/`pause`/`seek`/`stop`               |
+| Reactive state   | `cells.activeVoices`              | `cells.isPlaying`                 | `cells.isPlaying`/`currentTime`/`duration` |
+| Best for         | SFX, hits, one-shots, sample pads | beat-locked loops/stems, DJ moves | music, long-form, scrubbing                |
 
 ## Common mistakes
 

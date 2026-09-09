@@ -15,6 +15,7 @@ export { loadAudioBuffer, AudioBufferCache } from "./loadAudioBuffer";
 export { Voice } from "./Voice";
 export type { VoiceOptions } from "./Voice";
 export { Sampler } from "./Sampler";
+export { reverseBuffer } from "./reverseBuffer";
 export type { SamplerOptions, TriggerOptions } from "./Sampler";
 export { BufferPlayer } from "./BufferPlayer";
 export type { BufferPlayerOptions } from "./BufferPlayer";

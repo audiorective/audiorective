@@ -1,5 +1,5 @@
 /** Fetch a URL and decode it into an AudioBuffer on the given context. */
-export async function loadAudioBuffer(ctx: AudioContext, url: string): Promise<AudioBuffer> {
+export async function loadAudioBuffer(ctx: BaseAudioContext, url: string): Promise<AudioBuffer> {
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`loadAudioBuffer: failed to fetch ${url} (${res.status})`);
@@ -14,10 +14,10 @@ export async function loadAudioBuffer(ctx: AudioContext, url: string): Promise<A
  * to release.
  */
 export class AudioBufferCache {
-  private readonly ctx: AudioContext;
+  private readonly ctx: BaseAudioContext;
   private readonly cache = new Map<string, Promise<AudioBuffer>>();
 
-  constructor(ctx: AudioContext) {
+  constructor(ctx: BaseAudioContext) {
     this.ctx = ctx;
   }
 
