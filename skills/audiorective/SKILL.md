@@ -3,12 +3,15 @@ name: audiorective
 description: >
   Build web audio apps with the @audiorective/* packages — synthesizers, drum
   machines and step sequencers, DAW-style transports, samplers and loop players,
-  audio visualizers, spatial/3D audio in three.js or PlayCanvas, effects racks,
-  or anything else that touches the Web Audio API (AudioContext, AudioParam,
-  AudioWorklet). Use whenever a project depends on @audiorective/*, and whenever
-  the user asks for reactive audio state bound to a UI, sample-accurate
-  scheduling or tempo, parameter automation, audio/UI separation, or a Tone.js
-  alternative — even if they never say "audiorective".
+  audio visualizers, positional/3D audio attached to three.js or PlayCanvas
+  objects, effects racks, and offline rendering or WAV export of a Web Audio
+  graph. Use whenever a project depends on @audiorective/*, whenever an error
+  names one of its APIs (EngineEnvironmentError, createEngine, defineGraph,
+  LatencyUnknownError), and whenever the user asks for reactive audio state
+  bound to a UI, sample-accurate scheduling or tempo, parameter automation,
+  audio/UI separation, or to replace or migrate away from Tone.js — even if
+  they never say "audiorective" and even when the request touches the Web Audio
+  API (AudioContext, AudioParam, AudioWorklet) only indirectly.
 license: MIT
 compatibility: Browser runtime with the Web Audio API (client-only, no server rendering). TypeScript or JavaScript. Packages install from npm as @audiorective/*.
 ---

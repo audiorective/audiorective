@@ -2,11 +2,14 @@
 name: audio-processor-authoring
 description: >
   Write, extend, or review an `AudioProcessor` subclass from `@audiorective/core`
-  — a synth, effect, sampler, analyser, or any class that owns Web Audio nodes.
-  Use whenever code extends AudioProcessor or defines params/cells with the
-  build callback, wires nodes with `defineGraph`, declares processing latency,
-  adds `input`/`output`, overrides `destroy`, or needs headless tests for a
-  processor. Also use when reviewing a processor for correctness.
+  — a synth, effect, sampler, analyser, or any class that owns Web Audio nodes,
+  including turning a vanilla Web Audio function or module into a reusable
+  processor class. Use whenever code extends AudioProcessor or defines
+  params/cells with the build callback, wires nodes with `defineGraph`,
+  declares processing latency, adds `input`/`output`, wraps an
+  AudioWorkletNode, overrides `destroy`, or needs headless tests for a
+  processor. Not for using the packages' built-in processors from app code
+  (spatial panning, players, React hooks) — that is the `audiorective` skill.
 license: MIT
 compatibility: Browser runtime with the Web Audio API; TypeScript; `@audiorective/core` installed (tests use vitest browser mode and `@audiorective/devtools`).
 ---
