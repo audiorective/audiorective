@@ -1,0 +1,61 @@
+{
+  "skill_name": "audiorective",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Build a small React synth: one oscillator through a lowpass filter and a gain. The UI has a volume slider, a cutoff slider, and a 'Sweep' button that ramps the cutoff from its current value up to 12 kHz and back over 2 seconds. Use @audiorective/core and @audiorective/react. Write the audio class, the engine module, and the React components as separate files. Don't run anything.",
+      "expected_output": "A Synth AudioProcessor subclass owning the nodes, an engine module using createEngine, and React components that read params with useValue and call a sweep method",
+      "files": [],
+      "expectations": [
+        "Defines a class that extends AudioProcessor from @audiorective/core",
+        "Constructs the audio nodes as local variables before calling super() and binds params to AudioParams via bind",
+        "Exposes a getter named output on the processor",
+        "The filter sweep (setValueAtTime / linearRampToValueAtTime against currentTime) is implemented as a method on the processor class, not inside a React component or hook",
+        "The React button handler only calls the processor method (no scheduling code in the component)",
+        "Uses useValue to read a param in a React component and writes back with param.value = ...",
+        "Creates the engine with createEngine and exposes EngineProvider/useEngine via createEngineContext",
+        "Does not import or use Tone.js",
+        "Does not use a separate state store (Redux, Zustand, React useState) to mirror audio parameter values"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "We're adding an audio workspace to a Next.js 15 app (app router). The engine module is at app/studio/audio/engine.ts and exports `engine` created with createEngine from @audiorective/core. Right now `next build` fails with EngineEnvironmentError. Show me the file layout and code changes that fix this properly. Don't run anything.",
+      "expected_output": "A client-only boundary (next/dynamic with ssr: false) around the audio subtree, with the engine module only imported from inside it",
+      "files": [],
+      "expectations": [
+        "Uses next/dynamic with ssr: false (or an equivalent client-only boundary) to mount the audio subtree",
+        "Keeps createEngine at module scope inside the client-only subtree rather than making it lazy or nullable",
+        "Explains that 'use client' alone does not prevent server evaluation",
+        "Does not recommend a typeof window guard, a nullable engine, or a lazy getter as the fix",
+        "Identifies that the fix is to move the import path that reaches the engine module inside the boundary"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Write a 16-step drum machine (kick, snare, hat) in TypeScript with @audiorective/core and @audiorective/clock. It needs start/stop, a BPM control, and toggling steps while it's playing. Samples are at /kit/kick.wav, /kit/snare.wav, /kit/hat.wav. Vanilla TS with a minimal DOM UI is fine. Don't run anything.",
+      "expected_output": "A DrumMachine processor that uses the clock's look-ahead tick windows to schedule Sampler triggers, with the step pattern in a Cell and the UI only toggling and reading state",
+      "files": [],
+      "expectations": [
+        "Uses @audiorective/clock for transport and tempo rather than setInterval or a hand-rolled scheduler",
+        "Uses Sampler (or another audiorective playback primitive) for the one-shot drum hits",
+        "Stores the step pattern as a Cell (or in a plain class holding a Cell), not as a Param<boolean[][]> and not in DOM state",
+        "Schedules hits from the clock's tick windows / rulers with audio-time timestamps, not on the main thread at playback time",
+        "Keeps scheduling logic in the audio class; DOM handlers only call methods like toggleStep / start / stop",
+        "Resumes or starts the AudioContext from a user gesture"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "In our audiorective project, calling `sampler.params.mute.value = true` throws 'Cannot read properties of undefined (reading value)'. The docs you have say Sampler has a mute param. What's going on and what should I do?",
+      "expected_output": "Diagnoses a version mismatch between the installed @audiorective/core and the documented API, checks the changelog and the installed version, and recommends upgrading",
+      "files": [],
+      "expectations": [
+        "Suspects the installed package predates the documented API rather than assuming the docs are wrong",
+        "Consults the changelog reference to find which version added Sampler.params.mute",
+        "Checks the installed version via node_modules/@audiorective/core/package.json or an equivalent command",
+        "Recommends upgrading the @audiorective/* packages together instead of hand-rolling a mute gain node"
+      ]
+    }
+  ]
+}

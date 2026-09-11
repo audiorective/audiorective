@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "audiorective",
-  "version": "2.1.0",
-  "description": "Web Audio toolkit for coding agents — reactive primitives, scheduling, parameter automation, DSP effects, and React, three.js, and PlayCanvas bindings. Teaches Claude how to design and build synthesizers, sequencers, DAWs, audio visualizers, and spatial audio apps with correct audio/UI separation.",
+  "version": "2.4.0",
+  "description": "Web Audio toolkit for coding agents — reactive primitives, scheduling, parameter automation, DSP effects, and React, three.js, and PlayCanvas bindings. Two skills: `audiorective` teaches Claude to design and build synthesizers, sequencers, DAWs, audio visualizers, and spatial audio apps with correct audio/UI separation; `audio-processor-authoring` teaches it to write and review AudioProcessor subclasses.",
   "author": {
     "name": "audiorective",
     "url": "https://github.com/audiorective"
