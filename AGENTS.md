@@ -140,6 +140,7 @@ The skills are the product's front door for agents, so they're maintained like p
   `CHANGELOG.md` under the new version. The skill ships this file (symlinked at
   `skills/audiorective/references/changelog.md`) so agents can detect when an
   installed package predates a documented API.
-- `bumpp` does not touch `.claude-plugin/plugin.json`; set its `version` to the
-  new package version by hand so the plugin and the packages report the same
-  number.
+- `.claude-plugin/plugin.json` has its own `version`, and `bumpp` does not
+  touch it. Bump it by hand whenever skill content changes (minor for new
+  guidance, patch for corrections) so plugin installs see an update, and lift
+  it to the package version at a release if it has fallen behind.
