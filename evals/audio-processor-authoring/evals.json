@@ -1,0 +1,46 @@
+{
+  "skill_name": "audio-processor-authoring",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Write a Tremolo effect as an AudioProcessor subclass with @audiorective/core: rate (Hz) and depth (0..1) params that can be ramped, a bypass flag, and correct latency declaration. It will sit inside a defineGraph chain between other effects. Also write a vitest browser-mode test that pins its latency. Don't run anything.",
+      "expected_output": "A processor with input and output getters, nodes built as locals before super(), params bound to AudioParams, graph wired with this.defineGraph including a conditional bypass edge, latency: 0, destroy() stopping the LFO, and an assertLatency test",
+      "files": [],
+      "expectations": [
+        "Audio nodes are created as local variables before super() and assigned to this only after super() returns",
+        "Exposes both an input getter and an output getter",
+        "rate and depth are bound to AudioParams (bind: ...) so they are SchedulableParams",
+        "Internal wiring uses this.defineGraph, not raw .connect()/.disconnect() calls",
+        "Bypass is expressed as a conditional edge inside defineGraph, not by connecting/disconnecting in a method",
+        "Declares latency: 0 (the LFO modulation is not processing latency)",
+        "Overrides destroy() to stop the started OscillatorNode and calls super.destroy()",
+        "The test uses assertLatency from @audiorective/devtools (or measures an impulse) rather than reading the declared value back"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Here is my class. Review it and fix what's wrong:\n\n```ts\nimport { AudioProcessor, Param } from \"@audiorective/core\";\n\nexport class Pattern extends AudioProcessor<{ steps: Param<boolean[]> }> {\n  constructor(ctx: AudioContext) {\n    super(ctx, ({ param }) => ({ params: { steps: param({ default: Array(16).fill(false) }) } }));\n  }\n  get output() { return undefined; }\n  toggle(i: number) {\n    const s = [...this.params.steps.value]; s[i] = !s[i]; this.params.steps.value = s;\n  }\n}\n```",
+      "expected_output": "Identifies that a data-only class should not extend AudioProcessor and rewrites it as a plain class holding a Cell<boolean[]> with an update-based toggle",
+      "files": [],
+      "expectations": [
+        "States that a class owning no audio nodes should not extend AudioProcessor",
+        "Rewrites Pattern as a plain class",
+        "Uses a Cell (cell(...)) for the steps array instead of a Param<boolean[]>",
+        "Implements toggle with cell.update((draft) => ...) rather than copying the array by hand"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I have an AudioWorkletNode-based bitcrusher (processor name 'bitcrusher', module at /worklets/bitcrusher.js, it introduces 128 samples of delay). defineGraph rejects it as a bare AudioWorkletNode. Wrap it properly so it can live in our audiorective graph, with a `bits` param. Don't run anything.",
+      "expected_output": "An AudioProcessor subclass that owns the AudioWorkletNode, declares latency 128 explicitly, exposes input/output, binds bits to the worklet's AudioParam, and cleans up in destroy",
+      "files": [],
+      "expectations": [
+        "Wraps the AudioWorkletNode inside an AudioProcessor subclass instead of using it directly as a graph endpoint",
+        "Declares latency explicitly (128 samples) in the build result rather than leaving it to derive",
+        "Exposes input and output getters",
+        "Binds the bits param to the worklet node's AudioParam via bind (parameters.get('bits')) or an equivalent explicit sync",
+        "Handles worklet module loading (audioWorklet.addModule) and readiness, and cleans up the node/port in destroy()"
+      ]
+    }
+  ]
+}

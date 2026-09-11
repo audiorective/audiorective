@@ -16,6 +16,7 @@ export default defineConfig({
           items: [
             { label: "Overview", slug: "docs/overview" },
             { label: "Get Started", slug: "docs/get-started" },
+            { label: "Installation", slug: "docs/installation" },
           ],
         },
         {

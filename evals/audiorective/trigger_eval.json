@@ -1,0 +1,49 @@
+[
+  {
+    "query": "build me a 16-step drum machine in react with a bpm slider, swing, and per-step velocity. the kit is 4 wav files in public/kit/",
+    "should_trigger": true
+  },
+  {
+    "query": "I'm adding a synth pad to our Next.js app (app router). The oscillator + filter code is in lib/audio/pad.ts and the knobs are React components. how should I wire the state so the UI stays in sync with the AudioParams?",
+    "should_trigger": true
+  },
+  {
+    "query": "our project already uses @audiorective/core — can you add a filter sweep that ramps cutoff from 200hz to 12k over 2 bars when the user hits the 'drop' button",
+    "should_trigger": true
+  },
+  { "query": "spectrum visualizer in pixi.js that reacts to a streamed mp3, bars should glow on the kick", "should_trigger": true },
+  {
+    "query": "we have a three.js scene with 6 drones flying around, each should emit its own looping stem with proper 3D panning relative to the camera",
+    "should_trigger": true
+  },
+  { "query": "getting 'EngineEnvironmentError: createEngine() is client-only' when I run next build, worked fine in dev", "should_trigger": true },
+  {
+    "query": "replace tone.js in our looper — we only use Tone.Transport, Tone.Player and a PingPongDelay and the bundle is huge",
+    "should_trigger": true
+  },
+  {
+    "query": "sampler pad grid: 8 pads, each plays a one-shot, polyphonic, with a fade out on release. vanilla TS, no framework",
+    "should_trigger": true
+  },
+  {
+    "query": "the volume slider in my web audio app lags behind the actual gain during an automation ramp, and sometimes shows stale values after the ramp ends",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I export 4 bars of my sequencer's output as a WAV file offline, with the compressor and limiter applied?",
+    "should_trigger": true
+  },
+  { "query": "generate an mp3 voiceover from this script using a natural female voice", "should_trigger": false },
+  { "query": "transcribe ~/Downloads/standup.m4a and give me action items with timestamps", "should_trigger": false },
+  { "query": "write a python script that batch-normalizes loudness of 200 wav files to -14 LUFS with ffmpeg", "should_trigger": false },
+  { "query": "add a <video> player with custom play/pause controls and a scrubber to our marketing page", "should_trigger": false },
+  {
+    "query": "my react app re-renders too much — the zustand store updates on every mouse move. how do I fix the state management?",
+    "should_trigger": false
+  },
+  { "query": "build a spotify-style playlist UI with react; fetch tracks from our REST api and show album art", "should_trigger": false },
+  { "query": "implement a VST3 plugin in C++ with JUCE — a simple tremolo with rate and depth", "should_trigger": false },
+  { "query": "the three.js scene drops to 20fps when I add 500 instanced meshes, help me profile it", "should_trigger": false },
+  { "query": "set up whisper.cpp locally to caption my lecture recordings", "should_trigger": false },
+  { "query": "our Next.js page throws 'window is not defined' when importing mapbox-gl on the server", "should_trigger": false }
+]

@@ -44,7 +44,16 @@ Framework-agnostic core. First-class React bindings. Works headless in Node.js.
 
 [apps/web/src/demos/fx-rack](./apps/web/src/demos/fx-rack) — an **effects processor** and offline export engine built with `@audiorective/effects`, `@audiorective/core`, and `@audiorective/react`. Route drum stems and pads through five inserts (pitch shift, filter, frequency shifter, distortion, phaser) and two sends (delay, reverb) into dynamics (compressor and limiter). Switch pitch-shift engines live while the graph recomputes latencies and applies PDC; watch reduction meters animate; toggle wet/dry without disconnecting; export 4 bars as a WAV through `renderOffline`. The same `FxRack` class runs the live demo and offline renders. Runs at `/showroom/fx-rack` on the site.
 
-## Agent Skill
+## Agent Skills
+
+audiorective ships agent skills that follow the [Agent Skills specification](https://agentskills.io/specification), so any compatible coding agent can use them.
+
+| Skill                                                             | Use it for                                                                                                                                         |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`audiorective`](./skills/audiorective)                           | Building audio apps with the packages — quick start, package selection, audio/UI separation, client-only boundaries, common errors, API references |
+| [`audio-processor-authoring`](./skills/audio-processor-authoring) | Writing or reviewing an `AudioProcessor` subclass — skeleton, params and cells, `defineGraph`, latency, `destroy`, headless tests                  |
+
+Each skill's `references/` folder mirrors [`docs/`](./docs), so the skill and the site never disagree. Trigger and functional test sets live in [`evals/`](./evals).
 
 ### Any agent (Claude Code, Cursor, OpenCode, Cline, …)
 

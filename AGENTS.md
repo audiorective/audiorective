@@ -5,8 +5,9 @@ Modular toolkit for web audio development. Independent, composable packages that
 ## Documentation Tiers
 
 - `AGENTS.md` (this file) — contributor conventions for working in this repo
-- `docs/` — full API reference per package
-- `skills/audiorective/` — consumer-facing skill (install via `npx skills add audiorective/audiorective`)
+- `docs/` — full API reference per package, also rendered on the site
+- `skills/` — consumer-facing skills (install via `npx skills add audiorective/audiorective`): `audiorective` for building apps, `audio-processor-authoring` for writing processors. See "Skills" below.
+- `evals/` — trigger and functional test sets for the skills
 
 ## Monorepo Structure
 
@@ -118,6 +119,20 @@ All processors extend `AudioProcessor<P, C>` with explicit registry generics:
 - `react`: depends on `core`, peer-depends on `react`
 - `threejs`: depends on `core`, peer-depends on `three`
 
+## Skills
+
+The skills are the product's front door for agents, so they're maintained like public API.
+
+**Layout.** Each skill is `skills/<name>/SKILL.md` plus `references/`. Reference files are **symlinks into `docs/`** (and `CHANGELOG.md`), never copies — a doc change is a skill change with no second edit. To give a skill a new reference: write `docs/<topic>.md` with a `title` frontmatter, add it to the sidebar in `apps/web/astro.config.mjs`, then `ln -s ../../../docs/<topic>.md skills/<skill>/references/<topic>.md` and route to it from the skill's "What to read next" table.
+
+**SKILL.md shape.** Frontmatter has `name`, `description`, `license`, `compatibility`. The body is task-oriented and short enough to read whole: a setup pointer, a runnable quick start, the routing tables, the rules that always apply, a common-errors table, and a references list. Anything longer than a screen belongs in a reference doc, not in `SKILL.md`. The `description` is the only thing an agent sees before deciding to open the skill — state what it does and the concrete situations that should trigger it, including ones where the user never names audiorective.
+
+**Evergreen.** Docs and skills describe current behaviour in the present tense. Release history — "added in", "now supports", "previously", version numbers — goes in `CHANGELOG.md`, which the skill reads only to diagnose version drift. When a public API changes: update the doc, add the changelog entry, and update or add the eval in `evals/` that exercises it, in the same PR.
+
+**Errors are documentation.** A new thrown error should have a row in the skill's "Common errors" table (symptom → cause → fix) with the message text an agent will actually see.
+
+**Evals.** `evals/<skill>/trigger_eval.json` checks the description fires for the right requests and stays quiet for near-misses; `evals/<skill>/evals.json` checks output quality with verifiable expectations. Run them after editing a description or a rule (`evals/README.md`).
+
 ## Releasing
 
 - All packages version together via `pnpm release` (`bumpp -r --all`).
@@ -125,3 +140,6 @@ All processors extend `AudioProcessor<P, C>` with explicit registry generics:
   `CHANGELOG.md` under the new version. The skill ships this file (symlinked at
   `skills/audiorective/references/changelog.md`) so agents can detect when an
   installed package predates a documented API.
+- `bumpp` does not touch `.claude-plugin/plugin.json`; set its `version` to the
+  new package version by hand so the plugin and the packages report the same
+  number.

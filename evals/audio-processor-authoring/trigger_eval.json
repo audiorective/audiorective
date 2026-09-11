@@ -1,0 +1,36 @@
+[
+  {
+    "query": "write an AudioProcessor subclass for a tremolo effect: rate and depth params, wet/dry, and it must work in defineGraph with the rest of our chain",
+    "should_trigger": true
+  },
+  {
+    "query": "review packages/audio/src/Chorus.ts — it extends AudioProcessor and I'm not sure the latency declaration or destroy() are right",
+    "should_trigger": true
+  },
+  {
+    "query": "wrap this AudioWorkletNode (bitcrusher.worklet.js) so I can put it in our audiorective graph — right now defineGraph throws that it's a bare worklet node",
+    "should_trigger": true
+  },
+  {
+    "query": "my synth class puts `this.osc = new OscillatorNode(ctx)` before super() and TS complains about 'this' before super. how should the constructor be structured?",
+    "should_trigger": true
+  },
+  { "query": "add a bypass toggle to our Distortion processor without disconnecting nodes by hand", "should_trigger": true },
+  { "query": "write a vitest test that pins the latency of our lookahead Limiter processor", "should_trigger": true },
+  {
+    "query": "convert this 300-line vanilla web audio 'createReverb(ctx)' function into a proper reusable class with reactive params for decay and mix",
+    "should_trigger": true
+  },
+  { "query": "should the step pattern of my drum machine be a param, a cell, or its own class? it's a boolean[16][4]", "should_trigger": true },
+  {
+    "query": "add a filter sweep button to the React synth UI — the Synth processor class already exists in audio/Synth.ts",
+    "should_trigger": false
+  },
+  { "query": "set up the drum machine's transport and bpm with @audiorective/clock, the DrumMachine processor is done", "should_trigger": false },
+  { "query": "my AudioContext stays suspended on iOS safari until the second tap, how do I fix autoplay?", "should_trigger": false },
+  { "query": "getting EngineEnvironmentError in our Remix app during SSR", "should_trigger": false },
+  { "query": "write a Rust audio processor with cpal that applies a lowpass filter to mic input", "should_trigger": false },
+  { "query": "implement a compressor as a JUCE AudioProcessor subclass with attack/release knobs", "should_trigger": false },
+  { "query": "how do I pan a three.js object's sound as the camera moves using audiorective?", "should_trigger": false },
+  { "query": "build a React hook that debounces a gain slider before writing to the processor param", "should_trigger": false }
+]

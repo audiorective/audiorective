@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+// Trigger evals: does a skill's description make Claude Code open the skill for
+// the queries in evals/<skill>/trigger_eval.json, and leave it alone for the rest?
+//
+//   node evals/run_trigger_evals.mjs audiorective
+//   node evals/run_trigger_evals.mjs audiorective --skill-dir /path/to/old/skill --runs 5
+//
+// Each query is sent to `claude -p` in a throwaway project whose .claude/skills/
+// holds only the skill under test, so triggering depends on the description
+// alone. A query counts as triggered when Claude calls the Skill tool for it in
+// at least half of its runs. Requires the Claude Code CLI on PATH and a login.
+//
+// Options: --skill-dir <dir>  (default skills/<name>)   --runs <n> (3)
+//          --concurrency <n> (8)   --timeout <seconds> (120)   --json <out-file>
+//          --limit <n>  (only the first n queries — for a smoke test)
+
+import { spawn } from "node:child_process";
+import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(here, "..");
+
+const args = process.argv.slice(2);
+const skillName = args.find((a) => !a.startsWith("--"));
+if (!skillName) {
+  console.error("usage: node evals/run_trigger_evals.mjs <skill-name> [options]");
+  process.exit(2);
+}
+const opt = (name, fallback) => {
+  const i = args.indexOf(`--${name}`);
+  return i === -1 ? fallback : args[i + 1];
+};
+const skillDir = resolve(opt("skill-dir", join(repoRoot, "skills", skillName)));
+const runs = Number(opt("runs", 3));
+const concurrency = Number(opt("concurrency", 8));
+const timeoutMs = Number(opt("timeout", 120)) * 1000;
+const jsonOut = opt("json", null);
+const limit = Number(opt("limit", Infinity));
+
+const evalSet = JSON.parse(readFileSync(join(here, skillName, "trigger_eval.json"), "utf8")).slice(0, limit);
+const skillMd = readFileSync(join(skillDir, "SKILL.md"), "utf8");
+const description = (skillMd.match(/^description:\s*>?\s*\n?([\s\S]*?)\n(?=[a-z-]+:|---)/m)?.[1] ?? "").replace(/\n\s+/g, " ").trim();
+
+// Stage the skill in an empty project so nothing else in this repo influences the run.
+const project = mkdtempSync(join(tmpdir(), "trigger-eval-"));
+mkdirSync(join(project, ".claude", "skills", skillName), { recursive: true });
+copyFileSync(join(skillDir, "SKILL.md"), join(project, ".claude", "skills", skillName, "SKILL.md"));
+
+const env = { ...process.env };
+delete env.CLAUDECODE; // allow nesting claude -p inside a Claude Code session
+
+function runOnce(query) {
+  return new Promise((done) => {
+    const child = spawn("claude", ["-p", query, "--output-format", "stream-json", "--verbose", "--max-turns", "1"], {
+      cwd: project,
+      env,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    let out = "";
+    let triggered = false;
+    const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
+    child.stdout.on("data", (chunk) => {
+      out += chunk;
+      let nl;
+      while ((nl = out.indexOf("\n")) !== -1) {
+        const line = out.slice(0, nl);
+        out = out.slice(nl + 1);
+        let event;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        const blocks = event?.message?.content;
+        if (event.type !== "assistant" || !Array.isArray(blocks)) continue;
+        for (const b of blocks) {
+          if (b.type !== "tool_use" || b.name !== "Skill") continue;
+          const target = String(b.input?.skill ?? b.input?.command ?? JSON.stringify(b.input ?? ""));
+          if (target.includes(skillName)) triggered = true;
+        }
+        if (triggered) child.kill("SIGTERM"); // the answer is known; don't wait for the turn
+      }
+    });
+    child.on("close", () => {
+      clearTimeout(timer);
+      done(triggered);
+    });
+  });
+}
+
+async function pool(tasks, size) {
+  const results = new Array(tasks.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(size, tasks.length) }, async () => {
+      while (next < tasks.length) {
+        const i = next++;
+        results[i] = await tasks[i]();
+      }
+    }),
+  );
+  return results;
+}
+
+console.error(`skill: ${skillName}  (${skillDir})`);
+console.error(`description: ${description}\n`);
+console.error(`${evalSet.length} queries × ${runs} runs, concurrency ${concurrency}…`);
+
+const tasks = [];
+for (const [qi, item] of evalSet.entries()) for (let r = 0; r < runs; r++) tasks.push(async () => ({ qi, hit: await runOnce(item.query) }));
+const flat = await pool(tasks, concurrency);
+
+const results = evalSet.map((item, qi) => {
+  const hits = flat.filter((x) => x.qi === qi && x.hit).length;
+  const rate = hits / runs;
+  const triggered = rate >= 0.5;
+  return { ...item, hits, runs, rate, pass: triggered === item.should_trigger };
+});
+rmSync(project, { recursive: true, force: true });
+
+const positives = results.filter((r) => r.should_trigger);
+const negatives = results.filter((r) => !r.should_trigger);
+const pct = (xs) => (xs.length ? Math.round((100 * xs.filter((r) => r.pass).length) / xs.length) : 0);
+
+for (const r of results) {
+  const mark = r.pass ? "PASS" : "FAIL";
+  console.log(`${mark}  ${r.hits}/${r.runs}  ${r.should_trigger ? "should   " : "shouldn't"}  ${r.query.slice(0, 90)}`);
+}
+console.log(`\nshould-trigger:    ${pct(positives)}% (${positives.filter((r) => r.pass).length}/${positives.length})`);
+console.log(`shouldn't-trigger: ${pct(negatives)}% (${negatives.filter((r) => r.pass).length}/${negatives.length})`);
+console.log(`overall:           ${pct(results)}% (${results.filter((r) => r.pass).length}/${results.length})`);
+
+if (jsonOut) writeFileSync(jsonOut, JSON.stringify({ skill: skillName, skillDir, description, results }, null, 2) + "\n");
+process.exit(results.every((r) => r.pass) ? 0 : 1);
