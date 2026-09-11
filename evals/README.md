@@ -21,7 +21,7 @@ node evals/run_trigger_evals.mjs audio-processor-authoring --runs 5 --json /tmp/
 node evals/run_trigger_evals.mjs audiorective --skill-dir ../audiorective-main/skills/audiorective
 ```
 
-It needs the Claude Code CLI on `PATH` and a login. Options: `--runs` (3), `--concurrency` (8), `--timeout` seconds (120), `--json <file>` for machine-readable results, `--limit <n>` for a smoke test. The exit code is non-zero when any query fails.
+It needs the Claude Code CLI on `PATH` and a login. Options: `--runs` (3), `--concurrency` (8), `--timeout` seconds (120), `--json <file>` for machine-readable results, `--limit <n>` for a smoke test. A run that does not complete (a timeout, a missing login, a rate limit) is reported as an error and fails its query rather than counting as a non-trigger, so a broken CLI cannot produce a passing negative set. The exit code is non-zero when any query fails.
 
 Report both directions. A description that fires on everything scores perfectly on the positives and is still wrong, so a change that lifts the should-trigger rate has to hold the shouldn't-trigger rate.
 
