@@ -937,6 +937,8 @@ createEngine() / new Engine()  â†’  context created (suspended)               â†
 
 Calling `.core.start()` on a destroyed engine throws. Calling `.core.suspend()`/`.core.resume()` on a destroyed engine warns and no-ops.
 
+The engine mirrors every `statechange` its context reports, not just the transition its own methods cause: a raw `context.resume()`/`context.suspend()` called on the underlying `AudioContext`, Safari's non-standard `interrupted` state (a phone call, Siri, another app taking the audio session), and `closed`. `interrupted` reads as `"suspended"`; `closed` reads as `"destroyed"`. `start()` and `resume()` check the real `context.state` rather than the mirror, so either one reliably means "make sure the context is running now" even if the mirror was stale.
+
 ### EngineState
 
 ```typescript
