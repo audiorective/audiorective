@@ -13,6 +13,8 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-09-16
+
 ### Fixed
 
 - **core:** `AudioEngine`'s state mirror only followed a `running → suspended`
@@ -23,6 +25,11 @@ predates that API. See the "Version mismatches" note in the skill.
   `interrupted` as `"suspended"` and `closed` as `"destroyed"`), and
   `start()`/`resume()` decide from the real context state, so either is
   idempotent even after an external change. (#36)
+- **core:** `AudioEngine.destroy()` skipped disposing graphs, processors, and
+  effects if the context had already been closed externally (the engine's
+  own state mirror follows that closure to `"destroyed"`, and `destroy()`
+  used to guard on the same signal). Cleanup completion is now tracked
+  separately from the reactive state, so `destroy()` still runs it.
 
 ## [2.3.1] - 2026-09-10
 
