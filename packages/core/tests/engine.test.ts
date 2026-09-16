@@ -264,6 +264,20 @@ describe("AudioEngine", () => {
     expect(engine.state()).toBe("destroyed");
   });
 
+  test("destroy() still cleans up processors after the context closes externally", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    const processorDestroySpy = vi.spyOn(engine.getProcessor(), "destroy");
+
+    await engine.context.close();
+    await vi.waitFor(() => expect(engine.state()).toBe("destroyed"));
+    expect(processorDestroySpy).not.toHaveBeenCalled();
+
+    engine.destroy();
+    expect(processorDestroySpy).toHaveBeenCalledOnce();
+    processorDestroySpy.mockRestore();
+  });
+
   test("statechange to 'suspended' while 'idle' keeps 'idle'", () => {
     const engine = new TestEngine();
     expect(engine.state()).toBe("idle");
