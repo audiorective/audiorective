@@ -77,6 +77,10 @@ export class AudioEngine {
   private _processors: AudioProcessor[] = [];
   private _state: SignalAccessor<EngineState> = signal<EngineState>("idle");
   private _cachedPromise: Promise<void> | null = null;
+  // Set only by destroy() — separate from the "destroyed" state, which an external
+  // context closure can also reach, so cleanup still runs if destroy() is called
+  // after that (rather than being skipped because the mirror already reads "destroyed").
+  private _destroyed = false;
   private _graphs: GraphHandle[] = [];
   // Each engine-owned graph's most recent destination arrival, keyed by an identity
   // token private to that graph — not the graph itself, so a graph whose own last
@@ -89,8 +93,15 @@ export class AudioEngine {
     if (existingContext === undefined) assertAudioContextAvailable();
     this._context = existingContext ?? new AudioContext();
     this._context.onstatechange = () => {
-      if (this._state() === "destroyed") return;
-      if (this._context.state === "suspended" && this._state() === "running") {
+      if (this._destroyed) return;
+      // Safari reports "interrupted" (phone call, Siri); it is not in lib.dom's union.
+      const s = this._context.state as string;
+      if (s === "closed") {
+        this._state("destroyed");
+      } else if (s === "running") {
+        this._state("running");
+        this._cachedPromise = null;
+      } else if (this._state() !== "idle") {
         this._state("suspended");
       }
     };
@@ -182,10 +193,8 @@ export class AudioEngine {
   }
 
   async start(): Promise<void> {
-    const s = this._state();
-    if (s === "running") return;
-    if (s === "destroyed") throw new Error("Cannot start a destroyed engine");
-    await this._context.resume();
+    if (this._state() === "destroyed") throw new Error("Cannot start a destroyed engine");
+    if (this._context.state !== "running") await this._context.resume();
     this._state("running");
     this._cachedPromise = null;
   }
@@ -195,8 +204,8 @@ export class AudioEngine {
       console.warn("AudioEngine: suspend() called on a destroyed engine");
       return;
     }
-    if (this._state() !== "running") return;
-    await this._context.suspend();
+    if (this._state() === "idle") return;
+    if (this._context.state === "running") await this._context.suspend();
     this._state("suspended");
   }
 
@@ -205,8 +214,7 @@ export class AudioEngine {
       console.warn("AudioEngine: resume() called on a destroyed engine");
       return;
     }
-    if (this._state() !== "suspended") return;
-    await this._context.resume();
+    if (this._context.state !== "running") await this._context.resume();
     this._state("running");
     this._cachedPromise = null;
   }
@@ -254,7 +262,8 @@ export class AudioEngine {
   }
 
   destroy(): void {
-    if (this._state() === "destroyed") return;
+    if (this._destroyed) return;
+    this._destroyed = true;
     // Copy first: each `dispose()` splices itself out of `_graphs`, which
     // would skip entries if this loop iterated the live array directly.
     for (const graph of [...this._graphs]) graph.dispose();
@@ -263,7 +272,9 @@ export class AudioEngine {
     for (const p of this._processors) p.destroy();
     this._processors = [];
     this.latency.destroy();
-    this._context.close();
+    // The context may already be closed (an external close, or the browser tearing
+    // it down) — closing it again would reject with InvalidStateError.
+    if (this._context.state !== "closed") this._context.close();
     this._state("destroyed");
     this._cachedPromise = null;
   }

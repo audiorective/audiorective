@@ -13,6 +13,17 @@ predates that API. See the "Version mismatches" note in the skill.
 
 ## [Unreleased]
 
+### Fixed
+
+- **core:** `AudioEngine`'s state mirror only followed a `running → suspended`
+  transition it caused itself, so a raw `context.resume()`/`context.suspend()`
+  or Safari's `interrupted` state left `engine.core.state()` stale, and
+  `start()`/`suspend()`/`resume()` guarded on that stale mirror instead of the
+  real `context.state`. The engine now mirrors every `statechange` (including
+  `interrupted` as `"suspended"` and `closed` as `"destroyed"`), and
+  `start()`/`resume()` decide from the real context state, so either is
+  idempotent even after an external change. (#36)
+
 ## [2.3.1] - 2026-09-10
 
 ### Fixed
