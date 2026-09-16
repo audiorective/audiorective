@@ -176,6 +176,102 @@ describe("AudioEngine", () => {
     expect(engine.state()).toBe("suspended");
     engine.destroy();
   });
+
+  test("raw context.suspend() then raw context.resume() is mirrored and resolves untilReady()", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    await engine.context.suspend();
+    await vi.waitFor(() => expect(engine.state()).toBe("suspended"));
+    await engine.context.resume();
+    await vi.waitFor(() => expect(engine.state()).toBe("running"));
+    await expect(engine.untilReady()).resolves.toBeUndefined();
+    engine.destroy();
+  });
+
+  test("statechange to 'interrupted' is mirrored as 'suspended'", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    Object.defineProperty(engine.context, "state", { value: "interrupted", configurable: true });
+    engine.context.onstatechange?.call(engine.context, new Event("statechange"));
+    expect(engine.state()).toBe("suspended");
+    engine.destroy();
+  });
+
+  test("resume() from 'interrupted' calls context.resume() and becomes 'running'", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    Object.defineProperty(engine.context, "state", { value: "interrupted", configurable: true });
+    engine.context.onstatechange?.call(engine.context, new Event("statechange"));
+    expect(engine.state()).toBe("suspended");
+
+    const spy = vi.spyOn(engine.context, "resume");
+    await engine.resume();
+    expect(spy).toHaveBeenCalledOnce();
+    expect(engine.state()).toBe("running");
+    spy.mockRestore();
+    engine.destroy();
+  });
+
+  test("start() from 'interrupted' calls context.resume() and becomes 'running'", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    Object.defineProperty(engine.context, "state", { value: "interrupted", configurable: true });
+    engine.context.onstatechange?.call(engine.context, new Event("statechange"));
+    expect(engine.state()).toBe("suspended");
+
+    const spy = vi.spyOn(engine.context, "resume");
+    await engine.start();
+    expect(spy).toHaveBeenCalledOnce();
+    expect(engine.state()).toBe("running");
+    spy.mockRestore();
+    engine.destroy();
+  });
+
+  test("resume() resumes a suspended context even when the mirror says 'running'", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    expect(engine.state()).toBe("running");
+    // Stub the context as suspended without firing statechange, so the mirror is stale.
+    Object.defineProperty(engine.context, "state", { value: "suspended", configurable: true });
+
+    const spy = vi.spyOn(engine.context, "resume");
+    await engine.resume();
+    expect(spy).toHaveBeenCalledOnce();
+    expect(engine.state()).toBe("running");
+    spy.mockRestore();
+    engine.destroy();
+  });
+
+  test("start() resumes a suspended context even when the mirror says 'running'", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    expect(engine.state()).toBe("running");
+    Object.defineProperty(engine.context, "state", { value: "suspended", configurable: true });
+
+    const spy = vi.spyOn(engine.context, "resume");
+    await engine.start();
+    expect(spy).toHaveBeenCalledOnce();
+    expect(engine.state()).toBe("running");
+    spy.mockRestore();
+    engine.destroy();
+  });
+
+  test("statechange to 'closed' marks the engine 'destroyed'", async () => {
+    const engine = new TestEngine();
+    await engine.start();
+    Object.defineProperty(engine.context, "state", { value: "closed", configurable: true });
+    engine.context.onstatechange?.call(engine.context, new Event("statechange"));
+    expect(engine.state()).toBe("destroyed");
+  });
+
+  test("statechange to 'suspended' while 'idle' keeps 'idle'", () => {
+    const engine = new TestEngine();
+    expect(engine.state()).toBe("idle");
+    Object.defineProperty(engine.context, "state", { value: "suspended", configurable: true });
+    engine.context.onstatechange?.call(engine.context, new Event("statechange"));
+    expect(engine.state()).toBe("idle");
+    engine.destroy();
+  });
 });
 
 describe("AudioEngine.autoStart", () => {
@@ -257,6 +353,26 @@ describe("AudioEngine.autoStart", () => {
     target.dispatchEvent(new Event("click"));
     expect(startSpy).not.toHaveBeenCalled();
     startSpy.mockRestore();
+  });
+
+  test("disarms after a raw context.resume()", async () => {
+    const engine = new TestEngine();
+    const target = new EventTarget();
+    engine.autoStart(target);
+    target.dispatchEvent(new Event("click"));
+    await engine.untilReady();
+    expect(engine.state()).toBe("running");
+
+    await engine.context.suspend();
+    await vi.waitFor(() => expect(engine.state()).toBe("suspended"));
+    await engine.context.resume();
+    await vi.waitFor(() => expect(engine.state()).toBe("running"));
+
+    const startSpy = vi.spyOn(engine, "start");
+    target.dispatchEvent(new Event("click"));
+    expect(startSpy).not.toHaveBeenCalled();
+    startSpy.mockRestore();
+    engine.destroy();
   });
 });
 
