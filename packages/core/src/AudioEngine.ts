@@ -90,7 +90,14 @@ export class AudioEngine {
     this._context = existingContext ?? new AudioContext();
     this._context.onstatechange = () => {
       if (this._state() === "destroyed") return;
-      if (this._context.state === "suspended" && this._state() === "running") {
+      // Safari reports "interrupted" (phone call, Siri); it is not in lib.dom's union.
+      const s = this._context.state as string;
+      if (s === "closed") {
+        this._state("destroyed");
+      } else if (s === "running") {
+        this._state("running");
+        this._cachedPromise = null;
+      } else if (this._state() !== "idle") {
         this._state("suspended");
       }
     };
@@ -182,10 +189,8 @@ export class AudioEngine {
   }
 
   async start(): Promise<void> {
-    const s = this._state();
-    if (s === "running") return;
-    if (s === "destroyed") throw new Error("Cannot start a destroyed engine");
-    await this._context.resume();
+    if (this._state() === "destroyed") throw new Error("Cannot start a destroyed engine");
+    if (this._context.state !== "running") await this._context.resume();
     this._state("running");
     this._cachedPromise = null;
   }
@@ -195,8 +200,8 @@ export class AudioEngine {
       console.warn("AudioEngine: suspend() called on a destroyed engine");
       return;
     }
-    if (this._state() !== "running") return;
-    await this._context.suspend();
+    if (this._state() === "idle") return;
+    if (this._context.state === "running") await this._context.suspend();
     this._state("suspended");
   }
 
@@ -205,8 +210,7 @@ export class AudioEngine {
       console.warn("AudioEngine: resume() called on a destroyed engine");
       return;
     }
-    if (this._state() !== "suspended") return;
-    await this._context.resume();
+    if (this._context.state !== "running") await this._context.resume();
     this._state("running");
     this._cachedPromise = null;
   }
