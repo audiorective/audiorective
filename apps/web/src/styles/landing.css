@@ -12,10 +12,10 @@
   margin: 0;
 }
 .landing h1 {
-  font: 600 clamp(64px, 7.5vw, 102px) / 0.95 var(--display);
+  font: 600 clamp(56px, 6.4vw, 86px) / 0.95 var(--display);
   text-transform: uppercase;
   letter-spacing: -0.025em;
-  max-width: 7ch;
+  max-width: 11ch;
 }
 .landing h2 {
   font: 600 clamp(38px, 4.5vw, 56px) / 1.03 var(--display);
@@ -565,7 +565,7 @@
   }
   .landing h1 {
     max-width: none;
-    font-size: 68px;
+    font-size: clamp(48px, 12vw, 68px);
   }
   .hero-lede {
     font-size: 21px;
@@ -641,4 +641,16 @@
   .toolkit-notes {
     gap: 32px;
   }
+}
+
+.adoption-example {
+  margin-bottom: 40px;
+}
+.adoption-example > div {
+  min-width: 0;
+}
+.adoption-example p,
+.install-block p {
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
