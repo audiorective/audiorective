@@ -1,0 +1,44 @@
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+:root {
+  --sl-font: "DM Sans", sans-serif;
+  --sl-font-mono: "IBM Plex Mono", monospace;
+  --sl-color-accent-low: #3e2c16;
+  --sl-color-accent: #b56b18;
+  --sl-color-accent-high: #f4c990;
+  --sl-color-white: #ebece6;
+  --sl-color-gray-1: #d9ddd6;
+  --sl-color-gray-2: #aeb4ad;
+  --sl-color-gray-3: #7c857e;
+  --sl-color-gray-4: #515953;
+  --sl-color-gray-5: #303633;
+  --sl-color-gray-6: #202421;
+  --sl-color-black: #151616;
+}
+:root[data-theme="light"] {
+  --sl-color-accent-low: #fce5c7;
+  --sl-color-accent: #905218;
+  --sl-color-accent-high: #533315;
+  --sl-color-white: #202620;
+  --sl-color-gray-1: #303833;
+  --sl-color-gray-2: #48534b;
+  --sl-color-gray-3: #637269;
+  --sl-color-gray-4: #96a39a;
+  --sl-color-gray-5: #d9dfd9;
+  --sl-color-gray-6: #eef1eb;
+  --sl-color-gray-7: #f5f7f2;
+  --sl-color-black: #fafbf7;
+}
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+h1#_top,
+.site-title {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+}
+.site-title {
+  letter-spacing: -0.015em;
+}

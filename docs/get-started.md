@@ -2,72 +2,66 @@
 title: Get Started
 ---
 
-## Install the skill
+## Play your first sound
 
-audiorective ships as an agent skill so LLMs can build with it correctly out of the box.
+Install core in a browser application:
 
-### Any agent (Claude Code, Cursor, OpenCode, Cline, …)
+```sh
+npm install @audiorective/core
+```
 
-Install with the [Vercel skills CLI](https://github.com/vercel-labs/skills):
+Add a button to your page:
+
+```html
+<button id="play">Play tone</button>
+```
+
+Run this TypeScript in the browser, after the button mounts. It generates a short tone, so you do not need an audio file.
+
+```typescript
+import { createEngine, Sampler } from "@audiorective/core";
+
+const engine = createEngine((context) => {
+  const buffer = context.createBuffer(1, context.sampleRate * 0.4, context.sampleRate);
+  const samples = buffer.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = Math.sin((2 * Math.PI * 440 * i) / context.sampleRate);
+  }
+  return { tone: new Sampler(context, { buffer, volume: 0.15, fadeIn: 0.01, fadeOut: 0.05 }) };
+});
+
+engine.core.defineGraph(() => [[engine.tone, engine.core.context.destination]]);
+
+document.querySelector<HTMLButtonElement>("#play")!.onclick = async () => {
+  await engine.core.start();
+  engine.tone.trigger();
+};
+```
+
+The click starts the audio context. `Sampler` plays the buffer and applies short fades at its edges. Change `engine.tone.params.volume.value` to adjust its level. When your application unmounts, call `engine.core.destroy()` to release the engine and its processors.
+
+For Astro, Next.js, or another server-rendered framework, use a [client-only boundary](/docs/client-boundary).
+
+## Add what your app needs
+
+- [Clock](/docs/clock) adds transport, musical time, and look-ahead scheduling.
+- [Effects](/docs/effects) adds filters, delay, reverb, dynamics, and other processors.
+- [React](/docs/react) connects components to the engine's reactive state.
+- [Core](/docs/core) covers custom processors, routing, automation, and offline rendering.
+
+See [Installation](/docs/installation) for all packages, or explore the [working examples](/showroom).
+
+## Use the agent skills
+
+The skills give your coding assistant API guidance and application patterns.
 
 ```sh
 npx skills add audiorective/audiorective
 ```
 
-The CLI auto-detects whichever agent you have installed and writes the skill into the right place.
-
-### Claude Code plugin
-
-audiorective also ships as a [Claude Code plugin](https://code.claude.com/docs/en/plugins). Add this repo as a marketplace, then install the plugin from it.
+For the Claude Code plugin:
 
 ```sh
 /plugin marketplace add audiorective/audiorective
 /plugin install audiorective@audiorective
 ```
-
-## Start crafting
-
-Install the core package:
-
-```sh
-pnpm add @audiorective/core
-```
-
-Here's a minimal processor that owns a gain node and exposes it as a schedulable, reactive param:
-
-```typescript
-import { AudioProcessor, Param, SchedulableParam } from "@audiorective/core";
-
-class Synth extends AudioProcessor<{
-  volume: SchedulableParam;
-  bpm: Param<number>;
-}> {
-  private readonly _gain: GainNode;
-
-  constructor(ctx: AudioContext) {
-    const gain = new GainNode(ctx);
-    super(ctx, ({ param }) => ({
-      params: {
-        volume: param({ default: 0.5, bind: gain.gain }),
-        bpm: param({ default: 120 }),
-      },
-    }));
-    this._gain = gain;
-  }
-
-  get output() {
-    return this._gain;
-  }
-}
-
-const ctx = new AudioContext();
-const synth = new Synth(ctx);
-synth.output.connect(ctx.destination);
-
-synth.params.volume.value = 0.8;
-synth.params.volume.linearRampToValueAtTime(0, ctx.currentTime + 2);
-```
-
-See [Core](/docs/core) for the full API reference.
-
-Sequencing something? Transport, tempo, and look-ahead scheduling live in [`@audiorective/clock`](/docs/clock).

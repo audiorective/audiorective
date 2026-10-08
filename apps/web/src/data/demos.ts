@@ -12,7 +12,7 @@ export const demos: Demo[] = [
   {
     slug: "livehouse",
     title: "Livehouse PA Simulator",
-    blurb: "You're the PA tech in a cyber livehouse: six spatial audio drones in a PlayCanvas world, mixed from a React iPad HUD.",
+    blurb: "Move sound sources in a 3D venue. Mix the same engine through PlayCanvas, React, and Three.js interfaces.",
     thumb: "/showroom/livehouse.jpg",
     route: "/showroom/livehouse",
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/livehouse",
@@ -21,8 +21,7 @@ export const demos: Demo[] = [
   {
     slug: "sequencer",
     title: "Step Sequencer",
-    blurb:
-      "A 4-track × 16-step drum machine routed through a lookahead limiter: one grid() loop schedules the pattern, defineGraph rewires live, PDC keeps the branches aligned, and the playhead lands with the ear.",
+    blurb: "Edit a four-track beat and change tempo live. A latency lab shows how parallel paths stay aligned.",
     thumb: "/showroom/sequencer.jpg",
     route: "/showroom/sequencer",
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/sequencer",
@@ -31,7 +30,7 @@ export const demos: Demo[] = [
   {
     slug: "pixi",
     title: "Pixi Spectrum Visualizer",
-    blurb: "A minimal PixiJS spectrum visualizer built on only the core Analyser — no binding package required.",
+    blurb: "Shape a drone with a canvas control and watch its spectrum. Uses core directly with PixiJS.",
     thumb: "/showroom/pixi.jpg",
     route: "/showroom/pixi",
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/pixi",
@@ -40,8 +39,7 @@ export const demos: Demo[] = [
   {
     slug: "fx-rack",
     title: "FX Rack",
-    blurb:
-      "Five inserts, two sends, a compressor and a limiter on one drum loop: every effect an AudioProcessor with a wet fader, PDC-aligned, and exportable offline.",
+    blurb: "Process a drum loop with inserts, sends, and dynamics. Render the result offline and export a WAV.",
     thumb: "/showroom/fx-rack.jpg",
     route: "/showroom/fx-rack",
     source: "https://github.com/audiorective/audiorective/tree/main/apps/web/src/demos/fx-rack",

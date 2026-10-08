@@ -2,3 +2,6 @@
 build
 coverage
 pnpm-lock.yaml
+
+# Astro generated metadata
+.astro

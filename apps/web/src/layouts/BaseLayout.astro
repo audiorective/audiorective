@@ -1,16 +1,19 @@
 ---
-import SiteNav from '../components/SiteNav.astro';
+import SiteNav from "../components/SiteNav.astro";
+import "../styles/site.css";
 interface Props {
   title: string;
   description?: string;
 }
 const { title, description } = Astro.props;
 ---
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#151616" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
     {description && <meta name="description" content={description} />}
@@ -20,33 +23,3 @@ const { title, description } = Astro.props;
     <slot />
   </body>
 </html>
-
-<style is:global>
-  :root {
-    color-scheme: dark;
-    --bg: #0a0a0f;
-    --fg: #e4e4f0;
-    --accent: #00f0ff;
-    --accent-2: #ff2ee6;
-    --mono: 'Berkeley Mono', 'JetBrains Mono', ui-monospace, monospace;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--fg);
-    font-family:
-      system-ui,
-      -apple-system,
-      sans-serif;
-  }
-
-  code,
-  pre {
-    font-family: var(--mono);
-  }
-</style>

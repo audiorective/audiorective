@@ -1,24 +1,243 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import Hero from '../components/landing/Hero.astro';
-import Thesis from '../components/landing/Thesis.astro';
-import PainPoints from '../components/landing/PainPoints.astro';
-import Composability from '../components/landing/Composability.astro';
-import AgentSkill from '../components/landing/AgentSkill.astro';
-import SendOff from '../components/landing/SendOff.astro';
-import '../styles/landing.css';
+import BaseLayout from "../layouts/BaseLayout.astro";
+import LandingDemo from "../components/landing/LandingDemo";
+import "../styles/landing.css";
+const sourceRef = process.env.VERCEL_GIT_COMMIT_SHA || "main";
+const packages = [
+  ["core", "Audio / Playback and state", "Reactive parameters, samplers, loop and file players, analysis, spatial audio, and graph routing.", "/docs/core"],
+  ["clock", "Timing / Transport and tempo", "Transport, tempo automation, scheduling windows, and rulers for beats, bars, and seconds.", "/docs/clock"],
+  ["effects", "Audio / Effects and routing", "Filters, delays, distortion, pitch shifting, dynamics, channel strips, and send buses.", "/docs/effects"],
+  ["react", "Interfaces / React", "Observe audio state with hooks. Read and change the engine directly from your components.", "/docs/react"],
+  ["threejs", "Interfaces / Three.js", "Share the audio context and let spatial sound follow your Three.js objects.", "/docs/threejs"],
+  ["playcanvas", "Interfaces / PlayCanvas", "Connect a PlayCanvas application to the engine and bind sound to entity transforms.", "/docs/playcanvas"],
+  ["devtools", "Testing / Processor latency", "Measure processor latency and assert it in browser-based audio tests.", "/docs/devtools"],
+];
 ---
 
 <BaseLayout
-  title="Audiorective"
-  description="Delightful Web Audio primitives that you — and your LLM — actually love to use."
+  title="Audiorective — Web Audio primitives"
+  description="Web Audio primitives for playback, scheduling, effects, and reactive state. Start with one primitive or compose an engine, with TypeScript APIs and agent skills."
 >
-  <main class="landing">
-    <Hero />
-    <Thesis />
-    <PainPoints />
-    <Composability />
-    <AgentSkill />
-    <SendOff />
+  <a class="skip-link" href="#main-content">
+    Skip to content
+  </a>
+  <main id="main-content" class="landing">
+    <section class="landing-hero">
+      <div class="hero-copy">
+        <p class="eyebrow">A toolkit for Web Audio</p>
+        <h1>Web Audio primitives.</h1>
+        <p class="hero-lede">
+          Use what you need.
+        </p>
+        <p class="muted">Playback, scheduling, effects, and reactive state for audio applications. Add individual primitives to your existing code, or compose them into an engine.</p>
+        <div class="cta-row">
+          <a class="cta cta--primary" href="/docs/get-started">
+            Get started <span aria-hidden="true">↗</span>
+          </a>
+          <a class="cta" href="#packages">
+            Explore the primitives
+          </a>
+        </div>
+        <div class="hero-caption">
+          <span class="status-dot"></span> TypeScript APIs · Agent skills · Working examples
+        </div>
+      </div>
+      <div class="hero-demo">
+        <div class="instrument-label">
+          <span>THE LANDING PAGE IS AN INSTRUMENT</span>
+          <span>01—04</span>
+        </div>
+        <div id="hero-console" class="demo-host hero-console">
+          <div class="console-placeholder">
+            Loading the rhythm console…
+            <br />
+            <small>Four voices. One shared audio engine.</small>
+          </div>
+        </div>
+        <p class="demo-caption">Start a beat. Samplers, a clock, and effects keep it playing as you explore.</p>
+      </div>
+    </section>
+    <div class="capability-strip" aria-label="Capabilities">
+      <span>Playback</span>
+      <span>Reactive state</span>
+      <span>Scheduling</span>
+      <span>DSP effects</span>
+      <span>Spatial audio</span>
+    </div>
+    <section class="feature-section" id="interfaces">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">01 / Shared state</p>
+          <h2>
+            One source of
+            <br />
+            audio state.
+          </h2>
+        </div>
+        <p>Move the point in the canvas. The React controls follow. Both read and write the same audio parameters, so changes reach both views without a second store or synchronization code.</p>
+      </div>
+      <div id="shared-console" class="demo-host">
+        <div class="console-placeholder">Loading the shared controls…</div>
+      </div>
+      <div class="section-footer">
+        <code>filter.params.frequency.value = 2400</code>
+        <a href="/docs/architecture">
+          How state is shared <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </section>
+    <section class="feature-section" id="timing">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">02 / Timing</p>
+          <h2>
+            Schedule ahead.
+            <br />Stay on the beat.
+          </h2>
+        </div>
+        <p>Edit the beat you started above. Change tempo while it plays. The clock schedules notes ahead of playback using Web Audio time. The interface follows the time you hear.</p>
+      </div>
+      <div id="pattern-console" class="demo-host">
+        <div class="console-placeholder">Loading the pattern editor…</div>
+      </div>
+      <div class="section-footer">
+        <span class="muted">Tap a step to add or remove a hit. Voice labels toggle mute.</span>
+        <a href="/docs/clock">
+          Explore the clock <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </section>
+    <section class="feature-section" id="effects">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">03 / Signal processing</p>
+          <h2>
+            Connect your
+            <br />
+            signal path.
+          </h2>
+        </div>
+        <p>Filter the beat, add an echo, or bypass the filter. The graph helper manages connections between processors as routing changes. Reactive parameters control each effect.</p>
+      </div>
+      <div id="effects-console" class="demo-host">
+        <div class="console-placeholder">Loading the effects strip…</div>
+      </div>
+      <div class="section-footer">
+        <span class="muted">For parallel paths, defineGraph also compensates declared processing latency. This filter and echo demo shows routing and parameter control.</span>
+        <a href="/docs/core#latency-pdc">
+          How delay compensation works <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </section>
+    <section class="feature-section packages-section" id="packages">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">04 / The toolkit</p>
+          <h2>
+            Pick the pieces
+            <br />
+            your app needs.
+          </h2>
+        </div>
+        <p>
+          Wrap one native audio parameter, add a player, or compose an engine like the groovebox above. Start with core and add packages when you need them.
+        </p>
+      </div>
+      <div class="adoption-example start-section">
+        <div>
+          <h3>One parameter. Your existing graph.</h3>
+          <p>A standalone SchedulableParam wraps a native AudioParam. Keep your AudioContext and nodes, schedule changes with the Web Audio API, and expose a reactive value to your interface.</p>
+          <p>This example uses only @audiorective/core and its installed dependencies. It needs no engine, processor subclass, or UI binding.</p>
+          <a href="/docs/core#schedulableparam">Explore SchedulableParam ↗</a>
+        </div>
+        <div class="install-block">
+          <span class="tool-label">IN YOUR EXISTING BROWSER AUDIO CODE</span>
+          <pre><code>{`import { SchedulableParam } from "@audiorective/core";
+
+const volume = new SchedulableParam({
+  audioContext: ctx,
+  audioParam: gain.gain,
+  default: 0.5,
+});
+
+volume.setValueAtTime(0.5, ctx.currentTime);
+volume.linearRampToValueAtTime(0, ctx.currentTime + 1);`}</code></pre>
+          <p>Here, ctx is your AudioContext and gain is a connected GainNode. Read volume.value in your UI; call volume.destroy() when you remove the wrapper.</p>
+        </div>
+      </div>
+      <div class="package-grid">
+        {packages.map(([name, title, description, href]) => (
+          <a class="package-card" href={href}>
+            <div class="package-id">
+              <code>@audiorective/{name}</code>
+              <span aria-hidden="true">↗</span>
+            </div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </a>
+        ))}
+      </div>
+      <div class="toolkit-notes">
+        <div>
+          <h3>More than live playback</h3>
+          <p>Render audio offline, align parallel paths with automatic delay compensation, and use sampler fades, reverse playback, and polyphony.</p>
+          <a href="/docs/core">Playback, routing, and rendering ↗</a>
+        </div>
+        <div>
+          <h3>Use your own renderer</h3>
+          <p>The canvas above uses PixiJS with core directly. No Pixi-specific package is needed. Keep UI code separate from the audio engine.</p>
+          <a href="/docs/pixijs">Read the PixiJS guide ↗</a>
+        </div>
+      </div>
+    </section>
+    <section class="feature-section start-section" id="agents">
+      <div>
+        <p class="eyebrow">05 / Build with agents</p>
+        <h2>The patterns behind the API.</h2>
+        <p>Agent skills guide your coding assistant through choosing primitives, scheduling audio, managing processor lifecycles, and connecting UI frameworks.</p>
+        <p>The skills link to the API documentation and explain how the pieces work together. You can read the same guidance and inspect the code your agent produces.</p>
+      </div>
+      <div class="install-block">
+        <span class="tool-label">INSTALL THE AGENT SKILLS</span>
+        <pre><code>npx skills add audiorective/audiorective</code></pre>
+        <h3>From a primitive to an application</h3>
+        <p>The app-building skill covers playback, timing, and integration. The processor-authoring skill covers parameters, graph wiring, and cleanup for custom instruments and effects.</p>
+        <a href={`https://github.com/audiorective/audiorective/tree/${sourceRef}/skills`}>Read the skills ↗</a>
+      </div>
+    </section>
+    <section class="feature-section start-section" id="start">
+      <div>
+        <p class="eyebrow">Make it yours</p>
+        <h2>Start with one primitive.</h2>
+        <p>Install core, choose a primitive, and add it to your browser audio code. Follow the guide for a first playable tone, or explore the complete groovebox source.</p>
+        <div class="cta-row">
+          <a class="cta cta--primary" href="/docs/get-started">
+            Play your first tone ↗
+          </a>
+          <a class="cta" href="/showroom">
+            More working examples
+          </a>
+        </div>
+      </div>
+      <div class="install-block">
+        <span class="tool-label">START WITH CORE</span>
+        <pre><code>npm install @audiorective/core</code></pre>
+        <p>The groovebox also uses clock, effects, and React bindings.</p>
+        <a href={`https://github.com/audiorective/audiorective/tree/${sourceRef}/apps/web/src/components/landing`}>Read the demo source ↗</a>
+      </div>
+    </section>
+    <footer class="landing-footer">
+      <a href="/" class="footer-brand">
+        audiorective
+      </a>
+      <span>Built on the Web Audio API.</span>
+      <a href="https://github.com/audiorective/audiorective">GitHub ↗</a>
+    </footer>
   </main>
+  <LandingDemo client:only="react" />
+  <noscript>
+    <p class="no-audio">
+      The live instrument needs JavaScript. You can still explore the <a href="/docs/overview">documentation</a> and packages.
+    </p>
+  </noscript>
 </BaseLayout>
