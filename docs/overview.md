@@ -2,42 +2,49 @@
 title: Overview
 ---
 
-Modular toolkit for web audio development. Independent, composable packages that work alone or together.
+Audiorective is a modular toolkit for Web Audio applications. Use it to build instruments, sequencers, spatial scenes, visualizers, and audio tools.
 
-**Target users:** Audio engineers, creative coders, researchers who understand DSP and want cleaner web integration.
+The audio engine owns its state. Your interfaces observe parameters, change values, and call methods. React components and canvas or 3D views can control the same engine without separate copies of that state.
 
-## Core Problems Solved
+## Choose your packages
 
-1. **Audio-visual sync gap** — Web Audio uses time-based automation; UI frameworks use state. These don't naturally talk.
-2. **Imperative graph management** — `.connect()`/`.disconnect()` is error-prone and impossible to tear down cleanly.
-3. **No reactive audio state** — Changing an AudioParam doesn't notify your React component. No more parallel state systems.
+| Package                        | What it provides                                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| [Core](/docs/core)             | Reactive parameters and cells, processors, playback, analysis, spatial audio, and graph routing          |
+| [Clock](/docs/clock)           | Transport, tempo automation, scheduling windows, and beat/bar/time rulers                                |
+| [Effects](/docs/effects)       | Filters, delay, reverb, distortion, modulation, pitch shifting, dynamics, channel strips, and send buses |
+| [React](/docs/react)           | Hooks and an engine context for reactive interfaces                                                      |
+| [Three.js](/docs/threejs)      | A shared audio context and spatial sound that follows scene objects                                      |
+| [PlayCanvas](/docs/playcanvas) | Engine integration and entity-to-panner bindings                                                         |
+| [Devtools](/docs/devtools)     | Processor latency measurement and assertions                                                             |
 
-## Playback Primitives
+[PixiJS](/docs/pixijs) uses core directly; it does not need a dedicated binding package. Other imperative interfaces can also observe and change the engine's state.
 
-`@audiorective/core` ships three ready-to-use players: **`Sampler`** (buffer-backed, polyphonic pad — fire `trigger()` for SFX and one-shots), **`BufferPlayer`** (buffer-backed single playhead with `start`/`stop`/loop and a schedulable rate — for beat-locked loops and stems), and **`FilePlayer`** (streaming track with a single play/pause/seek transport — for music and long-form audio). All are output-only `AudioProcessor`s; route `player.output` through `Spatial` or directly to `ctx.destination`. See `choosing-playback.md` to pick between them.
+## Playback and sound
 
-## Timing & Scheduling
+Choose a source for the job:
 
-`@audiorective/clock` is the temporal pillar: transport (start/pause/stop/seek), a standalone event-list tempo curve, and a look-ahead tick loop that hands consumers non-overlapping scheduling windows instead of a bare beat counter. Rulers (bars, cycles/loops, seconds — and custom ones for polyrhythm) interpret the beat axis without owning any position state of their own. See `clock.md`.
+- **Sampler** plays polyphonic one-shots, with per-voice fades, reverse playback, and mute controls.
+- **BufferPlayer** plays in-memory loops and stems with sample-accurate scheduling and a schedulable playback rate.
+- **FilePlayer** streams longer tracks with play, pause, and seek.
+- **AudioProcessor** is the base for your own instruments and effects.
 
-## Key Design Decisions
+Route sources through effects, add a `Spatial` processor for positional sound, and use `Analyser` for waveform or frequency data. See [Choosing Playback](/docs/choosing-playback).
 
-- **alien-signals 3.x callable API** — signals are callable functions (`signal()` to read, `signal(value)` to write), not objects with `.get()`/`.set()`. `SignalAccessor<T>` and `ComputedAccessor<T>` are defined in `types.ts`.
-- **`.value` over function-call syntax** — matches Web Audio conventions (`gainNode.gain.value = 0.5`), reduces cognitive load for audio engineers.
-- **`param()` not decorators** — method-based, type-safe, discoverable, works with class field declarations.
-- **`$` prefix for raw signal access** — escape hatch for framework adapters that need the underlying alien-signals accessor.
-- **`Cell` for structured state** — Immer `produce` for ergonomic immutable updates, separate from the param system.
-- **Plain classes for state-only types** — classes that only hold structured state (no audio nodes, no scheduling) should be plain classes with `Cell`, not `AudioProcessor` subclasses.
-- **rAF polling for AudioParam → signal sync at ~60fps** — pragmatic tradeoff: not perfectly real-time but good enough for UI updates.
-- **`bind` option unifies AudioParam backing and custom sync** — one field on `ParamOptions` covers both schedulable AudioParam binding and arbitrary `{ get, set }` sync.
-- **No state duplication** — `AudioProcessor` owns all state; UI observes and mutates directly.
+## Timing and automation
 
-## Roadmap
+Use the clock for transport and look-ahead scheduling. Rulers express positions as bars, beats, cycles, or seconds. Tempo supports scheduled changes and ramps.
 
-**V1:** signals, react, threejs, playcanvas, docs site
-**V2:** analysis (FFT, beat detection), Vue bindings, clock tempo automation (ramps) + basic seek
-**V3:** Phaser.js, component library, clock editable tempo map + DAW-style seek
+Audio parameters use the Web Audio `.value` and scheduling conventions. Native-backed parameters delegate automation to the audio thread and update reactive values for the interface. See [Clock](/docs/clock) and [Core](/docs/core).
 
-**Clock (shipped V1):** `@audiorective/clock` — transport, tempo, look-ahead scheduling windows, rulers. See `clock.md`.
+## Routing, latency, and offline rendering
 
-**Graph helpers + PDC (shipped):** `defineGraph`, per-processor `latency`, and join-point plugin delay compensation ship in `@audiorective/core`; `@audiorective/devtools` validates declared latency against a measured impulse response. See `core.md`.
+`defineGraph` connects processors from a reactive list of edges. When the graph changes, it updates the connections and compensates unequal processing latency where paths join.
+
+Use `renderOffline` for a graph or `renderTimeline` for clock-driven audio. Both let you render audio without real-time playback. Devtools checks whether a processor's measured latency matches its declared latency.
+
+## Start building
+
+Follow [Get Started](/docs/get-started) for a runnable sound, or [Installation](/docs/installation) to choose packages. The [showroom](/showroom) contains working examples and source links.
+
+Audiorective's audio engine runs in the browser. For Astro, Next.js, or other server-rendered frameworks, keep audio code behind a [client-only boundary](/docs/client-boundary).

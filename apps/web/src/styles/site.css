@@ -1,0 +1,64 @@
+@import "@fontsource/barlow-condensed/500.css";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+:root {
+  color-scheme: dark;
+  --bg: #151616;
+  --bg-raised: #303333;
+  --fg: #ebece6;
+  --fg-dim: #aeb4ad;
+  --accent: #f4af53;
+  --accent-2: #8dbda8;
+  --line: #424742;
+  --display: "Barlow Condensed", sans-serif;
+  --body: "DM Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--body);
+}
+code,
+pre {
+  font-family: var(--mono);
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 4px;
+}
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -80px;
+  background: var(--accent);
+  color: var(--bg);
+  padding: 12px;
+  z-index: 100;
+}
+.skip-link:focus {
+  top: 12px;
+}

@@ -1,51 +1,71 @@
 ---
 const links = [
-  { label: 'Docs', href: '/docs/overview' },
-  { label: 'Showroom', href: '/showroom' },
-  { label: 'GitHub', href: 'https://github.com/audiorective/audiorective' },
+  { label: "Docs", href: "/docs/overview" },
+  { label: "Showroom", href: "/showroom" },
+  { label: "GitHub ↗", href: "https://github.com/audiorective/audiorective" },
 ];
 ---
-<nav class="site-nav">
-  <a class="brand" href="/">audiorective</a>
+
+<nav class="site-nav" aria-label="Main navigation">
+  <a class="brand" href="/">
+    audiorective<span aria-hidden="true"> /</span>
+  </a>
   <ul>
-    {links.map((l) => (
-      <li><a href={l.href}>{l.label}</a></li>
+    {links.map((link) => (
+      <li>
+        <a href={link.href} aria-current={Astro.url.pathname.startsWith(link.href) ? "page" : undefined}>
+          {link.label}
+        </a>
+      </li>
     ))}
   </ul>
 </nav>
-
 <style>
   .site-nav {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #1f1f2e;
+    align-items: center;
+    gap: 24px;
+    padding: 20px max(24px, calc((100vw - 1120px) / 2));
+    border-bottom: 1px solid var(--line);
   }
-
   .brand {
-    font-family: var(--mono);
-    font-weight: 700;
-    color: var(--accent);
+    font: 600 28px/1 var(--display);
+    letter-spacing: -0.02em;
+    color: var(--fg);
     text-decoration: none;
-    letter-spacing: 0.02em;
   }
-
-  .site-nav ul {
+  .brand span {
+    color: var(--accent);
+  }
+  ul {
     display: flex;
-    gap: 1.5rem;
+    gap: 24px;
     list-style: none;
     margin: 0;
     padding: 0;
   }
-
-  .site-nav a {
-    color: var(--fg);
+  li a {
+    font-size: 13px;
+    color: var(--fg-dim);
     text-decoration: none;
-    font-size: 0.9rem;
+    padding-block: 10px;
   }
-
-  .site-nav a:hover {
-    color: var(--accent-2);
+  li a:hover,
+  li a[aria-current] {
+    color: var(--accent);
+  }
+  @media (max-width: 440px) {
+    .site-nav {
+      padding: 18px 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    ul {
+      gap: 20px;
+    }
+    .brand {
+      font-size: 25px;
+    }
   }
 </style>

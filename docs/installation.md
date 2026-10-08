@@ -13,7 +13,7 @@ Which `@audiorective/*` packages to install, what they pull in, and how to keep 
 | `@audiorective/effects`    | DSP effects, channel strips, send buses, offline rendering of an effects chain                  | —                       |
 | `@audiorective/react`      | React hooks and an engine context                                                               | `react` `^18 \|\| ^19`  |
 | `@audiorective/threejs`    | Spatial audio that follows three.js objects                                                     | `three` `>=0.150.0`     |
-| `@audiorective/playcanvas` | A shared `AudioContext` and pre/post-panner effects on PlayCanvas `SoundSlot`s                  | `playcanvas` `>=2.18.1` |
+| `@audiorective/playcanvas` | A shared `AudioContext` and spatial sound bound to PlayCanvas entity transforms                 | `playcanvas` `>=2.18.1` |
 | `@audiorective/devtools`   | Measuring and asserting a processor's latency in tests (dev dependency)                         | —                       |
 
 Every package depends on `@audiorective/core`; installing any of them installs core. `core` brings `alien-signals` (the reactive primitive) and `immer` (for `Cell.update`) along with it — you do not install those yourself unless you call `signal`/`computed`/`effect` from `alien-signals` directly in your own code.

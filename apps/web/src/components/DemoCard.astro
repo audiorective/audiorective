@@ -1,5 +1,5 @@
 ---
-import type { Demo } from '../data/demos';
+import type { Demo } from "../data/demos";
 
 interface Props {
   demo: Demo;
@@ -11,7 +11,6 @@ const { demo } = Astro.props;
 <article class="demo-card">
   <a class="thumb-link" href={demo.route}>
     <img class="thumb" src={demo.thumb} alt={`${demo.title} preview`} loading="lazy" />
-    <div class="scanline"></div>
   </a>
   <div class="body">
     <h2 class="title">{demo.title}</h2>
@@ -22,8 +21,12 @@ const { demo } = Astro.props;
       ))}
     </ul>
     <div class="actions">
-      <a class="open" href={demo.route}>Open demo →</a>
-      <a class="source" href={demo.source} target="_blank" rel="noopener noreferrer">View source</a>
+      <a class="open" href={demo.route}>
+        Open demo →
+      </a>
+      <a class="source" href={demo.source} target="_blank" rel="noopener noreferrer">
+        View source
+      </a>
     </div>
   </div>
 </article>
@@ -32,126 +35,81 @@ const { demo } = Astro.props;
   .demo-card {
     display: flex;
     flex-direction: column;
-    border: 1px solid #23233a;
-    border-radius: 8px;
-    background: #0f0f18;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--bg-raised);
     overflow: hidden;
-    transition:
-      border-color 0.2s ease,
-      transform 0.2s ease,
-      box-shadow 0.2s ease;
   }
-
   .demo-card:hover {
     border-color: var(--accent);
-    transform: translateY(-2px);
-    box-shadow: 0 0 24px -8px var(--accent);
   }
-
   .thumb-link {
-    position: relative;
     display: block;
     aspect-ratio: 16 / 9;
     overflow: hidden;
-    border-bottom: 1px solid #23233a;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
   }
-
   .thumb {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    filter: saturate(1.1) contrast(1.05);
-    transition: transform 0.3s ease;
   }
-
-  .demo-card:hover .thumb {
-    transform: scale(1.04);
-  }
-
-  .scanline {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      to bottom,
-      rgba(0, 240, 255, 0.06) 0px,
-      rgba(0, 240, 255, 0.06) 1px,
-      transparent 1px,
-      transparent 3px
-    );
-    mix-blend-mode: screen;
-  }
-
   .body {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1.25rem;
+    gap: 16px;
+    padding: 24px;
   }
-
   .title {
     margin: 0;
-    font-size: 1.15rem;
+    font: 600 28px/1.1 var(--display);
     color: var(--fg);
-    letter-spacing: 0.01em;
   }
-
   .blurb {
     margin: 0;
-    color: #a3a3c2;
-    font-size: 0.92rem;
-    line-height: 1.5;
+    color: var(--fg-dim);
+    font-size: 14px;
+    line-height: 1.6;
   }
-
   .packages {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0;
-    padding: 0;
+    gap: 6px;
     list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
   }
-
   .pkg {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    color: var(--accent);
-    background: rgba(0, 240, 255, 0.08);
-    border: 1px solid rgba(0, 240, 255, 0.3);
-    border-radius: 4px;
-    padding: 0.2rem 0.5rem;
+    font: 10px/1.5 var(--mono);
+    color: var(--accent-2);
+    border: 1px solid var(--line);
+    padding: 4px 6px;
   }
-
   .actions {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 0.25rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid #1f1f2e;
+    gap: 16px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
   }
-
   .open {
-    font-weight: 600;
+    font-weight: 500;
     color: var(--accent);
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 14px;
   }
-
-  .open:hover {
-    color: var(--accent-2);
-  }
-
   .source {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    color: #8a8aa8;
+    color: var(--fg-dim);
+    font-size: 12px;
     text-decoration: none;
   }
-
-  .source:hover {
-    color: var(--fg);
+  .actions a:hover {
     text-decoration: underline;
+    text-underline-offset: 4px;
   }
 </style>

@@ -5,10 +5,11 @@ import starlight from "@astrojs/starlight";
 
 export default defineConfig({
   output: "static",
-  site: "https://audiorective.dev",
+  site: "https://audiorective-showroom.vercel.app",
   integrations: [
     starlight({
       title: "Audiorective",
+      customCss: ["./src/styles/docs.css"],
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/audiorective/audiorective" }],
       sidebar: [
         {
@@ -36,10 +37,11 @@ export default defineConfig({
             { label: "React", slug: "docs/react" },
             { label: "Three.js", slug: "docs/threejs" },
             { label: "PlayCanvas", slug: "docs/playcanvas" },
-            { label: "PixiJS", slug: "docs/pixijs" },
             { label: "Effects", slug: "docs/effects" },
+            { label: "Devtools", slug: "docs/devtools" },
           ],
         },
+        { label: "Integration guides", items: [{ label: "PixiJS", slug: "docs/pixijs" }] },
       ],
     }),
     react(),

@@ -1,21 +1,15 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import DemoCard from '../../components/DemoCard.astro';
-import { demos } from '../../data/demos';
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import DemoCard from "../../components/DemoCard.astro";
+import { demos } from "../../data/demos";
 ---
 
-<BaseLayout
-  title="Showroom"
-  description="Live demos built with the audiorective Web Audio primitives."
->
+<BaseLayout title="Showroom" description="Live demos built with the audiorective Web Audio primitives.">
   <main class="showroom">
     <header class="hero">
-      <p class="eyebrow">// showroom</p>
-      <h1>See it run.</h1>
-      <p class="lede">
-        Working demos, built on the audiorective packages. Every card links to a live
-        demo and its source.
-      </p>
+      <p class="eyebrow">Working examples</p>
+      <h1>Explore the instruments.</h1>
+      <p class="lede">Play, mix, and explore. Each example includes the source so you can see how it works.</p>
     </header>
 
     <div class="grid">
@@ -47,24 +41,21 @@ import { demos } from '../../data/demos';
   }
 
   .hero h1 {
-    font-size: 2.5rem;
+    font: 600 3.5rem/1 var(--display);
     margin: 0 0 0.75rem;
-    background: linear-gradient(90deg, var(--fg), var(--accent));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--fg);
   }
 
   .lede {
     margin: 0;
-    color: #a3a3c2;
+    color: var(--fg-dim);
     font-size: 1.05rem;
     line-height: 1.6;
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
     gap: 1.5rem;
   }
 </style>
