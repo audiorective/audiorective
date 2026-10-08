@@ -217,16 +217,18 @@
   grid-template-columns: repeat(16, 1fr);
   gap: 4px;
 }
-.beat-summary > span {
+.beat-summary > button {
   height: 24px;
-  background: #454b47;
+  min-width: 0;
+  padding: 0;
 }
-.beat-summary > .is-on {
-  background: var(--accent);
-}
-.beat-summary > .is-current {
+.beat-summary > button:hover {
   outline: 1px solid var(--fg);
   outline-offset: 2px;
+}
+.beat-summary > button:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
 }
 .beat-track--muted .beat-summary {
   opacity: 0.35;
@@ -607,6 +609,12 @@
     grid-template-columns: 1fr;
     gap: 4px;
     margin-bottom: 16px;
+  }
+  .hero-console .beat-summary {
+    grid-template-columns: repeat(8, 1fr);
+  }
+  .hero-console .beat-summary > button {
+    height: 28px;
   }
   .hero-console .beat-track {
     grid-template-columns: 64px 1fr;

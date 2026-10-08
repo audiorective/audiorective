@@ -109,21 +109,17 @@ function Track({ track, full, heardStep }: { track: DrumTrack; full: boolean; he
         <span>{muted ? "OFF" : "ON"}</span>
       </button>
       <div className={full ? "beat-steps" : "beat-summary"}>
-        {pattern.map((on, index) =>
-          full ? (
-            <button
-              key={index}
-              className={`beat-step${heardStep === index ? " beat-step--current" : ""}`}
-              aria-label={`${track.label} step ${index + 1}`}
-              aria-pressed={on}
-              onClick={() => machine.toggleStep(track.id, index)}
-            >
-              <span>{index + 1}</span>
-            </button>
-          ) : (
-            <span key={index} className={`${on ? "is-on" : ""} ${heardStep === index ? "is-current" : ""}`} />
-          ),
-        )}
+        {pattern.map((on, index) => (
+          <button
+            key={index}
+            className={`beat-step${heardStep === index ? " beat-step--current" : ""}`}
+            aria-label={`${track.label} step ${index + 1}`}
+            aria-pressed={on}
+            onClick={() => machine.toggleStep(track.id, index)}
+          >
+            {full && <span>{index + 1}</span>}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -284,7 +280,7 @@ function Panels() {
         <>
           <Pattern />
           <Transport />
-          <p className="console-note">Sound starts with Play. Tap a voice to mute it.</p>
+          <p className="console-note">Sound starts with Play. Tap blocks to edit; voice names to mute.</p>
         </>,
         hosts[0],
       )}
